@@ -43,6 +43,33 @@ When you learn something important:
 - Split files larger than 500 lines into folders
 - Keep an index in your memory for the files you create
 
+## Yosemite Reservation Checker
+
+Runs hourly as a scheduled task. Check `/workspace/group/yosemite-reservation/config.json` for settings.
+
+### Steps
+
+1. If `config.enabled` is false, stop silently.
+2. Find the next upcoming Saturday (on or after today). If today is Saturday, use today.
+3. Read `tracker.json`. If `last_notified` is within `notification_cooldown_hours` and `known_available` is non-empty for that Saturday, skip to avoid spam.
+4. For each campground in all `campground_groups`, check availability via recreation.gov API:
+   ```bash
+   curl -s "https://www.recreation.gov/api/camps/availability/campground/{facility_id}/month?start_date={YYYY-MM-01T00:00:00.000Z}" \
+     -H "User-Agent: Mozilla/5.0"
+   ```
+5. Parse the response. A site is available if:
+   - `availabilities["{saturday}T00:00:00Z"]` == `"Available"`
+   - `max_num_people >= party_size`
+6. If the API returns a 404 or empty campsites (seasonal closure), skip that campground silently.
+7. If available sites found anywhere:
+   - Update `tracker.json`: set `last_notified` to now, `known_available` to list of `"{campground} - site {id}"` entries.
+   - Send a message to the user: campground name, number of available sites, Saturday date, and booking link `https://www.recreation.gov/camping/campgrounds/{facility_id}`
+8. If nothing found, update `tracker.json` `last_checked` only. Do not send a message.
+
+### Config changes
+
+When the user asks to change checker settings (campgrounds, party size, look-ahead, enable/disable), update `config.json` directly.
+
 ## Morgan Stanley Portfolio Tracking
 
 Trade confirmation emails arrive from `edelivery@morganstanley.com` with subject "Your transaction material is now available". When one arrives:
