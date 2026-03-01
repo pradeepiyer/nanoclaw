@@ -63,7 +63,7 @@ Runs hourly as a scheduled task. Check `/workspace/group/yosemite-reservation/co
 6. If the API returns a 404 or empty campsites (seasonal closure), skip that campground silently.
 7. If available sites found anywhere:
    - Update `tracker.json`: set `last_notified` to now, `known_available` to list of `"{campground} - site {id}"` entries.
-   - Send a message to the user: campground name, number of available sites, Saturday date, and booking link `https://www.recreation.gov/camping/campgrounds/{facility_id}`
+   - Send a message to the user: campground name, number of available sites, Saturday date, and a direct booking link with pre-filled date: `https://www.recreation.gov/camping/campgrounds/{facility_id}/availability?startDate={YYYY-MM-DD}` (use the actual Saturday date)
 8. If nothing found, update `tracker.json` `last_checked` only. Do not send a message.
 
 ### Config changes
