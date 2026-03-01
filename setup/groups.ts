@@ -4,6 +4,7 @@
  */
 import { execSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import Database from 'better-sqlite3';
@@ -90,13 +91,14 @@ async function syncGroups(projectRoot: string): Promise<void> {
   let syncOk = false;
   try {
     const syncScript = `
-import makeWASocket, { useMultiFileAuthState, makeCacheableSignalKeyStore, Browsers } from '@whiskeysockets/baileys';
+import makeWASocket, { useMultiFileAuthState, makeCacheableSignalKeyStore, Browsers, DisconnectReason } from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
 import Database from 'better-sqlite3';
 
-const logger = pino({ level: 'silent' });
+const log = pino({ level: 'silent' });
 const authDir = path.join('store', 'auth');
 const dbPath = path.join('store', 'messages.db');
 
@@ -113,60 +115,77 @@ const upsert = db.prepare(
   'INSERT INTO chats (jid, name, last_message_time) VALUES (?, ?, ?) ON CONFLICT(jid) DO UPDATE SET name = excluded.name'
 );
 
-const { state, saveCreds } = await useMultiFileAuthState(authDir);
-
-const sock = makeWASocket({
-  auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
-  printQRInTerminal: false,
-  logger,
-  browser: Browsers.macOS('Chrome'),
-});
-
 const timeout = setTimeout(() => {
   console.error('TIMEOUT');
+  db.close();
   process.exit(1);
-}, 30000);
+}, 45000);
 
-sock.ev.on('creds.update', saveCreds);
+async function connect() {
+  const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
-sock.ev.on('connection.update', async (update) => {
-  if (update.connection === 'open') {
-    try {
-      const groups = await sock.groupFetchAllParticipating();
-      const now = new Date().toISOString();
-      let count = 0;
-      for (const [jid, metadata] of Object.entries(groups)) {
-        if (metadata.subject) {
-          upsert.run(jid, metadata.subject, now);
-          count++;
+  const sock = makeWASocket({
+    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, log) },
+    printQRInTerminal: false,
+    logger: log,
+    browser: Browsers.macOS('Chrome'),
+  });
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', async (update) => {
+    if (update.connection === 'open') {
+      try {
+        const groups = await sock.groupFetchAllParticipating();
+        const now = new Date().toISOString();
+        let count = 0;
+        for (const [jid, metadata] of Object.entries(groups)) {
+          if (metadata.subject) {
+            upsert.run(jid, metadata.subject, now);
+            count++;
+          }
         }
+        console.log('SYNCED:' + count);
+      } catch (err) {
+        console.error('FETCH_ERROR:' + err.message);
+      } finally {
+        clearTimeout(timeout);
+        sock.end(undefined);
+        db.close();
+        process.exit(0);
       }
-      console.log('SYNCED:' + count);
-    } catch (err) {
-      console.error('FETCH_ERROR:' + err.message);
-    } finally {
-      clearTimeout(timeout);
-      sock.end(undefined);
-      db.close();
-      process.exit(0);
+    } else if (update.connection === 'close') {
+      const statusCode = new Boom(update.lastDisconnect?.error)?.output?.statusCode;
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      console.error('DISCONNECT:' + statusCode);
+      if (shouldReconnect) {
+        await connect();
+      } else {
+        clearTimeout(timeout);
+        console.error('CONNECTION_CLOSED:logged_out');
+        db.close();
+        process.exit(1);
+      }
     }
-  } else if (update.connection === 'close') {
-    clearTimeout(timeout);
-    console.error('CONNECTION_CLOSED');
-    process.exit(1);
-  }
-});
+  });
+}
+
+await connect();
 `;
 
-    const output = execSync(
-      `node --input-type=module -e ${JSON.stringify(syncScript)}`,
-      {
+    const tmpFile = path.join(projectRoot, `.nanoclaw-sync-${Date.now()}.mjs`);
+    fs.writeFileSync(tmpFile, syncScript);
+    let output: string;
+    try {
+      output = execSync(`node ${tmpFile}`, {
         cwd: projectRoot,
         encoding: 'utf-8',
         timeout: 45000,
         stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
+      });
+    } finally {
+      try { fs.unlinkSync(tmpFile); } catch {}
+    }
     syncOk = output.includes('SYNCED:');
     logger.info({ output: output.trim() }, 'Sync output');
   } catch (err) {
