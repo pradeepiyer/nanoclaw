@@ -54,7 +54,8 @@ Runs hourly as a scheduled task. Check `/workspace/group/yosemite-reservation/co
 3. Read `tracker.json`. If `last_notified` is within `notification_cooldown_hours` and `known_available` is non-empty for that Saturday, skip to avoid spam.
 4. For each campground in all `campground_groups`, check availability via recreation.gov API:
    ```bash
-   curl -s "https://www.recreation.gov/api/camps/availability/campground/{facility_id}/month?start_date={YYYY-MM-01T00:00:00.000Z}" \
+   curl -s -G "https://www.recreation.gov/api/camps/availability/campground/{facility_id}/month" \
+     --data-urlencode "start_date={YYYY-MM-01}T00:00:00.000Z" \
      -H "User-Agent: Mozilla/5.0"
    ```
 5. Parse the response. A site is available if:
