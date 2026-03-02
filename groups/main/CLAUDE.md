@@ -99,7 +99,19 @@ Trade confirmation emails arrive from `edelivery@morganstanley.com` with subject
 
 ### Portfolio queries
 
-When the user asks about the portfolio, read `positions.json` and `trade-log.md`. You can also use Gmail tools to search for past trade confirmations if needed. For performance tracking, use web search or browser tools to fetch current prices.
+When the user asks about the portfolio, read `positions.json` and `trade-log.md`. You can also use Gmail tools to search for past trade confirmations if needed.
+
+For current prices and performance tracking, use the Yahoo Finance API — do NOT use web search or browser tools for price data:
+
+```bash
+# Stock/ETF prices (one or more tickers)
+curl -s "https://query1.finance.yahoo.com/v7/finance/quote?symbols=AAPL,SPY,GLD"
+
+# Futures (append =F)
+curl -s "https://query1.finance.yahoo.com/v7/finance/quote?symbols=ES=F,NQ=F,YM=F,GC=F,SI=F,CL=F"
+```
+
+Key fields in the response: `regularMarketPrice`, `regularMarketChange`, `regularMarketChangePercent`, `regularMarketVolume`. For futures, also check `regularMarketTime` to confirm data freshness.
 
 ### PM evaluation
 
@@ -108,6 +120,15 @@ The trade log is the source of truth for evaluating portfolio manager decisions.
 ## Email Notifications
 
 When you receive an email notification (messages starting with `[Email from ...`), inform the user about it but do NOT reply to the email unless specifically asked. You have Gmail tools available — use them only when the user explicitly asks you to reply, forward, or take action on an email.
+
+## Scheduling and Timezones
+
+This machine runs in **PST (UTC-8)**. When scheduling tasks, always convert the user's requested time to PST first:
+- `once`: pass local PST time, e.g. "10:30pm EST" → `2026-03-01T19:30:00`
+- `cron`: write the expression in PST, e.g. "9am EST daily" → `0 6 * * *`
+- `interval`: no conversion needed (milliseconds)
+
+If the user doesn't mention a timezone, assume PST.
 
 ## WhatsApp Formatting (and other messaging apps)
 
