@@ -71,6 +71,16 @@ Runs hourly as a scheduled task. Check `/workspace/group/yosemite-reservation/co
 
 When the user asks to change checker settings (campgrounds, party size, look-ahead, enable/disable), update `config.json` directly.
 
+When the user **disables** the checker (`enabled: false`), also pause the scheduled task so it stops firing entirely:
+```bash
+echo '{"type":"pause_task","task_id":"c3659527-90ad-4c61-89b5-e93567f2ba0d"}' > /workspace/ipc/tasks/pause_$(date +%s).json
+```
+
+When the user **re-enables** it (`enabled: true`), resume the task:
+```bash
+echo '{"type":"resume_task","task_id":"c3659527-90ad-4c61-89b5-e93567f2ba0d"}' > /workspace/ipc/tasks/resume_$(date +%s).json
+```
+
 ## Morgan Stanley Portfolio Tracking
 
 Trade confirmation emails arrive from `edelivery@morganstanley.com` with subject "Your transaction material is now available". When one arrives:
