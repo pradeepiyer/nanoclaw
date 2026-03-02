@@ -124,10 +124,14 @@ When you receive an email notification (messages starting with `[Email from ...`
 
 ## Scheduling and Timezones
 
-This machine runs in **PST (UTC-8)**. When scheduling tasks, always convert the user's requested time to PST first:
+This machine runs in **PST (UTC-8)**. All times should be expressed in PST unless the user specifies otherwise.
+
+**Scheduling tasks:** Always convert the user's requested time to PST first:
 - `once`: pass local PST time, e.g. "10:30pm EST" → `2026-03-01T19:30:00`
 - `cron`: write the expression in PST, e.g. "9am EST daily" → `0 6 * * *`
 - `interval`: no conversion needed (milliseconds)
+
+**Displaying the current time:** Always show times in PST, never UTC. Use `date` in bash to get the current local time if needed. Do not label times as "ET" or "UTC" — always use PST.
 
 If the user doesn't mention a timezone, assume PST.
 
