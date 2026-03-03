@@ -43,90 +43,16 @@ When you learn something important:
 - Split files larger than 500 lines into folders
 - Keep an index in your memory for the files you create
 
-## Yosemite Reservation Checker
+## Email Routing
 
-Runs hourly as a scheduled task. Check `/workspace/group/yosemite-reservation/config.json` for settings.
+When you receive an email notification, check the sender and subject to route it:
 
-### Steps
+| Pattern | Action |
+|---------|--------|
+| From `edelivery@morganstanley.com` | Forward the full email text to the Portfolio group via send_message |
+| All other emails | Handle normally (notify user) |
 
-1. If `config.enabled` is false, stop silently.
-2. Find the next upcoming Saturday (on or after today). If today is Saturday, use today.
-3. Read `tracker.json`. If `last_notified` is within `notification_cooldown_hours` and `known_available` is non-empty for that Saturday, skip to avoid spam.
-4. For each campground in all `campground_groups`, check availability via recreation.gov API:
-   ```bash
-   curl -s -G "https://www.recreation.gov/api/camps/availability/campground/{facility_id}/month" \
-     --data-urlencode "start_date={YYYY-MM-01}T00:00:00.000Z" \
-     -H "User-Agent: Mozilla/5.0"
-   ```
-5. Parse the response. A site is available if:
-   - `availabilities["{saturday}T00:00:00Z"]` == `"Available"`
-   - `max_num_people >= party_size`
-6. If the API returns a 404 or empty campsites (seasonal closure), skip that campground silently.
-7. If available sites found anywhere:
-   - Update `tracker.json`: set `last_notified` to now, `known_available` to list of `"{campground} - site {id}"` entries.
-   - Send a message to the user: campground name, number of available sites, Saturday date, and a direct booking link with pre-filled date: `https://www.recreation.gov/camping/campgrounds/{facility_id}/availability?startDate={YYYY-MM-DD}` (use the actual Saturday date)
-8. If nothing found, update `tracker.json` `last_checked` only. Do not send a message.
-
-### Config changes
-
-When the user asks to change checker settings (campgrounds, party size, look-ahead, enable/disable), update `config.json` directly.
-
-When the user **disables** the checker (`enabled: false`), also pause the scheduled task so it stops firing entirely:
-```bash
-echo '{"type":"pause_task","task_id":"c3659527-90ad-4c61-89b5-e93567f2ba0d"}' > /workspace/ipc/tasks/pause_$(date +%s).json
-```
-
-When the user **re-enables** it (`enabled: true`), resume the task:
-```bash
-echo '{"type":"resume_task","task_id":"c3659527-90ad-4c61-89b5-e93567f2ba0d"}' > /workspace/ipc/tasks/resume_$(date +%s).json
-```
-
-## Morgan Stanley Portfolio Tracking
-
-Trade confirmation emails arrive from `edelivery@morganstanley.com` with subject "Your transaction material is now available". When one arrives:
-
-1. Use Gmail tools to fetch the full email body (the notification email itself may be brief — the actual confirmation detail may be in an attached PDF or linked page).
-2. Parse the trade: symbol, action (buy/sell), shares, price per share, total amount, and date.
-3. Update `/workspace/group/portfolio/positions.json` — adjust the position for that symbol (add shares for buys, subtract for sells; remove the position if shares reach 0).
-4. Append a row to `/workspace/group/portfolio/trade-log.md`.
-5. Notify the user with a brief summary: e.g. "Morgan Stanley: Bought 50 AAPL @ $185.20 ($9,260 total). Portfolio updated."
-
-### positions.json format
-
-```json
-{
-  "last_updated": "2026-03-01T10:00:00Z",
-  "positions": [
-    {
-      "symbol": "AAPL",
-      "shares": 150,
-      "avg_cost": 182.50,
-      "first_purchased": "2025-01-15",
-      "last_trade": "2026-03-01"
-    }
-  ]
-}
-```
-
-### Portfolio queries
-
-When the user asks about the portfolio, read `positions.json` and `trade-log.md`. You can also use Gmail tools to search for past trade confirmations if needed.
-
-For current prices and performance tracking, use the Yahoo Finance API — do NOT use web search or browser tools for price data:
-
-```bash
-# Stock/ETF prices (one or more tickers)
-curl -s "https://query1.finance.yahoo.com/v7/finance/quote?symbols=AAPL,SPY,GLD"
-
-# Futures (append =F)
-curl -s "https://query1.finance.yahoo.com/v7/finance/quote?symbols=ES=F,NQ=F,YM=F,GC=F,SI=F,CL=F"
-```
-
-Key fields in the response: `regularMarketPrice`, `regularMarketChange`, `regularMarketChangePercent`, `regularMarketVolume`. For futures, also check `regularMarketTime` to confirm data freshness.
-
-### PM evaluation
-
-The trade log is the source of truth for evaluating portfolio manager decisions. When asked, analyze patterns: sectors traded, timing, win/loss rates, comparison to benchmarks (SPY, QQQ).
+When forwarding, send the complete email content so the receiving agent has full context.
 
 ## Email Notifications
 
