@@ -23,6 +23,8 @@ groups/yosemite/*
 !groups/portfolio/
 groups/portfolio/*
 !groups/portfolio/CLAUDE.md
+!groups/portfolio/tools/
+!groups/portfolio/package.json
 
 # Secrets
 *.keys.json
