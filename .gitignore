@@ -25,6 +25,11 @@ groups/portfolio/*
 !groups/portfolio/CLAUDE.md
 !groups/portfolio/tools/
 !groups/portfolio/package.json
+!groups/badboyz/
+groups/badboyz/*
+!groups/badboyz/CLAUDE.md
+!groups/badboyz/tools/
+!groups/badboyz/package.json
 
 # Secrets
 *.keys.json
