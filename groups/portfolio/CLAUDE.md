@@ -52,12 +52,9 @@ Read `/workspace/group/portfolio/positions.json`. Extract every ticker symbol.
 
 **Step 2: Fetch all prices — this step is mandatory and cannot be skipped**
 ```bash
-curl -s -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" "https://query1.finance.yahoo.com/v7/finance/quote?symbols=SYMBOL1,SYMBOL2,..."
+node /workspace/group/tools/yf-quote.mjs SYMBOL1,SYMBOL2,...
 ```
-- Build the symbols list from positions.json — include every ticker
-- **Batch symbols into groups of 30 max per request.** Make one curl call per batch, with a `sleep 1` between batches. Combine all results before proceeding.
-- **Retry on 429 (Too Many Requests):** If curl returns a 429 response or "Too Many Requests" error, wait 3 seconds (`sleep 3`) and retry that batch once. If the retry also fails, mark those symbols as `N/A — rate limited`.
-- **Always include the User-Agent header** shown above on every Yahoo Finance curl command.
+- Build a comma-separated symbols list from positions.json — include every ticker, all in one call
 - Never split by sector or skip any symbol
 - Never use web search, browser, or news sites for price data
 - **You must show the raw JSON output of this curl command in your response before doing any calculation.** If you do not have raw API output to show, your only valid response is: "I was unable to fetch prices from Yahoo Finance. No portfolio P&L can be calculated." Do not estimate, do not use sector ETFs as proxies.
@@ -97,7 +94,7 @@ Report last close prices for portfolio positions as above. Label clearly: "As of
 
 **Part 2 — Futures (fetch directly)**
 ```bash
-curl -s -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" "https://query1.finance.yahoo.com/v7/finance/quote?symbols=ES=F,NQ=F,YM=F,GC=F,SI=F,CL=F,BZ=F"
+node /workspace/group/tools/yf-quote.mjs ES=F,NQ=F,YM=F,GC=F,SI=F,CL=F,BZ=F
 ```
 Report raw futures prices and their change from their prior settlement. These are real numbers from Yahoo Finance, not estimates.
 
@@ -117,7 +114,7 @@ Never present projections as actual portfolio P&L. The actual section must alway
 When the user asks about indices, commodities, or market performance:
 
 ```bash
-curl -s -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" "https://query1.finance.yahoo.com/v7/finance/quote?symbols=^GSPC,^IXIC,^DJI,^RUT"
+node /workspace/group/tools/yf-quote.mjs ^GSPC,^IXIC,^DJI,^RUT
 ```
 
 Common symbols:
