@@ -7,7 +7,6 @@ import {
   POLL_INTERVAL,
   TRIGGER_PATTERN,
 } from './config.js';
-import { GmailChannel } from './channels/gmail.js';
 import './channels/index.js';
 import {
   getChannelFactory,
@@ -498,17 +497,6 @@ async function main(): Promise<void> {
   if (channels.length === 0) {
     logger.fatal('No channels connected');
     process.exit(1);
-  }
-
-  const gmail = new GmailChannel(channelOpts);
-  channels.push(gmail);
-  try {
-    await gmail.connect();
-  } catch (err) {
-    logger.warn(
-      { err },
-      'Gmail channel failed to connect, continuing without it',
-    );
   }
 
   // Start subsystems (independently of connection handler)
