@@ -30,6 +30,11 @@ groups/badboyz/*
 !groups/badboyz/CLAUDE.md
 !groups/badboyz/tools/
 !groups/badboyz/package.json
+!groups/sanskrit/
+groups/sanskrit/*
+!groups/sanskrit/CLAUDE.md
+!groups/sanskrit/tools/
+!groups/sanskrit/package.json
 
 # Secrets
 *.keys.json
