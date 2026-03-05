@@ -35,9 +35,13 @@ groups/sanskrit/*
 !groups/sanskrit/CLAUDE.md
 !groups/sanskrit/tools/
 !groups/sanskrit/package.json
+!groups/jobsearch/
+groups/jobsearch/*
+!groups/jobsearch/CLAUDE.md
 
 # Secrets
 *.keys.json
+config.json
 .env
 
 # OS
