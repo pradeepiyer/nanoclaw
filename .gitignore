@@ -20,6 +20,7 @@ groups/global/*
 !groups/yosemite/
 groups/yosemite/*
 !groups/yosemite/CLAUDE.md
+!groups/yosemite/config.json
 !groups/portfolio/
 groups/portfolio/*
 !groups/portfolio/CLAUDE.md
@@ -41,7 +42,7 @@ groups/jobsearch/*
 
 # Secrets
 *.keys.json
-config.json
+.*-key
 .env
 
 # OS

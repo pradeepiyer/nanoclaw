@@ -22,10 +22,10 @@ If you've already sent the key info via `send_message`, wrap any recap in `<inte
 
 ### Setup
 
-Read the API key from `/workspace/group/config.json`:
+Read the API key from `/workspace/group/.rapidapi-key`:
 
 ```bash
-RAPIDAPI_KEY=$(jq -r '.rapidapi_key' /workspace/group/config.json)
+RAPIDAPI_KEY=$(cat /workspace/group/.rapidapi-key)
 ```
 
 ### Calling the API
@@ -60,7 +60,7 @@ When a user asks for jobs:
 1. Send an acknowledgment via `send_message` (e.g., "Searching for remote Python jobs...")
 2. Parse the user's natural language into JSearch query parameters
 3. Call the API
-4. Format and return the top results (up to 10)
+4. Format and return the top results (default 20). If the user specifies a count (e.g., "show me 5 jobs", "top 30"), use that instead. Adjust `num_pages` as needed to fetch enough results — each page returns ~10 jobs.
 
 Map user language to parameters:
 - "remote" → `remote_jobs_only=true`
@@ -90,7 +90,7 @@ Apply: https://example.com/apply
 - Show salary only if `job_min_salary` or `job_max_salary` is available
 - Show "(Remote)" next to location if `job_is_remote` is true
 - Separate listings with `---`
-- At the end, show the total count: "Showing X of Y results"
+- At the end, show the total count: "Showing X of Y results (limit: Z)"
 
 ### API Response Fields
 
@@ -105,6 +105,59 @@ Key fields in each result item (`data[]`):
 - `job_posted_at_datetime_utc` — when posted
 - `job_employment_type` — FULLTIME, CONTRACTOR, etc.
 - `job_description` — full description (use for summaries if asked)
+- `job_apply_quality_score` — API reliability signal (0 to 1)
+- `employer_website` — employer's website URL (null = no verifiable web presence)
+- `employer_logo` — employer logo URL (null = not indexed by Google)
+- `employer_company_type` — company classification (null = unclassified)
+- `employer_linkedin` — employer LinkedIn URL
+- `job_apply_is_direct` — boolean; true = application goes directly to employer
+- `job_publisher` — source platform name (LinkedIn, Indeed, etc.)
+
+## Quality Filtering
+
+Before formatting results, filter out low-quality/spam listings. Apply these checks in order:
+
+### 1. Apply quality score
+Drop jobs where `job_apply_quality_score` is present (non-null, > 0) AND less than 0.55. Treat null or 0 as "no score available" — do not drop.
+
+### 2. Employer verification
+Drop jobs where:
+- `employer_name` is empty/null OR equals generic placeholders like "Confidential", "Hiring", "Company"
+- OR all three of `employer_website`, `employer_logo`, and `employer_company_type` are null (any one null is fine; all three null = unverifiable employer)
+
+### 3. Suspicious salary
+Drop jobs where salary range ratio exceeds 3x (e.g., $50k–$200k). A wide range signals a spam aggregator post.
+Only apply when both `job_min_salary` and `job_max_salary` are present.
+
+### 4. Missing apply link
+Drop jobs where `job_apply_link` is empty/null.
+
+### 5. Generic titles
+Drop jobs whose `job_title` is just a single generic word like "Developer", "Engineer", "Manager", "Associate" with no qualifying detail.
+
+After filtering, if fewer than 5 results remain, relax the quality score threshold to 0.4 (when scores are available) and re-filter. Mention in the response if many results were filtered: "Filtered X low-quality listings."
+
+### 6. Apply-link domain trust
+
+Check the domain of `job_apply_link` using this trust hierarchy:
+
+**KEEP** — apply domain matches any of:
+- Known ATS platform: `greenhouse.io`, `lever.co`, `myworkdayjobs.com`, `icims.com`, `smartrecruiters.com`, `workable.com`, `jobvite.com`, `ultipro.com`, `bamboohr.com`, `jazzhr.com`, `breezy.hr`, `ashbyhq.com`, `rippling.com`, `successfactors.com`, `taleo.net`, `oraclecloud.com`, `paylocity.com`, `paycom.com`, `recruitee.com`, `personio.de`, `dover.com`, `applytojob.com`
+- Major job board: `indeed.com`, `linkedin.com`, `glassdoor.com`, `ziprecruiter.com`, `monster.com`, `careerbuilder.com`, `dice.com`, `simplyhired.com`, `talent.com`, `builtin.com`, `wellfound.com`
+- Company's own domain: the apply URL's root domain corresponds to or contains the `employer_name`
+
+**DROP** — apply domain shows signs of white-label aggregator spam:
+- `jobs.` subdomain on an unrelated business (sports club, newspaper, church, restaurant, etc.)
+- Domain's primary business is clearly unrelated to employment, technology, or staffing
+- Known white-label job board providers: domains containing `jobboard.com`, `hotlizard`, `recruitology.com`, `jobcase.com`, `jboard.io`, `myjobhelper.com`
+
+When uncertain, check if `job_apply_is_direct` is true (application goes to employer, not intermediary) — this is a strong positive signal. Prefer direct-apply listings.
+
+### 7. Short or missing description
+Drop jobs where `job_description` is less than 150 characters. Legitimate postings have substantive descriptions.
+
+### 8. Sort by posting date
+Sort remaining results by `job_posted_at_datetime_utc` descending (newest first). Show relative age in the formatted output (e.g., "Posted: 2 hours ago", "Posted: 3 days ago").
 
 ## Scheduled Searches
 
@@ -117,7 +170,7 @@ When a user says something like "send me data engineer jobs every morning at 8am
 
 ```
 mcp__nanoclaw__schedule_task(
-  prompt: "Run a job search for 'senior data engineer' with date_posted=today. Read API key from /workspace/group/config.json. Deduplicate results using /workspace/group/tracker.json. Format results for WhatsApp and send via send_message. If no new jobs found, send a brief 'No new listings today' message.",
+  prompt: "Run a job search for 'senior data engineer' with date_posted=today. Read API key from /workspace/group/.rapidapi-key. Deduplicate results using /workspace/group/tracker.json. Format results for WhatsApp and send via send_message. Apply quality filtering (see Quality Filtering section). If no new jobs found, send a brief 'No new listings today' message.",
   schedule_type: "cron",
   schedule_value: "0 8 * * *"
 )

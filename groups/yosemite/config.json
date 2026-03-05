@@ -1,0 +1,23 @@
+{
+  "enabled": false,
+  "party_size": 2,
+  "look_ahead": "next_weekend_only",
+  "campground_groups": {
+    "yosemite_valley": [
+      { "name": "Upper Pines", "facility_id": "232447" },
+      { "name": "Lower Pines", "facility_id": "232450" },
+      { "name": "North Pines", "facility_id": "232449" }
+    ],
+    "tioga_road": [
+      { "name": "Tuolumne Meadows", "facility_id": "232448" },
+      { "name": "White Wolf", "facility_id": "232454" },
+      { "name": "Yosemite Creek", "facility_id": "232456" },
+      { "name": "Porcupine Flat", "facility_id": "232457" },
+      { "name": "Tamarack Flat", "facility_id": "232455" }
+    ]
+  },
+  "notes": {
+    "tioga_road": "Tioga Road campgrounds are seasonal — typically open late May through October. Automatically skip if unavailable."
+  },
+  "notification_cooldown_hours": 6
+}
