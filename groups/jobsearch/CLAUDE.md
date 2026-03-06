@@ -36,7 +36,7 @@ Use `curl` to call the JSearch API:
 curl -s -G "https://jsearch.p.rapidapi.com/search" \
   --data-urlencode "query=python developer in Austin, TX" \
   --data-urlencode "date_posted=week" \
-  --data-urlencode "num_pages=1" \
+  --data-urlencode "num_pages=2" \
   -H "X-RapidAPI-Key: $RAPIDAPI_KEY" \
   -H "X-RapidAPI-Host: jsearch.p.rapidapi.com"
 ```
@@ -60,7 +60,7 @@ When a user asks for jobs:
 1. Send an acknowledgment via `send_message` (e.g., "Searching for remote Python jobs...")
 2. Parse the user's natural language into JSearch query parameters
 3. Call the API
-4. Format and return the top results (default 20). If the user specifies a count (e.g., "show me 5 jobs", "top 30"), use that instead. Adjust `num_pages` as needed to fetch enough results — each page returns ~10 jobs.
+4. Format and return the top results (default 20). If the user specifies a count (e.g., "show me 5 jobs", "top 30"), use that instead. Each page returns ~10 jobs, so set `num_pages = ceil(desired_count / 10)` (e.g., 20 → 2 pages, 30 → 3 pages, 5 → 1 page).
 
 Map user language to parameters:
 - "remote" → `remote_jobs_only=true`
