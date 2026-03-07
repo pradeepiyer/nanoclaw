@@ -113,6 +113,26 @@ Key fields in each result item (`data[]`):
 - `job_apply_is_direct` — boolean; true = application goes directly to employer
 - `job_publisher` — source platform name (LinkedIn, Indeed, etc.)
 
+## Trusted Job Boards Cache
+
+The apply-link domain trust filter (rule 6) uses a cached allowlist at `/workspace/group/trusted-boards.json`.
+
+Before applying quality filters, check if the cache needs a refresh:
+
+```bash
+CACHE="/workspace/group/trusted-boards.json"
+if [ ! -f "$CACHE" ] || [ $(find "$CACHE" -mtime +7 -print) ]; then
+  curl -s "https://raw.githubusercontent.com/tramcar/awesome-job-boards/master/README.md" \
+    | grep -oE 'https?://[^)]+' \
+    | awk -F/ '{print $3}' | sed 's/^www\.//' | sort -u \
+    | jq -Rn '[inputs]' > "$CACHE"
+fi
+```
+
+- Refreshes automatically when the file is missing or older than 7 days
+- Source: [tramcar/awesome-job-boards](https://github.com/tramcar/awesome-job-boards) (~130 community-vetted boards)
+- If the fetch fails (network error), continue using the existing cache file
+
 ## Quality Filtering
 
 Before formatting results, filter out low-quality/spam listings. Apply these checks in order:
@@ -139,19 +159,21 @@ After filtering, if fewer than 5 results remain, relax the quality score thresho
 
 ### 6. Apply-link domain trust
 
-Check the domain of `job_apply_link` using this trust hierarchy:
+Check the domain of `job_apply_link` against these trust tiers (in order):
 
-**KEEP** — apply domain matches any of:
+**KEEP (trusted)** — apply domain matches any of:
 - Known ATS platform: `greenhouse.io`, `lever.co`, `myworkdayjobs.com`, `icims.com`, `smartrecruiters.com`, `workable.com`, `jobvite.com`, `ultipro.com`, `bamboohr.com`, `jazzhr.com`, `breezy.hr`, `ashbyhq.com`, `rippling.com`, `successfactors.com`, `taleo.net`, `oraclecloud.com`, `paylocity.com`, `paycom.com`, `recruitee.com`, `personio.de`, `dover.com`, `applytojob.com`
-- Major job board: `indeed.com`, `linkedin.com`, `glassdoor.com`, `ziprecruiter.com`, `monster.com`, `careerbuilder.com`, `dice.com`, `simplyhired.com`, `talent.com`, `builtin.com`, `wellfound.com`
+- Community-vetted job board: domain appears in `/workspace/group/trusted-boards.json` (see Trusted Job Boards Cache above)
 - Company's own domain: the apply URL's root domain corresponds to or contains the `employer_name`
 
-**DROP** — apply domain shows signs of white-label aggregator spam:
-- `jobs.` subdomain on an unrelated business (sports club, newspaper, church, restaurant, etc.)
-- Domain's primary business is clearly unrelated to employment, technology, or staffing
+**KEEP (likely OK)** — not in the trusted list, but:
+- `job_apply_is_direct` is true (application goes directly to employer)
+
+**DROP** — apply domain shows signs of aggregator spam:
+- Domain does NOT match any trusted tier above AND `job_apply_is_direct` is false
 - Known white-label job board providers: domains containing `jobboard.com`, `hotlizard`, `recruitology.com`, `jobcase.com`, `jboard.io`, `myjobhelper.com`
 
-When uncertain, check if `job_apply_is_direct` is true (application goes to employer, not intermediary) — this is a strong positive signal. Prefer direct-apply listings.
+When uncertain and the job passed all other quality filters (rules 1-5), keep it but sort it below trusted-domain results.
 
 ### 7. Short or missing description
 Drop jobs where `job_description` is less than 150 characters. Legitimate postings have substantive descriptions.

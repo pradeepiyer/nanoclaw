@@ -39,6 +39,7 @@ groups/sanskrit/*
 !groups/jobsearch/
 groups/jobsearch/*
 !groups/jobsearch/CLAUDE.md
+!groups/jobsearch/trusted-boards.json
 
 # Secrets
 *.keys.json
