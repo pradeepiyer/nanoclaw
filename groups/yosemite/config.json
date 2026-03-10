@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "party_size": 2,
   "look_ahead": "next_weekend_only",
   "campground_groups": {
