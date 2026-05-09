@@ -17,7 +17,10 @@
  */
 import { recordDroppedMessage } from '../../db/dropped-messages.js';
 import { getAgentGroup, getAllAgentGroups } from '../../db/agent-groups.js';
-import { createMessagingGroupAgent, setMessagingGroupDeniedAt } from '../../db/messaging-groups.js';
+import {
+  createMessagingGroupAgent,
+  setMessagingGroupDeniedAt,
+} from '../../db/messaging-groups.js';
 import {
   routeInbound,
   setAccessGate,
@@ -28,7 +31,10 @@ import {
   type AccessGateResult,
 } from '../../router.js';
 import type { InboundEvent } from '../../channels/adapter.js';
-import { registerResponseHandler, type ResponsePayload } from '../../response-registry.js';
+import {
+  registerResponseHandler,
+  type ResponsePayload,
+} from '../../response-registry.js';
 import { getDeliveryAdapter } from '../../delivery.js';
 import { log } from '../../log.js';
 import type { MessagingGroup, MessagingGroupAgent } from '../../types.js';
@@ -48,7 +54,10 @@ import {
   getPendingChannelApproval,
   updatePendingChannelApprovalCard,
 } from './db/pending-channel-approvals.js';
-import { deletePendingSenderApproval, getPendingSenderApproval } from './db/pending-sender-approvals.js';
+import {
+  deletePendingSenderApproval,
+  getPendingSenderApproval,
+} from './db/pending-sender-approvals.js';
 import { hasAdminPrivilege } from './db/user-roles.js';
 import { getUser, upsertUser } from './db/users.js';
 import { requestSenderApproval } from './sender-approval.js';
@@ -75,22 +84,31 @@ function extractAndUpsertUser(event: InboundEvent): string | null {
   // chat-sdk-bridge serializes author info as a nested `author.userId` and
   // does NOT populate top-level `senderId`. Older adapters (v1, native) put
   // `senderId` or `sender` directly at the top level. Check all three.
-  const senderIdField = typeof content.senderId === 'string' ? content.senderId : undefined;
-  const senderField = typeof content.sender === 'string' ? content.sender : undefined;
+  const senderIdField =
+    typeof content.senderId === 'string' ? content.senderId : undefined;
+  const senderField =
+    typeof content.sender === 'string' ? content.sender : undefined;
   const author =
     typeof content.author === 'object' && content.author !== null
       ? (content.author as Record<string, unknown>)
       : undefined;
-  const authorUserId = typeof author?.userId === 'string' ? (author.userId as string) : undefined;
+  const authorUserId =
+    typeof author?.userId === 'string' ? (author.userId as string) : undefined;
   const senderName =
     (typeof content.senderName === 'string' ? content.senderName : undefined) ??
-    (typeof author?.fullName === 'string' ? (author.fullName as string) : undefined) ??
-    (typeof author?.userName === 'string' ? (author.userName as string) : undefined);
+    (typeof author?.fullName === 'string'
+      ? (author.fullName as string)
+      : undefined) ??
+    (typeof author?.userName === 'string'
+      ? (author.userName as string)
+      : undefined);
 
   const rawHandle = senderIdField ?? senderField ?? authorUserId;
   if (!rawHandle) return null;
 
-  const userId = rawHandle.includes(':') ? rawHandle : `${event.channelType}:${rawHandle}`;
+  const userId = rawHandle.includes(':')
+    ? rawHandle
+    : `${event.channelType}:${rawHandle}`;
   if (!getUser(userId)) {
     upsertUser({
       id: userId,
@@ -102,7 +120,11 @@ function extractAndUpsertUser(event: InboundEvent): string | null {
   return userId;
 }
 
-function safeParseContent(raw: string): { text?: string; sender?: string; senderId?: string } {
+function safeParseContent(raw: string): {
+  text?: string;
+  sender?: string;
+  senderId?: string;
+} {
   try {
     return JSON.parse(raw);
   } catch {
@@ -199,7 +221,12 @@ setAccessGate((event, userId, mg, agentGroupId): AccessGateResult => {
  * canAccessAgentGroup accepts (owner, admin, or group member).
  */
 setSenderScopeGate(
-  (_event: InboundEvent, userId: string | null, _mg: MessagingGroup, agent: MessagingGroupAgent): AccessGateResult => {
+  (
+    _event: InboundEvent,
+    userId: string | null,
+    _mg: MessagingGroup,
+    agent: MessagingGroupAgent,
+  ): AccessGateResult => {
     if (agent.sender_scope === 'all') return { allowed: true };
     if (!userId) return { allowed: false, reason: 'unknown_user_scope' };
     const decision = canAccessAgentGroup(userId, agent.agent_group_id);
@@ -222,7 +249,9 @@ setSenderScopeGate(
  * Deny: delete the row (no "deny list" — a future message re-triggers a
  * fresh card per ACTION-ITEMS item 5 "no denial persistence").
  */
-async function handleSenderApprovalResponse(payload: ResponsePayload): Promise<boolean> {
+async function handleSenderApprovalResponse(
+  payload: ResponsePayload,
+): Promise<boolean> {
   const row = getPendingSenderApproval(payload.questionId);
   if (!row) return false;
 
@@ -231,9 +260,13 @@ async function handleSenderApprovalResponse(payload: ResponsePayload): Promise<b
   // clicker is the designated approver OR has owner/admin privilege over this
   // agent group — any other click is rejected so random users can't self-admit
   // via stolen card forwarding.
-  const clickerId = payload.userId ? `${payload.channelType}:${payload.userId}` : null;
+  const clickerId = payload.userId
+    ? `${payload.channelType}:${payload.userId}`
+    : null;
   const isAuthorized =
-    clickerId !== null && (clickerId === row.approver_user_id || hasAdminPrivilege(clickerId, row.agent_group_id));
+    clickerId !== null &&
+    (clickerId === row.approver_user_id ||
+      hasAdminPrivilege(clickerId, row.agent_group_id));
   if (!isAuthorized) {
     log.warn('Unknown-sender approval click rejected — unauthorized clicker', {
       approvalId: row.id,
@@ -267,7 +300,10 @@ async function handleSenderApprovalResponse(payload: ResponsePayload): Promise<b
       const event = JSON.parse(row.original_message) as InboundEvent;
       await routeInbound(event);
     } catch (err) {
-      log.error('Failed to replay message after sender approval', { approvalId: row.id, err });
+      log.error('Failed to replay message after sender approval', {
+        approvalId: row.id,
+        err,
+      });
     }
     return true;
   }
@@ -304,13 +340,19 @@ setChannelRequestGate(async (mg, event) => {
  *                     captures the reply and creates immediately)
  *   reject          — set denied_at, delete pending row
  */
-async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<boolean> {
+async function handleChannelApprovalResponse(
+  payload: ResponsePayload,
+): Promise<boolean> {
   const row = getPendingChannelApproval(payload.questionId);
   if (!row) return false;
 
-  const clickerId = payload.userId ? `${payload.channelType}:${payload.userId}` : null;
+  const clickerId = payload.userId
+    ? `${payload.channelType}:${payload.userId}`
+    : null;
   const isAuthorized =
-    clickerId !== null && (clickerId === row.approver_user_id || hasAdminPrivilege(clickerId, row.agent_group_id));
+    clickerId !== null &&
+    (clickerId === row.approver_user_id ||
+      hasAdminPrivilege(clickerId, row.agent_group_id));
   if (!isAuthorized) {
     log.warn('Channel registration click rejected — unauthorized clicker', {
       messagingGroupId: row.messaging_group_id,
@@ -349,7 +391,11 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
     const agentGroups = getAllAgentGroups();
     const options = buildAgentSelectionOptions(agentGroups);
     const title = '📋 Choose an agent';
-    updatePendingChannelApprovalCard(row.messaging_group_id, title, JSON.stringify(options));
+    updatePendingChannelApprovalCard(
+      row.messaging_group_id,
+      title,
+      JSON.stringify(options),
+    );
 
     try {
       await adapter.deliver(
@@ -453,7 +499,9 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
   }
 
   const isGroup = event.threadId !== null;
-  const engageMode: MessagingGroupAgent['engage_mode'] = isGroup ? 'mention-sticky' : 'pattern';
+  const engageMode: MessagingGroupAgent['engage_mode'] = isGroup
+    ? 'mention-sticky'
+    : 'pattern';
   const engagePattern = isGroup ? null : '.';
 
   const mgaId = `mga-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -512,7 +560,11 @@ setMessageInterceptor(async (event: InboundEvent): Promise<boolean> => {
 
   const pending = awaitingNameInput.get(userId);
   if (!pending) return false;
-  if (event.channelType !== pending.dmChannelType || event.platformId !== pending.dmPlatformId) return false;
+  if (
+    event.channelType !== pending.dmChannelType ||
+    event.platformId !== pending.dmPlatformId
+  )
+    return false;
 
   awaitingNameInput.delete(userId);
 
@@ -553,7 +605,9 @@ setMessageInterceptor(async (event: InboundEvent): Promise<boolean> => {
   }
 
   const isGroup = originalEvent.threadId !== null;
-  const engageMode: MessagingGroupAgent['engage_mode'] = isGroup ? 'mention-sticky' : 'pattern';
+  const engageMode: MessagingGroupAgent['engage_mode'] = isGroup
+    ? 'mention-sticky'
+    : 'pattern';
   const engagePattern = isGroup ? null : '.';
 
   const mgaId = `mga-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -608,7 +662,9 @@ setMessageInterceptor(async (event: InboundEvent): Promise<boolean> => {
           dm.platform_id,
           null,
           'chat-sdk',
-          JSON.stringify({ text: `✅ Agent "${ag.name}" created and connected.` }),
+          JSON.stringify({
+            text: `✅ Agent "${ag.name}" created and connected.`,
+          }),
         )
         .catch(() => {});
     }

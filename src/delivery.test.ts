@@ -20,7 +20,8 @@ vi.mock('./container-runner.js', () => ({
 }));
 
 vi.mock('./config.js', async () => {
-  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
+  const actual =
+    await vi.importActual<typeof import('./config.js')>('./config.js');
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-delivery' };
 });
 
@@ -35,7 +36,11 @@ import {
   createMessagingGroupAgent,
 } from './db/index.js';
 import { getDeliveredIds } from './db/session-db.js';
-import { resolveSession, outboundDbPath, openInboundDb } from './session-manager.js';
+import {
+  resolveSession,
+  outboundDbPath,
+  openInboundDb,
+} from './session-manager.js';
 import { deliverSessionMessages, setDeliveryAdapter } from './delivery.js';
 
 function now(): string {
@@ -61,7 +66,11 @@ function seedAgentAndChannel(): void {
   });
 }
 
-function insertOutbound(agentGroupId: string, sessionId: string, msgId: string): void {
+function insertOutbound(
+  agentGroupId: string,
+  sessionId: string,
+  msgId: string,
+): void {
   const db = new Database(outboundDbPath(agentGroupId, sessionId));
   db.prepare(
     `INSERT INTO messages_out (id, timestamp, kind, platform_id, channel_type, content)
@@ -101,7 +110,10 @@ describe('deliverSessionMessages — concurrent invocations', () => {
 
     // Two concurrent calls — simulating active (1s) and sweep (60s) polls
     // hitting the same running session at the same moment.
-    await Promise.all([deliverSessionMessages(session), deliverSessionMessages(session)]);
+    await Promise.all([
+      deliverSessionMessages(session),
+      deliverSessionMessages(session),
+    ]);
 
     expect(calls).toHaveLength(1);
   });

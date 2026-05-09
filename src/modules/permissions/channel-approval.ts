@@ -44,17 +44,32 @@
  *   - Approver has no reachable DM.
  *   - Delivery adapter missing.
  */
-import { normalizeOptions, type NormalizedOption, type RawOption } from '../../channels/ask-question.js';
-import { createAgentGroup, getAgentGroup, getAgentGroupByFolder, getAllAgentGroups } from '../../db/agent-groups.js';
+import {
+  normalizeOptions,
+  type NormalizedOption,
+  type RawOption,
+} from '../../channels/ask-question.js';
+import {
+  createAgentGroup,
+  getAgentGroup,
+  getAgentGroupByFolder,
+  getAllAgentGroups,
+} from '../../db/agent-groups.js';
 import { getChannelAdapter } from '../../channels/channel-registry.js';
-import { getMessagingGroup, updateMessagingGroup } from '../../db/messaging-groups.js';
+import {
+  getMessagingGroup,
+  updateMessagingGroup,
+} from '../../db/messaging-groups.js';
 import { getDeliveryAdapter } from '../../delivery.js';
 import { initGroupFilesystem } from '../../group-init.js';
 import { log } from '../../log.js';
 import type { InboundEvent } from '../../channels/adapter.js';
 import type { AgentGroup } from '../../types.js';
 import { pickApprovalDelivery, pickApprover } from '../approvals/primitive.js';
-import { createPendingChannelApproval, hasInFlightChannelApproval } from './db/pending-channel-approvals.js';
+import {
+  createPendingChannelApproval,
+  hasInFlightChannelApproval,
+} from './db/pending-channel-approvals.js';
 
 // ── Value constants (response handler in index.ts parses these) ──
 
@@ -112,7 +127,9 @@ function buildQuestionText(
 ): string {
   const who = senderName ?? 'Someone';
   if (isGroup) {
-    const where = channelName ? `${channelName} on ${channelType}` : `a ${channelType} channel`;
+    const where = channelName
+      ? `${channelName} on ${channelType}`
+      : `a ${channelType} channel`;
     return `${who} mentioned your bot in ${where}. How would you like to handle this channel?`;
   }
   return `${who} sent your bot a DM on ${channelType}. How would you like to handle it?`;
@@ -125,19 +142,26 @@ export interface RequestChannelApprovalInput {
   event: InboundEvent;
 }
 
-export async function requestChannelApproval(input: RequestChannelApprovalInput): Promise<void> {
+export async function requestChannelApproval(
+  input: RequestChannelApprovalInput,
+): Promise<void> {
   const { messagingGroupId, event } = input;
 
   if (hasInFlightChannelApproval(messagingGroupId)) {
-    log.debug('Channel registration already in flight — dropping retry', { messagingGroupId });
+    log.debug('Channel registration already in flight — dropping retry', {
+      messagingGroupId,
+    });
     return;
   }
 
   const agentGroups = getAllAgentGroups();
   if (agentGroups.length === 0) {
-    log.warn('Channel registration skipped — no agent groups configured. Run /init-first-agent.', {
-      messagingGroupId,
-    });
+    log.warn(
+      'Channel registration skipped — no agent groups configured. Run /init-first-agent.',
+      {
+        messagingGroupId,
+      },
+    );
     return;
   }
   // Use first agent group for approver resolution — owners and global admins
@@ -161,7 +185,9 @@ export async function requestChannelApproval(input: RequestChannelApprovalInput)
     const channelAdapter = getChannelAdapter(originChannelType);
     if (channelAdapter?.resolveChannelName) {
       try {
-        const name = await channelAdapter.resolveChannelName(originMg.platform_id);
+        const name = await channelAdapter.resolveChannelName(
+          originMg.platform_id,
+        );
         if (name) {
           updateMessagingGroup(originMg.id, { name });
           originMg.name = name;
@@ -192,8 +218,15 @@ export async function requestChannelApproval(input: RequestChannelApprovalInput)
   }
 
   const channelName = originMg?.name ?? null;
-  const title = isGroup ? '📣 Bot mentioned in new channel' : '💬 New direct message';
-  const question = buildQuestionText(isGroup, senderName, channelName, originChannelType);
+  const title = isGroup
+    ? '📣 Bot mentioned in new channel'
+    : '💬 New direct message';
+  const question = buildQuestionText(
+    isGroup,
+    senderName,
+    channelName,
+    originChannelType,
+  );
   const options = normalizeOptions(buildApprovalOptions(agentGroups));
 
   createPendingChannelApproval({
@@ -208,7 +241,10 @@ export async function requestChannelApproval(input: RequestChannelApprovalInput)
 
   const adapter = getDeliveryAdapter();
   if (!adapter) {
-    log.error('Channel registration row created but no delivery adapter is wired', { messagingGroupId });
+    log.error(
+      'Channel registration row created but no delivery adapter is wired',
+      { messagingGroupId },
+    );
     return;
   }
 
@@ -232,7 +268,10 @@ export async function requestChannelApproval(input: RequestChannelApprovalInput)
       approver: delivery.userId,
     });
   } catch (err) {
-    log.error('Channel registration card delivery failed', { messagingGroupId, err });
+    log.error('Channel registration card delivery failed', {
+      messagingGroupId,
+      err,
+    });
   }
 }
 
@@ -241,7 +280,9 @@ export async function requestChannelApproval(input: RequestChannelApprovalInput)
 /**
  * Build normalized options for the agent-selection follow-up card.
  */
-export function buildAgentSelectionOptions(agentGroups: AgentGroup[]): NormalizedOption[] {
+export function buildAgentSelectionOptions(
+  agentGroups: AgentGroup[],
+): NormalizedOption[] {
   const options: RawOption[] = agentGroups.map((ag) => ({
     label: ag.name,
     selectedLabel: `✅ Connected to ${ag.name}`,

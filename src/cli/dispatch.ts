@@ -8,11 +8,22 @@
  */
 import { getAgentGroup } from '../db/agent-groups.js';
 import { getSession } from '../db/sessions.js';
-import { registerApprovalHandler, requestApproval } from '../modules/approvals/index.js';
-import type { CallerContext, ErrorCode, RequestFrame, ResponseFrame } from './frame.js';
+import {
+  registerApprovalHandler,
+  requestApproval,
+} from '../modules/approvals/index.js';
+import type {
+  CallerContext,
+  ErrorCode,
+  RequestFrame,
+  ResponseFrame,
+} from './frame.js';
 import { lookup } from './registry.js';
 
-export async function dispatch(req: RequestFrame, ctx: CallerContext): Promise<ResponseFrame> {
+export async function dispatch(
+  req: RequestFrame,
+  ctx: CallerContext,
+): Promise<ResponseFrame> {
   const cmd = lookup(req.command);
   if (!cmd) {
     return err(req.id, 'unknown-command', `no command "${req.command}"`);
@@ -39,7 +50,11 @@ export async function dispatch(req: RequestFrame, ctx: CallerContext): Promise<R
       question: `Agent "${agentName}" wants to run:\n\`ncl ${req.command}${argSummary ? ' ' + argSummary : ''}\``,
     });
 
-    return err(req.id, 'approval-pending', 'Approval request sent to admin. You will be notified of the result.');
+    return err(
+      req.id,
+      'approval-pending',
+      'Approval request sent to admin. You will be notified of the result.',
+    );
   }
 
   let parsed: unknown;
@@ -57,17 +72,27 @@ export async function dispatch(req: RequestFrame, ctx: CallerContext): Promise<R
   }
 }
 
-registerApprovalHandler('cli_command', async ({ session, payload, userId, notify }) => {
-  const frame = payload.frame as RequestFrame;
-  const response = await dispatch(frame, { caller: 'host' });
+registerApprovalHandler(
+  'cli_command',
+  async ({ session, payload, userId, notify }) => {
+    const frame = payload.frame as RequestFrame;
+    const response = await dispatch(frame, { caller: 'host' });
 
-  if (response.ok) {
-    const data = typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2);
-    notify(`Your \`ncl ${frame.command}\` request was approved and executed.\n\n${data}`);
-  } else {
-    notify(`Your \`ncl ${frame.command}\` request was approved but failed: ${response.error.message}`);
-  }
-});
+    if (response.ok) {
+      const data =
+        typeof response.data === 'string'
+          ? response.data
+          : JSON.stringify(response.data, null, 2);
+      notify(
+        `Your \`ncl ${frame.command}\` request was approved and executed.\n\n${data}`,
+      );
+    } else {
+      notify(
+        `Your \`ncl ${frame.command}\` request was approved but failed: ${response.error.message}`,
+      );
+    }
+  },
+);
 
 function err(id: string, code: ErrorCode, message: string): ResponseFrame {
   return { id, ok: false, error: { code, message } };

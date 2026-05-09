@@ -20,7 +20,9 @@ registerDeliveryAction('cli_request', async (content, session, inDb) => {
   const args = (content.args as Record<string, unknown>) ?? {};
 
   if (!requestId || !command) {
-    log.warn('cli_request missing requestId or command', { sessionId: session.id });
+    log.warn('cli_request missing requestId or command', {
+      sessionId: session.id,
+    });
     return;
   }
 
@@ -32,7 +34,11 @@ registerDeliveryAction('cli_request', async (content, session, inDb) => {
     messagingGroupId: session.messaging_group_id ?? '',
   };
 
-  log.info('CLI request from agent', { requestId, command, sessionId: session.id });
+  log.info('CLI request from agent', {
+    requestId,
+    command,
+    sessionId: session.id,
+  });
 
   const response = await dispatch(req, ctx);
 
@@ -55,5 +61,9 @@ registerDeliveryAction('cli_request', async (content, session, inDb) => {
     trigger: 0,
   });
 
-  log.info('CLI response written', { requestId, ok: response.ok, sessionId: session.id });
+  log.info('CLI response written', {
+    requestId,
+    ok: response.ok,
+    sessionId: session.id,
+  });
 });

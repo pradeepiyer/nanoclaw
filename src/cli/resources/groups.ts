@@ -12,7 +12,8 @@ registerResource({
     {
       name: 'name',
       type: 'string',
-      description: 'Display name shown in logs, help output, and channel adapters. Does not need to be unique.',
+      description:
+        'Display name shown in logs, help output, and channel adapters. Does not need to be unique.',
       required: true,
       updatable: true,
     },
@@ -31,7 +32,18 @@ registerResource({
       updatable: true,
       default: null,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval', delete: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+    delete: 'approval',
+  },
 });

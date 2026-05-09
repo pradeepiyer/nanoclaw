@@ -38,7 +38,10 @@ export interface CustomOperation {
   access: Access;
   description: string;
   args?: ColumnDef[];
-  handler: (args: Record<string, unknown>, ctx: CallerContext) => Promise<unknown>;
+  handler: (
+    args: Record<string, unknown>,
+    ctx: CallerContext,
+  ) => Promise<unknown>;
 }
 
 export interface ResourceDef {
@@ -72,7 +75,9 @@ export interface ResourceDef {
 const resources = new Map<string, ResourceDef>();
 
 export function getResources(): ResourceDef[] {
-  return [...resources.values()].sort((a, b) => a.plural.localeCompare(b.plural));
+  return [...resources.values()].sort((a, b) =>
+    a.plural.localeCompare(b.plural),
+  );
 }
 
 export function getResource(plural: string): ResourceDef | undefined {
@@ -89,9 +94,12 @@ function visibleColumns(def: ResourceDef): string[] {
 
 function genericList(def: ResourceDef) {
   const cols = visibleColumns(def).join(', ');
-  const filterableNames = new Set(def.columns.filter((c) => !c.generated).map((c) => c.name));
+  const filterableNames = new Set(
+    def.columns.filter((c) => !c.generated).map((c) => c.name),
+  );
   return async (args: Record<string, unknown>) => {
-    const limit = args.limit !== undefined ? Math.max(1, Number(args.limit)) : 200;
+    const limit =
+      args.limit !== undefined ? Math.max(1, Number(args.limit)) : 200;
     const filters: string[] = [];
     const params: unknown[] = [];
     for (const [k, v] of Object.entries(args)) {
@@ -114,7 +122,9 @@ function genericGet(def: ResourceDef) {
   return async (args: Record<string, unknown>) => {
     const id = args.id as string;
     if (!id) throw new Error(`${def.name} id is required`);
-    const row = getDb().prepare(`SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`).get(id);
+    const row = getDb()
+      .prepare(`SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`)
+      .get(id);
     if (!row) throw new Error(`${def.name} not found: ${id}`);
     return row;
   };
@@ -150,7 +160,9 @@ function genericCreate(def: ResourceDef) {
     const colNames = Object.keys(values);
     const placeholders = colNames.map((c) => `@${c}`);
     getDb()
-      .prepare(`INSERT INTO ${def.table} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')})`)
+      .prepare(
+        `INSERT INTO ${def.table} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')})`,
+      )
       .run(values);
     return values;
   };
@@ -182,12 +194,16 @@ function genericUpdate(def: ResourceDef) {
       .map((k) => `${k} = @${k}`)
       .join(', ');
     const result = getDb()
-      .prepare(`UPDATE ${def.table} SET ${setClause} WHERE ${def.idColumn} = @_id`)
+      .prepare(
+        `UPDATE ${def.table} SET ${setClause} WHERE ${def.idColumn} = @_id`,
+      )
       .run({ ...updates, _id: id });
     if (result.changes === 0) throw new Error(`${def.name} not found: ${id}`);
 
     const cols = visibleColumns(def).join(', ');
-    return getDb().prepare(`SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`).get(id);
+    return getDb()
+      .prepare(`SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`)
+      .get(id);
   };
 }
 
@@ -195,7 +211,9 @@ function genericDelete(def: ResourceDef) {
   return async (args: Record<string, unknown>) => {
     const id = args.id as string;
     if (!id) throw new Error(`${def.name} id is required`);
-    const result = getDb().prepare(`DELETE FROM ${def.table} WHERE ${def.idColumn} = ?`).run(id);
+    const result = getDb()
+      .prepare(`DELETE FROM ${def.table} WHERE ${def.idColumn} = ?`)
+      .run(id);
     if (result.changes === 0) throw new Error(`${def.name} not found: ${id}`);
     return { deleted: id };
   };
@@ -284,7 +302,8 @@ export function registerResource(def: ResourceDef): void {
         access: op.access,
         resource: def.plural,
         parseArgs: (raw) => normalizeArgs(raw),
-        handler: async (args, ctx) => op.handler(args as Record<string, unknown>, ctx),
+        handler: async (args, ctx) =>
+          op.handler(args as Record<string, unknown>, ctx),
       });
     }
   }

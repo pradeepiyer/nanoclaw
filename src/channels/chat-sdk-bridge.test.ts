@@ -15,7 +15,10 @@ interface PostCall {
 
 function makePostCapture() {
   const calls: PostCall[] = [];
-  const postMessage = async (threadId: string, message: AdapterPostableMessage): Promise<RawMessage<unknown>> => {
+  const postMessage = async (
+    threadId: string,
+    message: AdapterPostableMessage,
+  ): Promise<RawMessage<unknown>> => {
     calls.push({ threadId, message });
     return { id: 'msg-stub', threadId, raw: {} };
   };
@@ -28,7 +31,8 @@ describe('splitForLimit', () => {
   });
 
   it('splits on paragraph boundaries when available', () => {
-    const text = 'para one line one\npara one line two\n\npara two line one\npara two line two';
+    const text =
+      'para one line one\npara one line two\n\npara two line one\npara two line two';
     const chunks = splitForLimit(text, 40);
     expect(chunks.length).toBeGreaterThan(1);
     for (const c of chunks) expect(c.length).toBeLessThanOrEqual(40);
@@ -73,7 +77,8 @@ describe('createChatSdkBridge', () => {
           openDMCalls.push(userId);
           return `thread::${userId}`;
         },
-        channelIdFromThreadId: (threadId: string) => `stub:${threadId.replace(/^thread::/, '')}`,
+        channelIdFromThreadId: (threadId: string) =>
+          `stub:${threadId.replace(/^thread::/, '')}`,
       }),
       supportsThreads: false,
     });
@@ -144,7 +149,9 @@ describe('createChatSdkBridge.deliver — display cards (send_card)', () => {
     });
     expect(calls).toHaveLength(1);
     // Cast through the public Card shape to read the children we set
-    const msg = calls[0].message as { card?: { children?: Array<{ type?: string }> } };
+    const msg = calls[0].message as {
+      card?: { children?: Array<{ type?: string }> };
+    };
     const childTypes = (msg.card?.children ?? []).map((c) => c.type);
     expect(childTypes).not.toContain('actions');
   });
@@ -161,12 +168,20 @@ describe('createChatSdkBridge.deliver — display cards (send_card)', () => {
         type: 'card',
         card: {
           title: 'Docs',
-          actions: [{ label: 'Open', url: 'https://example.com' }, { label: 'No-link' }],
+          actions: [
+            { label: 'Open', url: 'https://example.com' },
+            { label: 'No-link' },
+          ],
         },
       },
     });
     const msg = calls[0].message as {
-      card?: { children?: Array<{ type?: string; children?: Array<{ type?: string; url?: string }> }> };
+      card?: {
+        children?: Array<{
+          type?: string;
+          children?: Array<{ type?: string; url?: string }>;
+        }>;
+      };
     };
     const actionsRow = msg.card?.children?.find((c) => c.type === 'actions');
     expect(actionsRow).toBeDefined();

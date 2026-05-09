@@ -10,7 +10,10 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { getInboundSourceSessionId, migrateMessagesInTable } from './session-db.js';
+import {
+  getInboundSourceSessionId,
+  migrateMessagesInTable,
+} from './session-db.js';
 
 const TEST_DIR = '/tmp/nanoclaw-session-db-test';
 const DB_PATH = path.join(TEST_DIR, 'inbound.db');
@@ -49,7 +52,9 @@ describe('migrateMessagesInTable', () => {
     migrateMessagesInTable(db);
     migrateMessagesInTable(db); // idempotent
 
-    const row = db.prepare('SELECT series_id FROM messages_in WHERE id = ?').get('legacy-1') as {
+    const row = db
+      .prepare('SELECT series_id FROM messages_in WHERE id = ?')
+      .get('legacy-1') as {
       series_id: string;
     };
     expect(row.series_id).toBe('legacy-1');
@@ -84,7 +89,11 @@ describe('migrateMessagesInTable', () => {
     migrateMessagesInTable(db);
     migrateMessagesInTable(db); // idempotent
 
-    const cols = (db.prepare("PRAGMA table_info('messages_in')").all() as Array<{ name: string }>).map((c) => c.name);
+    const cols = (
+      db.prepare("PRAGMA table_info('messages_in')").all() as Array<{
+        name: string;
+      }>
+    ).map((c) => c.name);
     expect(cols).toContain('source_session_id');
 
     expect(getInboundSourceSessionId(db, 'legacy-2')).toBeNull();

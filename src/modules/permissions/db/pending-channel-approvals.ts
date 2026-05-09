@@ -23,7 +23,9 @@ export interface PendingChannelApproval {
   options_json: string;
 }
 
-export function createPendingChannelApproval(row: PendingChannelApproval): void {
+export function createPendingChannelApproval(
+  row: PendingChannelApproval,
+): void {
   getDb()
     .prepare(
       `INSERT INTO pending_channel_approvals (
@@ -38,25 +40,41 @@ export function createPendingChannelApproval(row: PendingChannelApproval): void 
     .run(row);
 }
 
-export function getPendingChannelApproval(messagingGroupId: string): PendingChannelApproval | undefined {
+export function getPendingChannelApproval(
+  messagingGroupId: string,
+): PendingChannelApproval | undefined {
   return getDb()
-    .prepare('SELECT * FROM pending_channel_approvals WHERE messaging_group_id = ?')
+    .prepare(
+      'SELECT * FROM pending_channel_approvals WHERE messaging_group_id = ?',
+    )
     .get(messagingGroupId) as PendingChannelApproval | undefined;
 }
 
 export function hasInFlightChannelApproval(messagingGroupId: string): boolean {
   const row = getDb()
-    .prepare('SELECT 1 AS x FROM pending_channel_approvals WHERE messaging_group_id = ?')
+    .prepare(
+      'SELECT 1 AS x FROM pending_channel_approvals WHERE messaging_group_id = ?',
+    )
     .get(messagingGroupId) as { x: number } | undefined;
   return row !== undefined;
 }
 
-export function updatePendingChannelApprovalCard(messagingGroupId: string, title: string, optionsJson: string): void {
+export function updatePendingChannelApprovalCard(
+  messagingGroupId: string,
+  title: string,
+  optionsJson: string,
+): void {
   getDb()
-    .prepare('UPDATE pending_channel_approvals SET title = ?, options_json = ? WHERE messaging_group_id = ?')
+    .prepare(
+      'UPDATE pending_channel_approvals SET title = ?, options_json = ? WHERE messaging_group_id = ?',
+    )
     .run(title, optionsJson, messagingGroupId);
 }
 
 export function deletePendingChannelApproval(messagingGroupId: string): void {
-  getDb().prepare('DELETE FROM pending_channel_approvals WHERE messaging_group_id = ?').run(messagingGroupId);
+  getDb()
+    .prepare(
+      'DELETE FROM pending_channel_approvals WHERE messaging_group_id = ?',
+    )
+    .run(messagingGroupId);
 }

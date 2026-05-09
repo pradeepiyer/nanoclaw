@@ -14,7 +14,9 @@ register({
   parseArgs: () => ({}),
   handler: async () => {
     const resources = getResources();
-    const commands = listCommands().filter((c) => c.access !== 'hidden' && !c.resource);
+    const commands = listCommands().filter(
+      (c) => c.access !== 'hidden' && !c.resource,
+    );
 
     const lines: string[] = [];
     if (resources.length > 0) {
@@ -89,7 +91,8 @@ export function registerResourceHelpCommands(): void {
             if (col.generated) tags.push('auto');
             if (col.required) tags.push('required');
             if (col.updatable) tags.push('updatable');
-            if (col.default !== undefined && col.default !== null) tags.push(`default: ${col.default}`);
+            if (col.default !== undefined && col.default !== null)
+              tags.push(`default: ${col.default}`);
             if (col.enum) tags.push(`values: ${col.enum.join(' | ')}`);
 
             const flag = `--${col.name.replace(/_/g, '-')}`;

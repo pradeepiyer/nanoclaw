@@ -46,7 +46,10 @@ const DEFAULT_SETTINGS_JSON =
  * spawn by `composeGroupClaudeMd()` (see `claude-md-compose.ts`). Initial
  * per-group instructions (if provided) seed `CLAUDE.local.md`.
  */
-export function initGroupFilesystem(group: AgentGroup, opts?: { instructions?: string }): void {
+export function initGroupFilesystem(
+  group: AgentGroup,
+  opts?: { instructions?: string },
+): void {
   const initialized: string[] = [];
 
   // 1. groups/<folder>/ — group memory + working dir
@@ -73,7 +76,12 @@ export function initGroupFilesystem(group: AgentGroup, opts?: { instructions?: s
   }
 
   // 2. data/v2-sessions/<id>/.claude-shared/ — Claude state + per-group skills
-  const claudeDir = path.join(DATA_DIR, 'v2-sessions', group.id, '.claude-shared');
+  const claudeDir = path.join(
+    DATA_DIR,
+    'v2-sessions',
+    group.id,
+    '.claude-shared',
+  );
   if (!fs.existsSync(claudeDir)) {
     fs.mkdirSync(claudeDir, { recursive: true });
     initialized.push('.claude-shared');
@@ -111,14 +119,18 @@ const PRE_COMPACT_COMMAND = 'bun /app/src/compact-instructions.ts';
  * Patch an existing settings.json to add the PreCompact hook if missing.
  * Runs on every group init so pre-existing groups pick up the hook.
  */
-function ensurePreCompactHook(settingsFile: string, initialized: string[]): void {
+function ensurePreCompactHook(
+  settingsFile: string,
+  initialized: string[],
+): void {
   try {
     const raw = fs.readFileSync(settingsFile, 'utf-8');
     const settings = JSON.parse(raw);
 
     // Check if there's already a PreCompact hook with our command.
     const existing = settings.hooks?.PreCompact as unknown[] | undefined;
-    if (existing && JSON.stringify(existing).includes(PRE_COMPACT_COMMAND)) return;
+    if (existing && JSON.stringify(existing).includes(PRE_COMPACT_COMMAND))
+      return;
 
     // Add the hook, preserving existing hooks.
     if (!settings.hooks) settings.hooks = {};

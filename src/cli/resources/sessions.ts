@@ -9,11 +9,16 @@ registerResource({
   idColumn: 'id',
   columns: [
     { name: 'id', type: 'string', description: 'UUID.', generated: true },
-    { name: 'agent_group_id', type: 'string', description: 'Agent group this session runs.' },
+    {
+      name: 'agent_group_id',
+      type: 'string',
+      description: 'Agent group this session runs.',
+    },
     {
       name: 'messaging_group_id',
       type: 'string',
-      description: 'Messaging group this session serves. Null for agent-shared sessions.',
+      description:
+        'Messaging group this session serves. Null for agent-shared sessions.',
     },
     {
       name: 'thread_id',
@@ -38,8 +43,17 @@ registerResource({
         '"running" — container alive and polling. "stopped" — container exited; the sweep will restart it automatically when due messages arrive. "idle" — reserved, currently unused.',
       enum: ['running', 'idle', 'stopped'],
     },
-    { name: 'last_active', type: 'string', description: 'Last message or heartbeat. Used for stale detection.' },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'last_active',
+      type: 'string',
+      description: 'Last message or heartbeat. Used for stale detection.',
+    },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
   operations: { list: 'open', get: 'open' },
 });

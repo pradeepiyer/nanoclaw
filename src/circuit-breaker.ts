@@ -79,6 +79,8 @@ export async function enforceStartupBackoff(): Promise<void> {
       resumeAt,
     });
     await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
-    log.info('Circuit breaker: backoff complete, resuming startup', { attempt });
+    log.info('Circuit breaker: backoff complete, resuming startup', {
+      attempt,
+    });
   }
 }

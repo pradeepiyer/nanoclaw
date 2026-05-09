@@ -12,13 +12,15 @@ registerResource({
     {
       name: 'messaging_group_id',
       type: 'string',
-      description: 'The chat/channel to route from. References messaging_groups.id.',
+      description:
+        'The chat/channel to route from. References messaging_groups.id.',
       required: true,
     },
     {
       name: 'agent_group_id',
       type: 'string',
-      description: 'The agent that handles messages. References agent_groups.id.',
+      description:
+        'The agent that handles messages. References agent_groups.id.',
       required: true,
     },
     {
@@ -64,7 +66,18 @@ registerResource({
       default: 'shared',
       updatable: true,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval', delete: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+    delete: 'approval',
+  },
 });

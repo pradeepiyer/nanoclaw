@@ -5,9 +5,19 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { isSafeAttachmentName, routeAgentMessage } from './agent-route.js';
 import { createDestination } from './db/agent-destinations.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from '../../db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from '../../db/index.js';
 import { createSession, updateSession } from '../../db/sessions.js';
-import { initSessionFolder, inboundDbPath, sessionDir, writeSessionMessage } from '../../session-manager.js';
+import {
+  initSessionFolder,
+  inboundDbPath,
+  sessionDir,
+  writeSessionMessage,
+} from '../../session-manager.js';
 import type { Session } from '../../types.js';
 
 vi.mock('../../container-runner.js', () => ({
@@ -29,9 +39,13 @@ function now(): string {
 }
 
 function readInbound(agentGroupId: string, sessionId: string) {
-  const db = new Database(inboundDbPath(agentGroupId, sessionId), { readonly: true });
+  const db = new Database(inboundDbPath(agentGroupId, sessionId), {
+    readonly: true,
+  });
   const rows = db
-    .prepare('SELECT id, platform_id, channel_type, content, source_session_id FROM messages_in ORDER BY seq')
+    .prepare(
+      'SELECT id, platform_id, channel_type, content, source_session_id FROM messages_in ORDER BY seq',
+    )
     .all() as Array<{
     id: string;
     platform_id: string | null;
@@ -100,8 +114,20 @@ describe('routeAgentMessage return-path', () => {
     const db = initTestDb();
     runMigrations(db);
 
-    createAgentGroup({ id: A, name: 'A', folder: 'a', agent_provider: null, created_at: now() });
-    createAgentGroup({ id: B, name: 'B', folder: 'b', agent_provider: null, created_at: now() });
+    createAgentGroup({
+      id: A,
+      name: 'A',
+      folder: 'a',
+      agent_provider: null,
+      created_at: now(),
+    });
+    createAgentGroup({
+      id: B,
+      name: 'B',
+      folder: 'b',
+      agent_provider: null,
+      created_at: now(),
+    });
 
     // S1 (older), S2 (newer) — both active sessions on A.
     S1 = {
@@ -278,7 +304,12 @@ describe('routeAgentMessage return-path', () => {
   it('stale origin fallback: closed origin session falls through to newest active', async () => {
     // A.S1 sends to B, establishing source_session_id = S1.id on B's inbound.
     await routeAgentMessage(
-      { id: 'msg-fwd', platform_id: B, content: JSON.stringify({ text: 'hello' }), in_reply_to: null },
+      {
+        id: 'msg-fwd',
+        platform_id: B,
+        content: JSON.stringify({ text: 'hello' }),
+        in_reply_to: null,
+      },
       S1,
     );
     const bRows = readInbound(B, SB.id);
@@ -289,7 +320,12 @@ describe('routeAgentMessage return-path', () => {
 
     // B replies. origin points to S1 (closed), should fall through to S2.
     await routeAgentMessage(
-      { id: 'msg-reply-stale', platform_id: A, content: JSON.stringify({ text: 'reply' }), in_reply_to: inboundId },
+      {
+        id: 'msg-reply-stale',
+        platform_id: A,
+        content: JSON.stringify({ text: 'reply' }),
+        in_reply_to: inboundId,
+      },
       SB,
     );
 
@@ -302,7 +338,13 @@ describe('routeAgentMessage return-path', () => {
   it('cross-agent-group guard: origin session belonging to wrong agent group is rejected', async () => {
     // Third agent group C sends to B, stamping source_session_id = SC on B's inbound.
     const C = 'ag-C';
-    createAgentGroup({ id: C, name: 'C', folder: 'c', agent_provider: null, created_at: now() });
+    createAgentGroup({
+      id: C,
+      name: 'C',
+      folder: 'c',
+      agent_provider: null,
+      created_at: now(),
+    });
     const SC: Session = {
       id: 'sess-C',
       agent_group_id: C,
@@ -316,10 +358,21 @@ describe('routeAgentMessage return-path', () => {
     };
     createSession(SC);
     initSessionFolder(C, SC.id);
-    createDestination({ agent_group_id: C, local_name: 'b', target_type: 'agent', target_id: B, created_at: now() });
+    createDestination({
+      agent_group_id: C,
+      local_name: 'b',
+      target_type: 'agent',
+      target_id: B,
+      created_at: now(),
+    });
 
     await routeAgentMessage(
-      { id: 'msg-from-C', platform_id: B, content: JSON.stringify({ text: 'from C' }), in_reply_to: null },
+      {
+        id: 'msg-from-C',
+        platform_id: B,
+        content: JSON.stringify({ text: 'from C' }),
+        in_reply_to: null,
+      },
       SC,
     );
     const bRows = readInbound(B, SB.id);
@@ -376,7 +429,12 @@ describe('routeAgentMessage return-path', () => {
   it('self-message is allowed without a destination row', async () => {
     // A targets itself — no agent_destinations row exists for A→A.
     await routeAgentMessage(
-      { id: 'self-msg', platform_id: A, content: JSON.stringify({ text: 'self-note' }), in_reply_to: null },
+      {
+        id: 'self-msg',
+        platform_id: A,
+        content: JSON.stringify({ text: 'self-note' }),
+        in_reply_to: null,
+      },
       S1,
     );
 
@@ -393,11 +451,21 @@ describe('routeAgentMessage return-path', () => {
     for (let i = 0; i < 20; i++) {
       try {
         await routeAgentMessage(
-          { id: `ping-${i}`, platform_id: B, content: JSON.stringify({ text: `ping ${i}` }), in_reply_to: null },
+          {
+            id: `ping-${i}`,
+            platform_id: B,
+            content: JSON.stringify({ text: `ping ${i}` }),
+            in_reply_to: null,
+          },
           S1,
         );
         await routeAgentMessage(
-          { id: `pong-${i}`, platform_id: A, content: JSON.stringify({ text: `pong ${i}` }), in_reply_to: null },
+          {
+            id: `pong-${i}`,
+            platform_id: A,
+            content: JSON.stringify({ text: `pong ${i}` }),
+            in_reply_to: null,
+          },
           SB,
         );
       } catch (e) {
@@ -417,7 +485,11 @@ describe('routeAgentMessage return-path', () => {
 
   it('file forwarding: copies bytes from source outbox to target inbox', async () => {
     // Place a file in S1's outbox for the message.
-    const outboxDir = path.join(sessionDir(A, S1.id), 'outbox', 'msg-with-file');
+    const outboxDir = path.join(
+      sessionDir(A, S1.id),
+      'outbox',
+      'msg-with-file',
+    );
     fs.mkdirSync(outboxDir, { recursive: true });
     fs.writeFileSync(path.join(outboxDir, 'report.pdf'), 'fake-pdf-bytes');
 
@@ -425,7 +497,10 @@ describe('routeAgentMessage return-path', () => {
       {
         id: 'msg-with-file',
         platform_id: B,
-        content: JSON.stringify({ text: 'see attached', files: ['report.pdf'] }),
+        content: JSON.stringify({
+          text: 'see attached',
+          files: ['report.pdf'],
+        }),
         in_reply_to: null,
       },
       S1,
@@ -439,7 +514,10 @@ describe('routeAgentMessage return-path', () => {
     expect(parsed.attachments[0].type).toBe('file');
 
     // Verify actual file bytes were copied to the target inbox.
-    const targetPath = path.join(sessionDir(B, SB.id), parsed.attachments[0].localPath);
+    const targetPath = path.join(
+      sessionDir(B, SB.id),
+      parsed.attachments[0].localPath,
+    );
     expect(fs.existsSync(targetPath)).toBe(true);
     expect(fs.readFileSync(targetPath, 'utf-8')).toBe('fake-pdf-bytes');
   });

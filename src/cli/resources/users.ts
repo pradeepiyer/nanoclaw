@@ -29,7 +29,17 @@ registerResource({
         'Human-readable name. Shown in approval cards and logs. Often auto-populated from the channel adapter.',
       updatable: true,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+  },
 });

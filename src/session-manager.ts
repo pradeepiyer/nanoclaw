@@ -40,7 +40,10 @@ import type { Session } from './types.js';
 
 function isPathInside(parent: string, child: string): boolean {
   const relative = path.relative(parent, child);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  );
 }
 
 /** Root directory for all session data. */
@@ -59,7 +62,10 @@ export function inboundDbPath(agentGroupId: string, sessionId: string): string {
 }
 
 /** Path to the container-owned outbound DB (messages_out + processing_ack). */
-export function outboundDbPath(agentGroupId: string, sessionId: string): string {
+export function outboundDbPath(
+  agentGroupId: string,
+  sessionId: string,
+): string {
   return path.join(sessionDir(agentGroupId, sessionId), 'outbound.db');
 }
 
@@ -105,7 +111,11 @@ export function resolveSession(
     const lookupThreadId = sessionMode === 'shared' ? null : threadId;
     // Scope lookup by agent_group_id so fan-out to multiple agents in the
     // same chat doesn't accidentally deliver to the wrong agent's session.
-    const existing = findSessionForAgent(agentGroupId, messagingGroupId, lookupThreadId);
+    const existing = findSessionForAgent(
+      agentGroupId,
+      messagingGroupId,
+      lookupThreadId,
+    );
     if (existing) {
       return { session: existing, created: false };
     }
@@ -127,13 +137,22 @@ export function resolveSession(
 
   createSession(session);
   initSessionFolder(agentGroupId, id);
-  log.info('Session created', { id, agentGroupId, messagingGroupId, threadId: lookupThreadId, sessionMode });
+  log.info('Session created', {
+    id,
+    agentGroupId,
+    messagingGroupId,
+    threadId: lookupThreadId,
+    sessionMode,
+  });
 
   return { session, created: true };
 }
 
 /** Create the session folder and initialize both DBs. */
-export function initSessionFolder(agentGroupId: string, sessionId: string): void {
+export function initSessionFolder(
+  agentGroupId: string,
+  sessionId: string,
+): void {
   const dir = sessionDir(agentGroupId, sessionId);
   fs.mkdirSync(dir, { recursive: true });
   fs.mkdirSync(path.join(dir, 'outbox'), { recursive: true });
@@ -153,7 +172,10 @@ export function initSessionFolder(agentGroupId: string, sessionId: string): void
  * writeDestinations() (when installed) so the latest routing is always in
  * place, including after admin rewiring.
  */
-export function writeSessionRouting(agentGroupId: string, sessionId: string): void {
+export function writeSessionRouting(
+  agentGroupId: string,
+  sessionId: string,
+): void {
   const dbPath = inboundDbPath(agentGroupId, sessionId);
   if (!fs.existsSync(dbPath)) return;
 
@@ -180,7 +202,12 @@ export function writeSessionRouting(agentGroupId: string, sessionId: string): vo
   } finally {
     db.close();
   }
-  log.debug('Session routing written', { sessionId, channelType, platformId, threadId: session.thread_id });
+  log.debug('Session routing written', {
+    sessionId,
+    channelType,
+    platformId,
+    threadId: session.thread_id,
+  });
 }
 
 /**
@@ -219,7 +246,12 @@ export function writeSessionMessage(
   },
 ): void {
   // Extract base64 attachment data, save to inbox, replace with file paths
-  const content = extractAttachmentFiles(agentGroupId, sessionId, message.id, message.content);
+  const content = extractAttachmentFiles(
+    agentGroupId,
+    sessionId,
+    message.id,
+    message.content,
+  );
 
   const db = openInboundDb(agentGroupId, sessionId);
   try {
@@ -274,7 +306,9 @@ function extractAttachmentFiles(
     return contentStr;
   }
 
-  const attachments = parsed.attachments as Array<Record<string, unknown>> | undefined;
+  const attachments = parsed.attachments as
+    | Array<Record<string, unknown>>
+    | undefined;
   if (!Array.isArray(attachments)) return contentStr;
 
   if (!isSafeAttachmentName(messageId)) {
@@ -287,7 +321,9 @@ function extractAttachmentFiles(
     if (typeof att.data !== 'string') continue;
 
     const rawName = deriveAttachmentName(att);
-    const filename = isSafeAttachmentName(rawName) ? rawName : `attachment-${Date.now()}`;
+    const filename = isSafeAttachmentName(rawName)
+      ? rawName
+      : `attachment-${Date.now()}`;
     if (filename !== rawName) {
       log.warn('Refused unsafe attachment filename, would escape inbox', {
         messageId,
@@ -296,7 +332,11 @@ function extractAttachmentFiles(
       });
     }
 
-    const inboxDir = path.join(sessionDir(agentGroupId, sessionId), 'inbox', messageId);
+    const inboxDir = path.join(
+      sessionDir(agentGroupId, sessionId),
+      'inbox',
+      messageId,
+    );
 
     // Refuse to mkdir through a symlink that the container may have pre placed
     // at inboxDir. With recursive:true, mkdirSync would silently no op on a
@@ -319,7 +359,10 @@ function extractAttachmentFiles(
     }
     const inboxRoot = path.join(sessionDir(agentGroupId, sessionId), 'inbox');
     if (!isPathInside(fs.realpathSync(inboxRoot), realInboxDir)) {
-      log.warn('Inbox directory escaped session inbox root', { messageId, inboxDir });
+      log.warn('Inbox directory escaped session inbox root', {
+        messageId,
+        inboxDir,
+      });
       continue;
     }
 
@@ -328,14 +371,19 @@ function extractAttachmentFiles(
       // wx = exclusive create. Refuses to follow a pre existing symlink or
       // overwrite any existing file. The host expects to be the sole writer
       // of these attachments.
-      fs.writeFileSync(filePath, Buffer.from(att.data as string, 'base64'), { flag: 'wx' });
+      fs.writeFileSync(filePath, Buffer.from(att.data as string, 'base64'), {
+        flag: 'wx',
+      });
     } catch (err: unknown) {
       const e = err as NodeJS.ErrnoException;
       if (e.code === 'EEXIST') {
-        log.warn('Inbox attachment target already exists, refusing to overwrite', {
-          messageId,
-          filename,
-        });
+        log.warn(
+          'Inbox attachment target already exists, refusing to overwrite',
+          {
+            messageId,
+            filename,
+          },
+        );
         continue;
       }
       throw err;
@@ -345,26 +393,39 @@ function extractAttachmentFiles(
     att.localPath = `inbox/${messageId}/${filename}`;
     delete att.data;
     changed = true;
-    log.debug('Saved attachment to inbox', { messageId, filename, size: att.size });
+    log.debug('Saved attachment to inbox', {
+      messageId,
+      filename,
+      size: att.size,
+    });
   }
 
   return changed ? JSON.stringify(parsed) : contentStr;
 }
 
 /** Open the inbound DB for a session (host reads/writes). */
-export function openInboundDb(agentGroupId: string, sessionId: string): Database.Database {
+export function openInboundDb(
+  agentGroupId: string,
+  sessionId: string,
+): Database.Database {
   const db = openInboundDbRaw(inboundDbPath(agentGroupId, sessionId));
   migrateMessagesInTable(db);
   return db;
 }
 
 /** Open the outbound DB for a session (host reads only). */
-export function openOutboundDb(agentGroupId: string, sessionId: string): Database.Database {
+export function openOutboundDb(
+  agentGroupId: string,
+  sessionId: string,
+): Database.Database {
   return openOutboundDbRaw(outboundDbPath(agentGroupId, sessionId));
 }
 
 /** Open the outbound DB for a session with write access. Only safe to call when no container is running. */
-export function openOutboundDbRw(agentGroupId: string, sessionId: string): Database.Database {
+export function openOutboundDbRw(
+  agentGroupId: string,
+  sessionId: string,
+): Database.Database {
   return openOutboundDbRwRaw(outboundDbPath(agentGroupId, sessionId));
 }
 
@@ -390,7 +451,14 @@ export function writeOutboundDirect(
     db.prepare(
       `INSERT OR IGNORE INTO messages_out (id, seq, timestamp, kind, platform_id, channel_type, thread_id, content)
        VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 2 FROM messages_out), datetime('now'), ?, ?, ?, ?, ?)`,
-    ).run(message.id, message.kind, message.platformId, message.channelType, message.threadId, message.content);
+    ).run(
+      message.id,
+      message.kind,
+      message.platformId,
+      message.channelType,
+      message.threadId,
+      message.content,
+    );
   } finally {
     db.close();
   }
@@ -399,7 +467,10 @@ export function writeOutboundDirect(
 /**
  * @deprecated Use openInboundDb / openOutboundDb instead.
  */
-export function openSessionDb(agentGroupId: string, sessionId: string): Database.Database {
+export function openSessionDb(
+  agentGroupId: string,
+  sessionId: string,
+): Database.Database {
   return openInboundDb(agentGroupId, sessionId);
 }
 
@@ -446,7 +517,11 @@ export function readOutboxFiles(
     return undefined;
   }
 
-  const outboxDir = path.join(sessionDir(agentGroupId, sessionId), 'outbox', messageId);
+  const outboxDir = path.join(
+    sessionDir(agentGroupId, sessionId),
+    'outbox',
+    messageId,
+  );
   if (!fs.existsSync(outboxDir)) return undefined;
 
   let realOutboxDir: string;
@@ -465,7 +540,10 @@ export function readOutboxFiles(
   const files: OutboundFile[] = [];
   for (const filename of filenames) {
     if (!isSafeAttachmentName(filename)) {
-      log.warn('Refused unsafe outbox filename, would escape outbox', { messageId, filename });
+      log.warn('Refused unsafe outbox filename, would escape outbox', {
+        messageId,
+        filename,
+      });
       continue;
     }
 
@@ -478,7 +556,10 @@ export function readOutboxFiles(
       }
       const realFilePath = fs.realpathSync(filePath);
       if (!isPathInside(realOutboxDir, realFilePath)) {
-        log.warn('Rejecting outbox file outside message directory', { messageId, filename });
+        log.warn('Rejecting outbox file outside message directory', {
+          messageId,
+          filename,
+        });
         continue;
       }
       files.push({ filename, data: fs.readFileSync(realFilePath) });
@@ -495,35 +576,57 @@ export function readOutboxFiles(
  * delivery caller — the message is already on the user's screen, and a
  * thrown error would trigger the delivery retry path and deliver twice.
  */
-export function clearOutbox(agentGroupId: string, sessionId: string, messageId: string): void {
+export function clearOutbox(
+  agentGroupId: string,
+  sessionId: string,
+  messageId: string,
+): void {
   if (!isSafeAttachmentName(messageId)) {
     log.warn('Rejecting unsafe outbox cleanup message id', { messageId });
     return;
   }
 
-  const outboxDir = path.join(sessionDir(agentGroupId, sessionId), 'outbox', messageId);
+  const outboxDir = path.join(
+    sessionDir(agentGroupId, sessionId),
+    'outbox',
+    messageId,
+  );
   if (!fs.existsSync(outboxDir)) return;
   try {
     const stat = fs.lstatSync(outboxDir);
     if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      log.warn('Rejecting unsafe outbox cleanup directory', { messageId, outboxDir });
+      log.warn('Rejecting unsafe outbox cleanup directory', {
+        messageId,
+        outboxDir,
+      });
       return;
     }
-    const realOutboxBase = fs.realpathSync(path.join(sessionDir(agentGroupId, sessionId), 'outbox'));
+    const realOutboxBase = fs.realpathSync(
+      path.join(sessionDir(agentGroupId, sessionId), 'outbox'),
+    );
     const realOutboxDir = fs.realpathSync(outboxDir);
     if (!isPathInside(realOutboxBase, realOutboxDir)) {
-      log.warn('Rejecting outbox cleanup outside session outbox', { messageId, outboxDir });
+      log.warn('Rejecting outbox cleanup outside session outbox', {
+        messageId,
+        outboxDir,
+      });
       return;
     }
     fs.rmSync(realOutboxDir, { recursive: true, force: true });
   } catch (err) {
-    log.warn('Outbox cleanup failed (message already delivered)', { messageId, err });
+    log.warn('Outbox cleanup failed (message already delivered)', {
+      messageId,
+      err,
+    });
   }
 }
 
 /** Mark a container as running for a session. */
 export function markContainerRunning(sessionId: string): void {
-  updateSession(sessionId, { container_status: 'running', last_active: new Date().toISOString() });
+  updateSession(sessionId, {
+    container_status: 'running',
+    last_active: new Date().toISOString(),
+  });
 }
 
 /** Mark a container as idle for a session. */

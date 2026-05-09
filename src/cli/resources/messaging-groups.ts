@@ -32,7 +32,8 @@ registerResource({
     {
       name: 'is_group',
       type: 'number',
-      description: 'Multi-user group chat (1) or direct message (0). Affects session scoping.',
+      description:
+        'Multi-user group chat (1) or direct message (0). Affects session scoping.',
       default: 0,
       updatable: true,
     },
@@ -52,7 +53,18 @@ registerResource({
         'Set when the owner explicitly denies registering this channel. While set, the router drops all messages silently without re-escalating. Cleared by any explicit wiring mutation.',
       updatable: true,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval', delete: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+    delete: 'approval',
+  },
 });

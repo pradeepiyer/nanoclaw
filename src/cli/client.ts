@@ -130,6 +130,8 @@ function formatTransportError(e: unknown): string {
 }
 
 main().catch((err) => {
-  process.stderr.write(`ncl: unexpected error: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.stderr.write(
+    `ncl: unexpected error: ${err instanceof Error ? err.message : String(err)}\n`,
+  );
   process.exit(2);
 });
