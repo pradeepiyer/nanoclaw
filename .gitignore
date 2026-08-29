@@ -40,6 +40,9 @@ groups/sanskrit/*
 groups/jobsearch/*
 !groups/jobsearch/CLAUDE.md
 !groups/jobsearch/trusted-boards.json
+!groups/tesla/
+groups/tesla/*
+!groups/tesla/CLAUDE.md
 
 # Secrets
 *.keys.json
