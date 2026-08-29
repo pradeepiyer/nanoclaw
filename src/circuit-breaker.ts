@@ -40,7 +40,9 @@ export function resetCircuitBreaker(): void {
   try {
     fs.unlinkSync(CB_PATH);
     log.info('Circuit breaker reset on clean shutdown');
-  } catch {}
+  } catch {
+    // Missing/stale breaker state is already the reset state.
+  }
 }
 
 export async function enforceStartupBackoff(): Promise<void> {
@@ -79,8 +81,6 @@ export async function enforceStartupBackoff(): Promise<void> {
       resumeAt,
     });
     await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
-    log.info('Circuit breaker: backoff complete, resuming startup', {
-      attempt,
-    });
+    log.info('Circuit breaker: backoff complete, resuming startup', { attempt });
   }
 }

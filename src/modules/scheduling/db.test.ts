@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { ensureSchema, openInboundDb } from '../../db/session-db.js';
+import { ensureSchema, openInboundDb } from '../../mailbox/sqlite/session-db.js';
 import {
   insertTask,
   insertRecurrence,

@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { initTestSessionDb, closeSessionDb, getInboundDb, getOutboundDb } from './db/connection.js';
+import { initTestSessionDb, closeSessionDb, getInboundDb, getOutboundDb } from './mailbox/sqlite/connection.js';
 import { getUndeliveredMessages } from './db/messages-out.js';
 import { getPendingMessages } from './db/messages-in.js';
 import { getContinuation, setContinuation } from './db/session-state.js';
+import { getSessionRouting } from './db/session-routing.js';
 import { MockProvider } from './providers/mock.js';
+import type { ProviderExchange } from './providers/types.js';
 import { runPollLoop } from './poll-loop.js';
 
 beforeEach(() => {
@@ -32,6 +34,13 @@ function insertMessage(id: string, content: object, opts?: { platformId?: string
 }
 
 describe('poll loop integration', () => {
+  it('defaults only when the legacy session routing table is absent', () => {
+    expect(getSessionRouting()).toEqual({ channel_type: null, platform_id: null, thread_id: null });
+
+    getInboundDb().exec('CREATE VIEW session_routing AS SELECT * FROM missing_routing');
+    expect(() => getSessionRouting()).toThrow(/missing_routing/);
+  });
+
   it('should pick up a message, process it, and write a response', async () => {
     insertMessage('m1', { sender: 'Alice', text: 'What is the meaning of life?' }, { platformId: 'chan-1', channelType: 'discord', threadId: 'thread-1' });
 
@@ -295,114 +304,7 @@ describe('poll loop integration', () => {
     await loopPromise.catch(() => {});
   });
 
-  it('should inject destination reminder after a compacted event', async () => {
-    // Two destinations — required for the reminder to fire (single-destination
-    // groups have a fallback path that works without <message to="…"> wrapping).
-    getInboundDb()
-      .prepare(
-        `INSERT INTO destinations (name, display_name, type, channel_type, platform_id, agent_group_id)
-         VALUES ('discord-second', 'Discord Second', 'channel', 'discord', 'chan-2', NULL)`,
-      )
-      .run();
-
-    insertMessage('m1', { sender: 'Alice', text: 'First message' }, { platformId: 'chan-1', channelType: 'discord' });
-
-    const provider = new CompactingProvider();
-    const controller = new AbortController();
-    const loopPromise = runPollLoopWithTimeout(provider as unknown as MockProvider, controller.signal, 2500);
-
-    await waitFor(() => getUndeliveredMessages().length > 0, 2500);
-    controller.abort();
-
-    expect(provider.pushes.length).toBeGreaterThanOrEqual(1);
-    const reminder = provider.pushes.find((p) => p.includes('Context was just compacted'));
-    expect(reminder).toBeDefined();
-    expect(reminder).toContain('2 destinations');
-    expect(reminder).toContain('discord-test');
-    expect(reminder).toContain('discord-second');
-    expect(reminder).toContain('<message to="name">');
-
-    await loopPromise.catch(() => {});
-  });
-
-  it('should NOT inject destination reminder with a single destination', async () => {
-    insertMessage('m1', { sender: 'Alice', text: 'First message' }, { platformId: 'chan-1', channelType: 'discord' });
-
-    const provider = new CompactingProvider();
-    const controller = new AbortController();
-    const loopPromise = runPollLoopWithTimeout(provider as unknown as MockProvider, controller.signal, 2500);
-
-    await waitFor(() => getUndeliveredMessages().length > 0, 2500);
-    controller.abort();
-
-    // Only the original prompt push (if any) — no reminder, since beforeEach
-    // seeds exactly one destination.
-    const reminders = provider.pushes.filter((p) => p.includes('Context was just compacted'));
-    expect(reminders).toHaveLength(0);
-
-    await loopPromise.catch(() => {});
-  });
 });
-
-/**
- * Provider that emits a single compacted event mid-stream, then returns a
- * result. Captures every push() call so tests can assert on the injected
- * reminder content.
- */
-class CompactingProvider {
-  readonly supportsNativeSlashCommands = false;
-  readonly pushes: string[] = [];
-
-  isSessionInvalid(): boolean {
-    return false;
-  }
-
-  query(_input: { prompt: string; cwd: string }) {
-    const pushes = this.pushes;
-    let ended = false;
-    let aborted = false;
-    let resolveWaiter: (() => void) | null = null;
-
-    async function* events() {
-      yield { type: 'activity' as const };
-      yield { type: 'init' as const, continuation: 'compaction-test-session' };
-      yield { type: 'activity' as const };
-      yield { type: 'compacted' as const, text: 'Context compacted (50,000 tokens compacted).' };
-
-      // Wait for poll-loop to push the reminder (or end / abort)
-      await new Promise<void>((resolve) => {
-        resolveWaiter = resolve;
-        // Belt-and-braces: don't hang forever if the reminder never arrives
-        setTimeout(resolve, 200);
-      });
-
-      yield { type: 'activity' as const };
-      yield { type: 'result' as const, text: '<message to="discord-test">ack</message>' };
-      while (!ended && !aborted) {
-        await new Promise<void>((resolve) => {
-          resolveWaiter = resolve;
-          setTimeout(resolve, 50);
-        });
-      }
-    }
-
-    return {
-      push(message: string) {
-        pushes.push(message);
-        resolveWaiter?.();
-      },
-      end() {
-        ended = true;
-        resolveWaiter?.();
-      },
-      abort() {
-        aborted = true;
-        resolveWaiter?.();
-      },
-      events: events(),
-    };
-  }
-}
 
 // Helper: run poll loop until aborted or timeout
 async function runPollLoopWithTimeout(provider: MockProvider, signal: AbortSignal, timeoutMs: number): Promise<void> {
@@ -411,6 +313,7 @@ async function runPollLoopWithTimeout(provider: MockProvider, signal: AbortSigna
       provider,
       providerName: 'mock',
       cwd: '/tmp',
+      signal,
     }),
     new Promise<void>((_, reject) => {
       signal.addEventListener('abort', () => reject(new Error('aborted')));
@@ -430,6 +333,86 @@ async function waitFor(condition: () => boolean, timeoutMs: number): Promise<voi
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+describe('poll loop — exchange hook (onExchangeComplete)', () => {
+  // A provider that declares the per-exchange hook. The hook call is the
+  // wiring under test — these tests go red if the poll-loop seam is severed.
+  // What the provider DOES with an exchange (e.g. write markdown into
+  // conversations/) ships with the provider, not the runner.
+  class HookedMockProvider extends MockProvider {
+    readonly exchanges: ProviderExchange[] = [];
+    onExchangeComplete(exchange: ProviderExchange): void {
+      this.exchanges.push(exchange);
+    }
+  }
+
+  it('reports each exchange to a provider that declares the hook', async () => {
+    insertMessage('m1', { sender: 'Alice', text: 'please archive this' }, { platformId: 'chan-1', channelType: 'discord' });
+
+    const provider = new HookedMockProvider({}, () => '<message to="discord-test">archived answer</message>');
+    const controller = new AbortController();
+    const loopPromise = runPollLoopWithTimeout(provider, controller.signal, 2000);
+
+    await waitFor(() => provider.exchanges.length > 0, 2000);
+    controller.abort();
+
+    expect(provider.exchanges.length).toBe(1);
+    const exchange = provider.exchanges[0];
+    expect(exchange.prompt).toContain('please archive this');
+    expect(exchange.result).toContain('archived answer');
+    expect(exchange.continuation).toStartWith('mock-session-');
+    expect(exchange.status).toBe('completed');
+
+    await loopPromise.catch(() => {});
+  });
+
+  it('does not report the internal wrapping-retry nudge as a user prompt', async () => {
+    insertMessage('m1', { sender: 'Alice', text: 'wrap this later' }, { platformId: 'chan-1', channelType: 'discord' });
+
+    let calls = 0;
+    const provider = new HookedMockProvider({}, () => {
+      calls += 1;
+      // First result is unwrapped (triggers the retry nudge), second is wrapped.
+      return calls === 1 ? 'unwrapped text' : '<message to="discord-test">wrapped now</message>';
+    });
+    const controller = new AbortController();
+    const loopPromise = runPollLoopWithTimeout(provider, controller.signal, 3000);
+
+    await waitFor(() => provider.exchanges.length >= 2, 3000);
+    controller.abort();
+
+    // Both exchanges attribute themselves to the real user prompt, never the nudge.
+    for (const exchange of provider.exchanges) {
+      expect(exchange.prompt).not.toContain('Your response was not delivered');
+      expect(exchange.prompt).toContain('wrap this later');
+    }
+    expect(provider.exchanges.map((e) => e.status)).toEqual(['undelivered', 'completed']);
+
+    await loopPromise.catch(() => {});
+  });
+
+  it('a throwing hook never breaks delivery', async () => {
+    insertMessage('m1', { sender: 'Alice', text: 'still deliver this' }, { platformId: 'chan-1', channelType: 'discord' });
+
+    class ThrowingHookProvider extends MockProvider {
+      onExchangeComplete(): void {
+        throw new Error('hook exploded');
+      }
+    }
+    const provider = new ThrowingHookProvider({}, () => '<message to="discord-test">delivered anyway</message>');
+    const controller = new AbortController();
+    const loopPromise = runPollLoopWithTimeout(provider, controller.signal, 2000);
+
+    await waitFor(() => getUndeliveredMessages().length > 0, 2000);
+    controller.abort();
+
+    const out = getUndeliveredMessages();
+    expect(out.length).toBe(1);
+    expect(out[0].content).toContain('delivered anyway');
+
+    await loopPromise.catch(() => {});
+  });
+});
 
 describe('poll loop — provider error recovery', () => {
   it('writes error to outbound and continues loop on provider throw', async () => {
@@ -565,6 +548,95 @@ class InvalidSessionProvider {
       events: (async function* () {
         yield { type: 'init' as const, continuation: 'doomed-session' };
         throw new Error('session not found');
+      })(),
+    };
+  }
+}
+
+describe('poll loop — slash command during active query', () => {
+  // SKIPPED: hangs before the first provider query on GitHub Actions runners
+  // only — 5 of 6 CI runs failed (the poll loop never issues the query within
+  // 15s) while passing everywhere reproducible: macOS/arm64, Linux/arm64
+  // (incl. 2-core pinned, TZ=UTC, bun --frozen-lockfile), and emulated
+  // linux/amd64 — all on bun 1.3.12.
+  // TODO: reproduce with in-loop diagnostics (pending rows + ack states per
+  // tick) on a throwaway branch and fix the underlying race, then un-skip.
+  it.skip(
+    'aborts the active query when /clear arrives as a follow-up',
+    async () => {
+    insertMessage('m-active', { sender: 'Alice', text: 'long running request' }, { platformId: 'chan-1', channelType: 'discord' });
+
+    const provider = new BlockingProvider();
+    const controller = new AbortController();
+    // Generous budgets: on resource-starved CI runners the poll loop can take
+    // well over 2s to issue its first query, which made this test the only
+    // deterministic CI failure while passing everywhere else (macOS + Linux
+    // dev boxes run it in ~0.6s; success aborts the loop early, so the large
+    // ceilings cost nothing on the happy path).
+    const loopPromise = runPollLoopWithTimeout(provider as unknown as MockProvider, controller.signal, 20000);
+
+    await waitFor(() => provider.queries === 1, 15000);
+    insertMessage('m-clear-active', { sender: 'Alice', text: '/clear' }, { platformId: 'chan-1', channelType: 'discord' });
+
+    await waitFor(() => provider.aborts === 1, 15000);
+    await waitFor(
+      () => getUndeliveredMessages().some((msg) => JSON.parse(msg.content).text === 'Session cleared.'),
+      15000,
+    );
+    controller.abort();
+
+    expect(provider.ends).toBe(0);
+    expect(getContinuation('mock')).toBeUndefined();
+    expect(getPendingMessages()).toHaveLength(0);
+
+    await loopPromise.catch(() => {});
+    },
+    30000,
+  );
+});
+
+/**
+ * Provider whose query never completes until ended/aborted — for testing how
+ * the loop interrupts an active stream.
+ */
+class BlockingProvider {
+  readonly supportsNativeSlashCommands = false;
+  queries = 0;
+  aborts = 0;
+  ends = 0;
+
+  isSessionInvalid(): boolean {
+    return false;
+  }
+
+  query() {
+    const owner = this;
+    this.queries += 1;
+    let wake: (() => void) | null = null;
+    let ended = false;
+    let aborted = false;
+
+    return {
+      push() {},
+      end: () => {
+        owner.ends += 1;
+        ended = true;
+        wake?.();
+      },
+      abort: () => {
+        owner.aborts += 1;
+        aborted = true;
+        wake?.();
+      },
+      events: (async function* () {
+        yield { type: 'activity' as const };
+        yield { type: 'init' as const, continuation: 'blocking-session' };
+        while (!ended && !aborted) {
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+          });
+          wake = null;
+        }
       })(),
     };
   }

@@ -18,7 +18,8 @@ import fs from 'fs';
 import path from 'path';
 
 import { GROUPS_DIR } from './config.js';
-import { readContainerConfig } from './container-config.js';
+import type { McpServerConfig } from './container-config.js';
+import { materializeContainerJson } from './container-config.js';
 import { log } from './log.js';
 import type { AgentGroup } from './types.js';
 
@@ -45,7 +46,7 @@ const COMPOSED_HEADER =
  * fragments, and MCP server fragments declared in `container.json`. Creates
  * an empty `CLAUDE.local.md` if missing.
  */
-export function composeGroupClaudeMd(group: AgentGroup): void {
+export async function composeGroupClaudeMd(group: AgentGroup): Promise<void> {
   const groupDir = path.resolve(GROUPS_DIR, group.folder);
   if (!fs.existsSync(groupDir)) {
     fs.mkdirSync(groupDir, { recursive: true });
@@ -60,7 +61,7 @@ export function composeGroupClaudeMd(group: AgentGroup): void {
   }
 
   // Desired fragment set.
-  const config = readContainerConfig(group.folder);
+  const config = await materializeContainerJson(group.id);
   const desired = new Map<
     string,
     { type: 'symlink' | 'inline'; content: string }
@@ -104,8 +105,8 @@ export function composeGroupClaudeMd(group: AgentGroup): void {
 
   // MCP server fragments — inline instructions from container.json for
   // user-added external MCP servers.
-  for (const [name, mcp] of Object.entries(config.mcpServers)) {
-    if (mcp.instructions) {
+  for (const [name, mcp] of Object.entries(config.mcpServers) as [string, McpServerConfig][]) {
+    if ('instructions' in mcp && mcp.instructions) {
       desired.set(`mcp-${name}.md`, {
         type: 'inline',
         content: mcp.instructions,

@@ -6,24 +6,17 @@
  * before initDb, so it has to create the dir itself).
  */
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // vi.mock factories are hoisted above imports, so they can't close over local
 // consts. vi.hoisted is hoisted alongside the mock and runs before any
-// `import` — so it can only use globals (no path/os modules). Use require()
-// inside the callback to compute the test dir.
-const { TEST_DIR } = vi.hoisted(() => {
-  const nodePath = require('path') as typeof import('path');
-  const nodeOs = require('os') as typeof import('os');
-  return { TEST_DIR: nodePath.join(nodeOs.tmpdir(), 'nanoclaw-cb-test') };
-});
+// `import` — so it can only use globals (no path/os modules).
+const { TEST_DIR } = vi.hoisted(() => ({ TEST_DIR: '/tmp/nanoclaw-cb-test' }));
 const CB_PATH = path.join(TEST_DIR, 'circuit-breaker.json');
 
 vi.mock('./config.js', async () => {
-  const actual =
-    await vi.importActual<typeof import('./config.js')>('./config.js');
+  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
   return { ...actual, DATA_DIR: TEST_DIR };
 });
 
@@ -37,19 +30,13 @@ vi.mock('./log.js', () => ({
   },
 }));
 
-import {
-  enforceStartupBackoff,
-  resetCircuitBreaker,
-} from './circuit-breaker.js';
+import { enforceStartupBackoff, resetCircuitBreaker } from './circuit-breaker.js';
 
 function readState(): { attempt: number; timestamp: string } {
   return JSON.parse(fs.readFileSync(CB_PATH, 'utf-8'));
 }
 
-function seedState(
-  attempt: number,
-  timestamp = new Date().toISOString(),
-): void {
+function seedState(attempt: number, timestamp = new Date().toISOString()): void {
   fs.writeFileSync(CB_PATH, JSON.stringify({ attempt, timestamp }));
 }
 
@@ -106,9 +93,7 @@ describe('enforceStartupBackoff — state transitions', () => {
   it('exactly at the reset window boundary still counts as "within"', async () => {
     // RESET_WINDOW_MS = 60min. Use 59min59s to stay inside even if the test
     // takes a few ms to execute.
-    const justInside = new Date(
-      Date.now() - (60 * 60 * 1000 - 1000),
-    ).toISOString();
+    const justInside = new Date(Date.now() - (60 * 60 * 1000 - 1000)).toISOString();
     seedState(2, justInside);
     vi.useFakeTimers();
     const promise = enforceStartupBackoff();
@@ -154,43 +139,15 @@ describe('enforceStartupBackoff — backoff schedule', () => {
    * we spy on global.setTimeout and look at the longest call. runAllTimersAsync
    * lets the function complete so we can move on.
    */
-  const cases: Array<{
-    label: string;
-    priorAttempt: number | null;
-    expectedDelaySec: number;
-  }> = [
-    {
-      label: 'clean first start (no file)',
-      priorAttempt: null,
-      expectedDelaySec: 0,
-    },
+  const cases: Array<{ label: string; priorAttempt: number | null; expectedDelaySec: number }> = [
+    { label: 'clean first start (no file)', priorAttempt: null, expectedDelaySec: 0 },
     { label: 'first crash (attempt=2)', priorAttempt: 1, expectedDelaySec: 0 },
-    {
-      label: 'second crash (attempt=3)',
-      priorAttempt: 2,
-      expectedDelaySec: 10,
-    },
+    { label: 'second crash (attempt=3)', priorAttempt: 2, expectedDelaySec: 10 },
     { label: 'third crash (attempt=4)', priorAttempt: 3, expectedDelaySec: 30 },
-    {
-      label: 'fourth crash (attempt=5)',
-      priorAttempt: 4,
-      expectedDelaySec: 120,
-    },
-    {
-      label: 'fifth crash (attempt=6)',
-      priorAttempt: 5,
-      expectedDelaySec: 300,
-    },
-    {
-      label: 'sixth crash (attempt=7) — cap',
-      priorAttempt: 6,
-      expectedDelaySec: 900,
-    },
-    {
-      label: 'far past cap (attempt=20)',
-      priorAttempt: 19,
-      expectedDelaySec: 900,
-    },
+    { label: 'fourth crash (attempt=5)', priorAttempt: 4, expectedDelaySec: 120 },
+    { label: 'fifth crash (attempt=6)', priorAttempt: 5, expectedDelaySec: 300 },
+    { label: 'sixth crash (attempt=7) — cap', priorAttempt: 6, expectedDelaySec: 900 },
+    { label: 'far past cap (attempt=20)', priorAttempt: 19, expectedDelaySec: 900 },
   ];
 
   for (const { label, priorAttempt, expectedDelaySec } of cases) {
@@ -208,9 +165,7 @@ describe('enforceStartupBackoff — backoff schedule', () => {
       // the longest delay it requested (vitest may queue small internal
       // timers we don't care about).
       const requestedDelays = setTimeoutSpy.mock.calls.map((c) => c[1] ?? 0);
-      const maxDelayMs = requestedDelays.length
-        ? Math.max(...requestedDelays)
-        : 0;
+      const maxDelayMs = requestedDelays.length ? Math.max(...requestedDelays) : 0;
 
       expect(maxDelayMs).toBe(expectedDelaySec * 1000);
     });

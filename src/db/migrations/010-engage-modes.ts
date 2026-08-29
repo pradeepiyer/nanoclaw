@@ -43,10 +43,7 @@ function backfill(row: LegacyRow): {
     }
   }
 
-  const pattern =
-    typeof parsed.pattern === 'string' && parsed.pattern.length > 0
-      ? (parsed.pattern as string)
-      : null;
+  const pattern = typeof parsed.pattern === 'string' && parsed.pattern.length > 0 ? (parsed.pattern as string) : null;
   const requiresTrigger = parsed.requiresTrigger;
 
   let engage_mode: 'pattern' | 'mention' | 'mention-sticky' = 'mention';
@@ -59,20 +56,15 @@ function backfill(row: LegacyRow): {
     engage_pattern = '.';
   }
 
-  const sender_scope: 'all' | 'known' =
-    row.response_scope === 'allowlisted' ? 'known' : 'all';
+  const sender_scope: 'all' | 'known' = row.response_scope === 'allowlisted' ? 'known' : 'all';
 
-  return {
-    engage_mode,
-    engage_pattern,
-    sender_scope,
-    ignored_message_policy: 'drop',
-  };
+  return { engage_mode, engage_pattern, sender_scope, ignored_message_policy: 'drop' };
 }
 
 export const migration010: Migration = {
   version: 10,
   name: 'engage-modes',
+  sqliteOnly: true,
   up: (db: Database.Database) => {
     // Add the four new columns alongside the existing two. SQLite ALTER ADD
     // is cheap and non-rewriting.
@@ -85,9 +77,7 @@ export const migration010: Migration = {
 
     // Backfill existing rows in JS (parsing JSON per-row is painful in pure SQL).
     const rows = db
-      .prepare(
-        'SELECT id, trigger_rules, response_scope FROM messaging_group_agents',
-      )
+      .prepare('SELECT id, trigger_rules, response_scope FROM messaging_group_agents')
       .all() as LegacyRow[];
     const update = db.prepare(
       `UPDATE messaging_group_agents
@@ -99,13 +89,7 @@ export const migration010: Migration = {
     );
     for (const row of rows) {
       const v = backfill(row);
-      update.run(
-        v.engage_mode,
-        v.engage_pattern,
-        v.sender_scope,
-        v.ignored_message_policy,
-        row.id,
-      );
+      update.run(v.engage_mode, v.engage_pattern, v.sender_scope, v.ignored_message_policy, row.id);
     }
 
     // Drop the legacy columns. DROP COLUMN requires SQLite 3.35+ (2021); our

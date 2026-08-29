@@ -19,6 +19,7 @@
  * module piggybacks on the core schema.
  */
 import { registerDeliveryAction } from '../../delivery.js';
+import { unguarded } from '../../guard/index.js';
 import {
   handleCancelTask,
   handlePauseTask,
@@ -27,8 +28,10 @@ import {
   handleUpdateTask,
 } from './actions.js';
 
-registerDeliveryAction('schedule_task', handleScheduleTask);
-registerDeliveryAction('cancel_task', handleCancelTask);
-registerDeliveryAction('pause_task', handlePauseTask);
-registerDeliveryAction('resume_task', handleResumeTask);
-registerDeliveryAction('update_task', handleUpdateTask);
+const SCHEDULING_UNGUARDED = unguarded('scheduling: container-initiated task mutations via system message');
+
+registerDeliveryAction('schedule_task', handleScheduleTask, SCHEDULING_UNGUARDED);
+registerDeliveryAction('cancel_task', handleCancelTask, SCHEDULING_UNGUARDED);
+registerDeliveryAction('pause_task', handlePauseTask, SCHEDULING_UNGUARDED);
+registerDeliveryAction('resume_task', handleResumeTask, SCHEDULING_UNGUARDED);
+registerDeliveryAction('update_task', handleUpdateTask, SCHEDULING_UNGUARDED);

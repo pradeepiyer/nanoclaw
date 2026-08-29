@@ -31,68 +31,41 @@ describe('extForMime', () => {
 
 describe('deriveAttachmentName', () => {
   it('returns explicit name when set, no derivation', () => {
-    expect(
-      deriveAttachmentName({ name: 'photo.jpg', mimeType: 'application/pdf' }),
-    ).toBe('photo.jpg');
+    expect(deriveAttachmentName({ name: 'photo.jpg', mimeType: 'application/pdf' })).toBe('photo.jpg');
   });
 
   it('ignores empty / non-string explicit name and falls through to derivation', () => {
     const out = deriveAttachmentName({ name: '', mimeType: 'application/pdf' });
     expect(out).toMatch(/^attachment-\d+\.pdf$/);
 
-    const out2 = deriveAttachmentName({
-      name: 42,
-      mimeType: 'application/pdf',
-    });
+    const out2 = deriveAttachmentName({ name: 42, mimeType: 'application/pdf' });
     expect(out2).toMatch(/^attachment-\d+\.pdf$/);
   });
 
   it('derives extension from mimeType when no name', () => {
-    expect(deriveAttachmentName({ mimeType: 'application/pdf' })).toMatch(
-      /^attachment-\d+\.pdf$/,
-    );
-    expect(deriveAttachmentName({ mimeType: 'image/jpeg' })).toMatch(
-      /^attachment-\d+\.jpg$/,
-    );
+    expect(deriveAttachmentName({ mimeType: 'application/pdf' })).toMatch(/^attachment-\d+\.pdf$/);
+    expect(deriveAttachmentName({ mimeType: 'image/jpeg' })).toMatch(/^attachment-\d+\.jpg$/);
   });
 
   it('falls back to att.type when mimeType is missing (Telegram photos/stickers)', () => {
-    expect(deriveAttachmentName({ type: 'photo' })).toMatch(
-      /^attachment-\d+\.jpg$/,
-    );
-    expect(deriveAttachmentName({ type: 'sticker' })).toMatch(
-      /^attachment-\d+\.webp$/,
-    );
-    expect(deriveAttachmentName({ type: 'voice' })).toMatch(
-      /^attachment-\d+\.ogg$/,
-    );
-    expect(deriveAttachmentName({ type: 'animation' })).toMatch(
-      /^attachment-\d+\.mp4$/,
-    );
+    expect(deriveAttachmentName({ type: 'photo' })).toMatch(/^attachment-\d+\.jpg$/);
+    expect(deriveAttachmentName({ type: 'sticker' })).toMatch(/^attachment-\d+\.webp$/);
+    expect(deriveAttachmentName({ type: 'voice' })).toMatch(/^attachment-\d+\.ogg$/);
+    expect(deriveAttachmentName({ type: 'animation' })).toMatch(/^attachment-\d+\.mp4$/);
   });
 
   it('case-insensitive att.type lookup', () => {
-    expect(deriveAttachmentName({ type: 'PHOTO' })).toMatch(
-      /^attachment-\d+\.jpg$/,
-    );
+    expect(deriveAttachmentName({ type: 'PHOTO' })).toMatch(/^attachment-\d+\.jpg$/);
   });
 
   it('returns bare timestamp when nothing matches', () => {
     expect(deriveAttachmentName({})).toMatch(/^attachment-\d+$/);
-    expect(
-      deriveAttachmentName({ mimeType: 'application/octet-stream' }),
-    ).toMatch(/^attachment-\d+$/);
-    expect(deriveAttachmentName({ type: 'mystery-class' })).toMatch(
-      /^attachment-\d+$/,
-    );
+    expect(deriveAttachmentName({ mimeType: 'application/octet-stream' })).toMatch(/^attachment-\d+$/);
+    expect(deriveAttachmentName({ type: 'mystery-class' })).toMatch(/^attachment-\d+$/);
   });
 
   it('does not crash on non-string mimeType (defensive against buggy bridges)', () => {
-    expect(() =>
-      deriveAttachmentName({ mimeType: { foo: 'bar' } }),
-    ).not.toThrow();
-    expect(deriveAttachmentName({ mimeType: { foo: 'bar' } })).toMatch(
-      /^attachment-\d+$/,
-    );
+    expect(() => deriveAttachmentName({ mimeType: { foo: 'bar' } })).not.toThrow();
+    expect(deriveAttachmentName({ mimeType: { foo: 'bar' } })).toMatch(/^attachment-\d+$/);
   });
 });

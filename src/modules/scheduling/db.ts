@@ -12,7 +12,7 @@
  */
 import type Database from 'better-sqlite3';
 
-import { nextEvenSeq } from '../../db/session-db.js';
+import { nextEvenSeq } from '../../mailbox/sqlite/session-db.js';
 
 export function insertTask(
   db: Database.Database,

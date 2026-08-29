@@ -18,16 +18,14 @@ import type { Migration } from './index.js';
 export const moduleApprovalsTitleOptions: Migration = {
   version: 7,
   name: 'pending-approvals-title-options',
+  sqliteOnly: true,
   up(db) {
     const addIfMissing = (col: string, sql: string): void => {
       try {
         db.exec(sql);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (
-          msg.includes('duplicate column') ||
-          msg.includes('already exists')
-        ) {
+        if (msg.includes('duplicate column') || msg.includes('already exists')) {
           // Fresh install — column already added by the current 003
           // definition. Nothing to do.
           return;
@@ -37,13 +35,7 @@ export const moduleApprovalsTitleOptions: Migration = {
       void col;
     };
 
-    addIfMissing(
-      'title',
-      `ALTER TABLE pending_approvals ADD COLUMN title TEXT NOT NULL DEFAULT ''`,
-    );
-    addIfMissing(
-      'options_json',
-      `ALTER TABLE pending_approvals ADD COLUMN options_json TEXT NOT NULL DEFAULT '[]'`,
-    );
+    addIfMissing('title', `ALTER TABLE pending_approvals ADD COLUMN title TEXT NOT NULL DEFAULT ''`);
+    addIfMissing('options_json', `ALTER TABLE pending_approvals ADD COLUMN options_json TEXT NOT NULL DEFAULT '[]'`);
   },
 };
