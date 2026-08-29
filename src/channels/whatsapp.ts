@@ -36,7 +36,12 @@ import {
   normalizeMessageContent,
   useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
-import type { GroupMetadata, WAMessageKey, WAMessage, WASocket } from '@whiskeysockets/baileys';
+import type {
+  GroupMetadata,
+  WAMessageKey,
+  WAMessage,
+  WASocket,
+} from '@whiskeysockets/baileys';
 
 import { isSafeAttachmentName } from '../attachment-safety.js';
 import { DATA_DIR } from '../config.js';
@@ -129,7 +134,10 @@ function splitProtectedRegions(text: string): TextSegment[] {
 
   while ((match = codeBlockRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ content: text.slice(lastIndex, match.index), isProtected: false });
+      segments.push({
+        content: text.slice(lastIndex, match.index),
+        isProtected: false,
+      });
     }
     segments.push({ content: match[0], isProtected: true });
     lastIndex = match.index + match[0].length;
@@ -146,7 +154,10 @@ function splitProtectedRegions(text: string): TextSegment[] {
 function transformForWhatsApp(text: string): string {
   // Order matters: italic before bold to avoid **bold** → *bold* → _bold_
   // 1. Italic: *text* (not **) → _text_
-  text = text.replace(/(?<!\*)\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?!\*)/g, '_$1_');
+  text = text.replace(
+    /(?<!\*)\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?!\*)/g,
+    '_$1_',
+  );
   // 2. Bold: **text** → *text*
   text = text.replace(/\*\*(?=[^\s*])([^*]+?)(?<=[^\s*])\*\*/g, '*$1*');
   // 3. Headings: ## Title → *Title*
@@ -166,12 +177,18 @@ function transformForWhatsApp(text: string): string {
 const MENTION_RE = /(^|[^\w@+])@\+?(\d{5,15})(?!\d)/g;
 
 /** Extract `@<digits>` mentions from text and normalize them. */
-export function parseWhatsAppMentions(text: string): { text: string; mentions: string[] } {
+export function parseWhatsAppMentions(text: string): {
+  text: string;
+  mentions: string[];
+} {
   const mentions = new Set<string>();
-  const out = text.replace(MENTION_RE, (_full, lead: string, digits: string) => {
-    mentions.add(`${digits}@s.whatsapp.net`);
-    return `${lead}@${digits}`;
-  });
+  const out = text.replace(
+    MENTION_RE,
+    (_full, lead: string, digits: string) => {
+      mentions.add(`${digits}@s.whatsapp.net`);
+      return `${lead}@${digits}`;
+    },
+  );
   return { text: out, mentions: [...mentions] };
 }
 
@@ -187,7 +204,8 @@ function formatWhatsApp(text: string): { text: string; mentions: string[] } {
     .map(({ content, isProtected }) => {
       if (isProtected) return content;
       const transformed = transformForWhatsApp(content);
-      const { text: withMentions, mentions: found } = parseWhatsAppMentions(transformed);
+      const { text: withMentions, mentions: found } =
+        parseWhatsAppMentions(transformed);
       for (const m of found) mentions.add(m);
       return withMentions;
     })
@@ -202,10 +220,18 @@ function formatWhatsApp(text: string): { text: string; mentions: string[] } {
  * `proto.IMessage` shape just to construct fixtures.
  */
 type MentionContextSource = {
-  extendedTextMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
-  imageMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
-  videoMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
-  documentMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
+  extendedTextMessage?: {
+    contextInfo?: { mentionedJid?: string[] | null } | null;
+  } | null;
+  imageMessage?: {
+    contextInfo?: { mentionedJid?: string[] | null } | null;
+  } | null;
+  videoMessage?: {
+    contextInfo?: { mentionedJid?: string[] | null } | null;
+  } | null;
+  documentMessage?: {
+    contextInfo?: { mentionedJid?: string[] | null } | null;
+  } | null;
 };
 
 /**
@@ -282,11 +308,20 @@ function escapeRegex(str: string): string {
  * and on dedicated mode: on a shared number the assistant's name in
  * text can be ordinary human conversation about the assistant.
  */
-export function isBotTypedMention(text: string, assistantName: string, botPhoneJid: string | undefined): boolean {
+export function isBotTypedMention(
+  text: string,
+  assistantName: string,
+  botPhoneJid: string | undefined,
+): boolean {
   const botPhoneUser = botPhoneJid?.split('@')[0];
   return [assistantName, botPhoneUser]
     .filter((name): name is string => !!name)
-    .some((name) => new RegExp(`(?<![\\p{L}\\p{N}_@/.])@${escapeRegex(name)}(?![\\p{L}\\p{N}_])`, 'iu').test(text));
+    .some((name) =>
+      new RegExp(
+        `(?<![\\p{L}\\p{N}_@/.])@${escapeRegex(name)}(?![\\p{L}\\p{N}_])`,
+        'iu',
+      ).test(text),
+    );
 }
 
 /**
@@ -305,7 +340,11 @@ export function isBotTypedMention(text: string, assistantName: string, botPhoneJ
  * `InboundMessage` field is `isMention?: boolean` and downstream code
  * treats `undefined` differently than an explicit `false` (#2560).
  */
-export function computeIsMention(shared: boolean, isGroup: boolean, botMentionedInGroup: boolean): true | undefined {
+export function computeIsMention(
+  shared: boolean,
+  isGroup: boolean,
+  botMentionedInGroup: boolean,
+): true | undefined {
   if (shared) return undefined;
   if (!isGroup) return true;
   return botMentionedInGroup ? true : undefined;
@@ -324,7 +363,8 @@ export function rewriteBotLidMention(
   botLidUser: string | undefined,
   assistantName: string,
 ): string {
-  if (shared || !botLidUser || !content.includes(`@${botLidUser}`)) return content;
+  if (shared || !botLidUser || !content.includes(`@${botLidUser}`))
+    return content;
   return content.replace(`@${botLidUser}`, `@${assistantName}`);
 }
 
@@ -334,7 +374,10 @@ export function rewriteBotLidMention(
  * message, when an uncaptioned image would otherwise be dropped by the
  * empty-message guard. Returns `content` unchanged when nothing failed.
  */
-export function appendMediaFailureNote(content: string, failures: string[]): string {
+export function appendMediaFailureNote(
+  content: string,
+  failures: string[],
+): string {
   if (failures.length === 0) return content;
   const note = failures.map((t) => `[${t} could not be downloaded]`).join(' ');
   return content ? `${content}\n${note}` : note;
@@ -342,22 +385,39 @@ export function appendMediaFailureNote(content: string, failures: string[]): str
 
 /** Map file extension to Baileys media message type. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildMediaMessage(data: Buffer, filename: string, ext: string, caption?: string): any {
+function buildMediaMessage(
+  data: Buffer,
+  filename: string,
+  ext: string,
+  caption?: string,
+): any {
   const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
   const videoExts = ['.mp4', '.mov', '.avi', '.mkv'];
   const audioExts = ['.mp3', '.ogg', '.m4a', '.wav', '.aac', '.opus'];
 
   if (imageExts.includes(ext)) {
-    return { image: data, caption, mimetype: `image/${ext.slice(1) === 'jpg' ? 'jpeg' : ext.slice(1)}` };
+    return {
+      image: data,
+      caption,
+      mimetype: `image/${ext.slice(1) === 'jpg' ? 'jpeg' : ext.slice(1)}`,
+    };
   }
   if (videoExts.includes(ext)) {
     return { video: data, caption, mimetype: `video/${ext.slice(1)}` };
   }
   if (audioExts.includes(ext)) {
-    return { audio: data, mimetype: `audio/${ext.slice(1) === 'mp3' ? 'mpeg' : ext.slice(1)}` };
+    return {
+      audio: data,
+      mimetype: `audio/${ext.slice(1) === 'mp3' ? 'mpeg' : ext.slice(1)}`,
+    };
   }
   // Default: send as document
-  return { document: data, fileName: filename, caption, mimetype: 'application/octet-stream' };
+  return {
+    document: data,
+    fileName: filename,
+    caption,
+    mimetype: 'application/octet-stream',
+  };
 }
 
 /**
@@ -366,7 +426,9 @@ function buildMediaMessage(data: Buffer, filename: string, ext: string, caption?
  * 'false', any other string — means the bot rides the operator's personal
  * number (shared). Exported for unit testing the truth table.
  */
-export function resolveSharedMode(assistantHasOwnNumber: string | undefined): boolean {
+export function resolveSharedMode(
+  assistantHasOwnNumber: string | undefined,
+): boolean {
   return assistantHasOwnNumber !== 'true';
 }
 
@@ -386,13 +448,32 @@ export function resolveSharedMode(assistantHasOwnNumber: string | undefined): bo
 export function computeWhatsappDefaults(shared: boolean): ChannelDefaults {
   return shared
     ? {
-        dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'strict' },
-        group: { engageMode: 'pattern', engagePattern: '\\b{name}\\b', threads: false, unknownSenderPolicy: 'strict' },
+        dm: {
+          engageMode: 'pattern',
+          engagePattern: '.',
+          threads: false,
+          unknownSenderPolicy: 'strict',
+        },
+        group: {
+          engageMode: 'pattern',
+          engagePattern: '\\b{name}\\b',
+          threads: false,
+          unknownSenderPolicy: 'strict',
+        },
         mentions: 'never',
       }
     : {
-        dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'request_approval' },
-        group: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'request_approval' },
+        dm: {
+          engageMode: 'pattern',
+          engagePattern: '.',
+          threads: false,
+          unknownSenderPolicy: 'request_approval',
+        },
+        group: {
+          engageMode: 'mention',
+          threads: false,
+          unknownSenderPolicy: 'request_approval',
+        },
         mentions: 'platform',
       };
 }
@@ -403,7 +484,8 @@ export function computeWhatsappDefaults(shared: boolean): ChannelDefaults {
 const waEnv = readEnvFile(['ASSISTANT_NAME', 'ASSISTANT_HAS_OWN_NUMBER']);
 const ASSISTANT_NAME = waEnv.ASSISTANT_NAME || 'Andy';
 const WHATSAPP_SHARED = resolveSharedMode(waEnv.ASSISTANT_HAS_OWN_NUMBER);
-const WHATSAPP_DEFAULTS: ChannelDefaults = computeWhatsappDefaults(WHATSAPP_SHARED);
+const WHATSAPP_DEFAULTS: ChannelDefaults =
+  computeWhatsappDefaults(WHATSAPP_SHARED);
 
 registerChannelAdapter('whatsapp', {
   factory: () => {
@@ -429,14 +511,21 @@ registerChannelAdapter('whatsapp', {
     let botPhoneJid: string | undefined;
 
     // Outgoing queue for messages sent while disconnected
-    const outgoingQueue: Array<{ jid: string; text: string; mentions?: string[] }> = [];
+    const outgoingQueue: Array<{
+      jid: string;
+      text: string;
+      mentions?: string[];
+    }> = [];
     let flushing = false;
 
     // Sent message cache for retry/re-encrypt requests
     const sentMessageCache = new Map<string, any>();
 
     // Group metadata cache with TTL
-    const groupMetadataCache = new Map<string, { metadata: GroupMetadata; expiresAt: number }>();
+    const groupMetadataCache = new Map<
+      string,
+      { metadata: GroupMetadata; expiresAt: number }
+    >();
 
     // Pending questions: chatJid → { questionId, options }
     // User replies with /approve, /reject, etc. to answer
@@ -460,7 +549,11 @@ registerChannelAdapter('whatsapp', {
     let rejectFirstOpen: ((err: Error) => void) | undefined;
 
     // Pairing code file for the setup skill to poll
-    const pairingCodeFile = path.join(process.cwd(), 'store', 'pairing-code.txt');
+    const pairingCodeFile = path.join(
+      process.cwd(),
+      'store',
+      'pairing-code.txt',
+    );
 
     // --- Helpers ---
 
@@ -482,7 +575,9 @@ registerChannelAdapter('whatsapp', {
       // 2. Use the alt JID from extractAddressingContext (v7 provides this
       //    on every inbound message as remoteJidAlt / participantAlt)
       if (altJid && !altJid.endsWith('@lid')) {
-        const phoneJid = altJid.includes('@') ? altJid : `${altJid}@s.whatsapp.net`;
+        const phoneJid = altJid.includes('@')
+          ? altJid
+          : `${altJid}@s.whatsapp.net`;
         setLidPhoneMapping(lidUser, phoneJid);
         log.info('Translated LID via alt JID', { lidJid: jid, phoneJid });
         return phoneJid;
@@ -494,7 +589,10 @@ registerChannelAdapter('whatsapp', {
         if (pn) {
           const phoneJid = `${pn.split('@')[0].split(':')[0]}@s.whatsapp.net`;
           setLidPhoneMapping(lidUser, phoneJid);
-          log.info('Translated LID via signal repository', { lidJid: jid, phoneJid });
+          log.info('Translated LID via signal repository', {
+            lidJid: jid,
+            phoneJid,
+          });
           return phoneJid;
         }
       } catch (err) {
@@ -504,7 +602,9 @@ registerChannelAdapter('whatsapp', {
       return jid;
     }
 
-    async function getNormalizedGroupMetadata(jid: string): Promise<GroupMetadata | undefined> {
+    async function getNormalizedGroupMetadata(
+      jid: string,
+    ): Promise<GroupMetadata | undefined> {
       if (!jid.endsWith('@g.us')) return undefined;
 
       const cached = groupMetadataCache.get(jid);
@@ -528,7 +628,11 @@ registerChannelAdapter('whatsapp', {
     }
 
     async function syncGroupMetadata(force = false): Promise<void> {
-      if (!force && lastGroupSync && Date.now() - lastGroupSync < GROUP_SYNC_INTERVAL_MS) {
+      if (
+        !force &&
+        lastGroupSync &&
+        Date.now() - lastGroupSync < GROUP_SYNC_INTERVAL_MS
+      ) {
         return;
       }
       try {
@@ -552,11 +656,16 @@ registerChannelAdapter('whatsapp', {
       if (flushing || outgoingQueue.length === 0) return;
       flushing = true;
       try {
-        log.info('Flushing outgoing message queue', { count: outgoingQueue.length });
+        log.info('Flushing outgoing message queue', {
+          count: outgoingQueue.length,
+        });
         while (outgoingQueue.length > 0) {
           const item = outgoingQueue.shift()!;
-          const payload: { text: string; mentions?: string[] } = { text: item.text };
-          if (item.mentions && item.mentions.length > 0) payload.mentions = item.mentions;
+          const payload: { text: string; mentions?: string[] } = {
+            text: item.text,
+          };
+          if (item.mentions && item.mentions.length > 0)
+            payload.mentions = item.mentions;
           const sent = await sock.sendMessage(item.jid, payload);
           if (sent?.key?.id && sent.message) {
             sentMessageCache.set(sent.key.id, sent.message);
@@ -582,7 +691,8 @@ registerChannelAdapter('whatsapp', {
         { key: 'audioMessage', type: 'audio', ext: '.ogg' },
         { key: 'documentMessage', type: 'document', ext: '' },
       ];
-      const results: Array<{ type: string; name: string; localPath: string }> = [];
+      const results: Array<{ type: string; name: string; localPath: string }> =
+        [];
       const failures: string[] = [];
       for (const { key, type, ext } of mediaTypes) {
         if (!normalized[key]) continue;
@@ -602,18 +712,27 @@ registerChannelAdapter('whatsapp', {
           // this guard, a `..`-laden fileName escapes attachDir on path.join.
           const rawFilename = normalized[key].fileName;
           const fallback = `${type}-${Date.now()}${ext}`;
-          const filename = isSafeAttachmentName(rawFilename) ? rawFilename : fallback;
+          const filename = isSafeAttachmentName(rawFilename)
+            ? rawFilename
+            : fallback;
           if (rawFilename && filename !== rawFilename) {
-            log.warn('Refused unsafe attachment filename — would escape attachments dir', {
-              rawFilename,
-              replacement: filename,
-            });
+            log.warn(
+              'Refused unsafe attachment filename — would escape attachments dir',
+              {
+                rawFilename,
+                replacement: filename,
+              },
+            );
           }
           const attachDir = path.join(DATA_DIR, 'attachments');
           fs.mkdirSync(attachDir, { recursive: true });
           const filePath = path.join(attachDir, filename);
           fs.writeFileSync(filePath, buffer);
-          results.push({ type, name: filename, localPath: `attachments/${filename}` });
+          results.push({
+            type,
+            name: filename,
+            localPath: `attachments/${filename}`,
+          });
           log.info('Media downloaded', { type, filename });
         } catch (err) {
           log.warn('Failed to download media', { type, err });
@@ -623,10 +742,17 @@ registerChannelAdapter('whatsapp', {
       return { attachments: results, failures };
     }
 
-    async function sendRawMessage(jid: string, text: string, mentions?: string[]): Promise<string | undefined> {
+    async function sendRawMessage(
+      jid: string,
+      text: string,
+      mentions?: string[],
+    ): Promise<string | undefined> {
       if (!connected) {
         outgoingQueue.push({ jid, text, mentions });
-        log.info('WA disconnected, message queued', { jid, queueSize: outgoingQueue.length });
+        log.info('WA disconnected, message queued', {
+          jid,
+          queueSize: outgoingQueue.length,
+        });
         return;
       }
       try {
@@ -643,7 +769,11 @@ registerChannelAdapter('whatsapp', {
         return sent?.key?.id ?? undefined;
       } catch (err) {
         outgoingQueue.push({ jid, text, mentions });
-        log.warn('Failed to send, message queued', { jid, err, queueSize: outgoingQueue.length });
+        log.warn('Failed to send, message queued', {
+          jid,
+          err,
+          queueSize: outgoingQueue.length,
+        });
         return undefined;
       }
     }
@@ -664,7 +794,8 @@ registerChannelAdapter('whatsapp', {
         printQRInTerminal: false,
         logger: baileysLogger,
         browser: Browsers.macOS('Chrome'),
-        cachedGroupMetadata: async (jid: string) => getNormalizedGroupMetadata(jid),
+        cachedGroupMetadata: async (jid: string) =>
+          getNormalizedGroupMetadata(jid),
         getMessage: async (key: WAMessageKey) => {
           // Check in-memory cache first (recently sent messages)
           const cached = sentMessageCache.get(key.id || '');
@@ -690,7 +821,9 @@ registerChannelAdapter('whatsapp', {
           try {
             const code = await sock.requestPairingCode(phoneNumber);
             log.info(`WhatsApp pairing code: ${code}`);
-            log.info('Enter in WhatsApp > Linked Devices > Link with phone number');
+            log.info(
+              'Enter in WhatsApp > Linked Devices > Link with phone number',
+            );
             fs.writeFileSync(pairingCodeFile, code, 'utf-8');
           } catch (err) {
             log.error('Failed to request pairing code', { err });
@@ -707,7 +840,10 @@ registerChannelAdapter('whatsapp', {
             try {
               const QRCode = await import('qrcode');
               const qrText = await QRCode.toString(qr, { type: 'terminal' });
-              log.info('WhatsApp QR code — scan with WhatsApp > Linked Devices:\n' + qrText);
+              log.info(
+                'WhatsApp QR code — scan with WhatsApp > Linked Devices:\n' +
+                  qrText,
+              );
             } catch {
               log.info('WhatsApp QR code (raw)', { qr });
             }
@@ -716,14 +852,21 @@ registerChannelAdapter('whatsapp', {
 
         if (connection === 'close') {
           connected = false;
-          const reason = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
+          const reason = (
+            lastDisconnect?.error as { output?: { statusCode?: number } }
+          )?.output?.statusCode;
           // Don't auto-reconnect during shutdown — a parallel connectSocket()
           // initializes useMultiFileAuthState which can truncate creds.json
           // mid-write when the process exits, leaving a 0-byte creds file
           // and forcing a fresh QR pairing on next start.
-          const shouldReconnect = !shuttingDown && reason !== DisconnectReason.loggedOut;
+          const shouldReconnect =
+            !shuttingDown && reason !== DisconnectReason.loggedOut;
 
-          log.info('WhatsApp connection closed', { reason, shouldReconnect, shuttingDown });
+          log.info('WhatsApp connection closed', {
+            reason,
+            shouldReconnect,
+            shuttingDown,
+          });
 
           if (shouldReconnect) {
             log.info('Reconnecting...');
@@ -744,7 +887,9 @@ registerChannelAdapter('whatsapp', {
             try {
               fs.rmSync(authDir, { recursive: true, force: true });
               fs.mkdirSync(authDir, { recursive: true });
-              log.info('WhatsApp auth cleared — set WHATSAPP_ENABLED=true and restart to re-link');
+              log.info(
+                'WhatsApp auth cleared — set WHATSAPP_ENABLED=true and restart to re-link',
+              );
             } catch (err) {
               log.error('Failed to clear WhatsApp auth after logout', { err });
             }
@@ -794,14 +939,20 @@ registerChannelAdapter('whatsapp', {
           }
 
           // Flush queued messages
-          flushOutgoingQueue().catch((err) => log.error('Failed to flush outgoing queue', { err }));
+          flushOutgoingQueue().catch((err) =>
+            log.error('Failed to flush outgoing queue', { err }),
+          );
 
           // Group sync
-          syncGroupMetadata().catch((err) => log.error('Initial group sync failed', { err }));
+          syncGroupMetadata().catch((err) =>
+            log.error('Initial group sync failed', { err }),
+          );
           if (!groupSyncTimerStarted) {
             groupSyncTimerStarted = true;
             setInterval(() => {
-              syncGroupMetadata().catch((err) => log.error('Periodic group sync failed', { err }));
+              syncGroupMetadata().catch((err) =>
+                log.error('Periodic group sync failed', { err }),
+              );
             }, GROUP_SYNC_INTERVAL_MS);
           }
 
@@ -838,7 +989,9 @@ registerChannelAdapter('whatsapp', {
             // Translate LID → phone JID using v7's alt JID from extractAddressingContext
             const chatJid = await translateJid(rawJid, msg.key.remoteJidAlt);
 
-            const timestamp = new Date(Number(msg.messageTimestamp) * 1000).toISOString();
+            const timestamp = new Date(
+              Number(msg.messageTimestamp) * 1000,
+            ).toISOString();
             const isGroup = chatJid.endsWith('@g.us');
 
             // Notify metadata for group discovery
@@ -853,10 +1006,18 @@ registerChannelAdapter('whatsapp', {
 
             // Normalize bot LID mention → assistant name for trigger matching
             // (dedicated mode only — see rewriteBotLidMention)
-            content = rewriteBotLidMention(content, WHATSAPP_SHARED, botLidUser, ASSISTANT_NAME);
+            content = rewriteBotLidMention(
+              content,
+              WHATSAPP_SHARED,
+              botLidUser,
+              ASSISTANT_NAME,
+            );
 
             // Download media attachments (images, video, audio, documents)
-            const { attachments, failures } = await downloadInboundMedia(msg, normalized);
+            const { attachments, failures } = await downloadInboundMedia(
+              msg,
+              normalized,
+            );
 
             // Surface failed downloads as text so the agent knows media was
             // sent even when it couldn't be fetched — instead of silently
@@ -885,18 +1046,25 @@ registerChannelAdapter('whatsapp', {
               if (sentMessageCache.has(msg.key.id || '')) continue;
             }
 
-            const isBotMessage = WHATSAPP_SHARED ? content.startsWith(`${ASSISTANT_NAME}:`) : false;
+            const isBotMessage = WHATSAPP_SHARED
+              ? content.startsWith(`${ASSISTANT_NAME}:`)
+              : false;
 
             // Check if this reply answers a pending question via slash command
             const pending = pendingQuestions.get(chatJid);
             if (pending && content.startsWith('/')) {
               const cmd = content.trim().toLowerCase();
-              const matched = pending.options.find((o) => optionToCommand(o.label) === cmd);
+              const matched = pending.options.find(
+                (o) => optionToCommand(o.label) === cmd,
+              );
               if (matched) {
                 const voterName = msg.pushName || sender.split('@')[0];
                 setupConfig.onAction(pending.questionId, matched.value, sender);
                 pendingQuestions.delete(chatJid);
-                await sendRawMessage(chatJid, `${matched.selectedLabel} by ${voterName}`);
+                await sendRawMessage(
+                  chatJid,
+                  `${matched.selectedLabel} by ${voterName}`,
+                );
                 log.info('Question answered', {
                   questionId: pending.questionId,
                   value: matched.value,
@@ -928,7 +1096,11 @@ registerChannelAdapter('whatsapp', {
               // chat is unknown, instead of silently dropping. In groups,
               // only an explicit @-mention counts. Shared mode: never a
               // mention — DMs and tags address the human owner.
-              isMention: computeIsMention(WHATSAPP_SHARED, isGroup, botMentionedInGroup),
+              isMention: computeIsMention(
+                WHATSAPP_SHARED,
+                isGroup,
+                botMentionedInGroup,
+              ),
               isGroup,
               content: {
                 text: content,
@@ -946,12 +1118,19 @@ registerChannelAdapter('whatsapp', {
             // Discoverability for /debug: in shared mode nothing carries
             // isMention, so unknown chats never auto-create messaging groups
             // — traffic can look silently dropped. Note each chat once.
-            if (WHATSAPP_SHARED && chatJid !== botPhoneJid && !sharedModeLoggedChats.has(chatJid)) {
+            if (
+              WHATSAPP_SHARED &&
+              chatJid !== botPhoneJid &&
+              !sharedModeLoggedChats.has(chatJid)
+            ) {
               sharedModeLoggedChats.add(chatJid);
-              log.debug('Shared-number mode: forwarding chat to router without isMention', {
-                chatJid,
-                isGroup,
-              });
+              log.debug(
+                'Shared-number mode: forwarding chat to router without isMention',
+                {
+                  chatJid,
+                  isGroup,
+                },
+              );
             }
 
             // WhatsApp doesn't use threads — threadId is null
@@ -995,17 +1174,28 @@ registerChannelAdapter('whatsapp', {
         const content = message.content as Record<string, unknown>;
 
         // Ask question → text with slash command replies
-        if (content.type === 'ask_question' && content.questionId && content.options) {
+        if (
+          content.type === 'ask_question' &&
+          content.questionId &&
+          content.options
+        ) {
           const questionId = content.questionId as string;
           const title = content.title as string;
           const question = content.question as string;
           if (!title) {
-            log.error('ask_question missing required title — skipping delivery', { questionId });
+            log.error(
+              'ask_question missing required title — skipping delivery',
+              { questionId },
+            );
             return;
           }
-          const options: NormalizedOption[] = normalizeOptions(content.options as never);
+          const options: NormalizedOption[] = normalizeOptions(
+            content.options as never,
+          );
 
-          const optionLines = options.map((o) => `  ${optionToCommand(o.label)}`).join('\n');
+          const optionLines = options
+            .map((o) => `  ${optionToCommand(o.label)}`)
+            .join('\n');
           const text = `*${title}*\n\n${question}\n\nReply with:\n${optionLines}`;
           const msgId = await sendRawMessage(platformId, text);
           if (msgId) {
@@ -1019,12 +1209,20 @@ registerChannelAdapter('whatsapp', {
         }
 
         // Reaction → emoji on a message
-        if (content.operation === 'reaction' && content.messageId && content.emoji) {
+        if (
+          content.operation === 'reaction' &&
+          content.messageId &&
+          content.emoji
+        ) {
           try {
             await sock.sendMessage(platformId, {
               react: {
                 text: content.emoji as string,
-                key: { remoteJid: platformId, id: content.messageId as string, fromMe: false },
+                key: {
+                  remoteJid: platformId,
+                  id: content.messageId as string,
+                  fromMe: false,
+                },
               },
             });
           } catch (err) {
@@ -1050,9 +1248,17 @@ registerChannelAdapter('whatsapp', {
               if (!captionUsed && text) {
                 const formatted = formatWhatsApp(text);
                 caption = formatted.text;
-                captionMentions = formatted.mentions.length > 0 ? formatted.mentions : undefined;
+                captionMentions =
+                  formatted.mentions.length > 0
+                    ? formatted.mentions
+                    : undefined;
               }
-              const mediaMsg = buildMediaMessage(file.data, file.filename, ext, caption);
+              const mediaMsg = buildMediaMessage(
+                file.data,
+                file.filename,
+                ext,
+                caption,
+              );
               if (captionMentions) mediaMsg.mentions = captionMentions;
               const sent = await sock.sendMessage(platformId, mediaMsg);
               if (sent?.key?.id && sent.message) {
@@ -1060,7 +1266,11 @@ registerChannelAdapter('whatsapp', {
               }
               if (caption) captionUsed = true;
             } catch (err) {
-              log.error('Failed to send file', { platformId, filename: file.filename, err });
+              log.error('Failed to send file', {
+                platformId,
+                filename: file.filename,
+                err,
+              });
             }
           }
           if (captionUsed) return; // Text was sent as caption
@@ -1068,7 +1278,9 @@ registerChannelAdapter('whatsapp', {
 
         if (text) {
           const { text: formatted, mentions } = formatWhatsApp(text);
-          const prefixed = WHATSAPP_SHARED ? `${ASSISTANT_NAME}: ${formatted}` : formatted;
+          const prefixed = WHATSAPP_SHARED
+            ? `${ASSISTANT_NAME}: ${formatted}`
+            : formatted;
           return sendRawMessage(platformId, prefixed, mentions);
         }
       },
