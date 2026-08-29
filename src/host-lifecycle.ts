@@ -47,7 +47,9 @@ export async function startHostModules(ctx: HostStartContext): Promise<void> {
   }
 }
 
-async function runShutdownCallbacks(callbacks: readonly HostShutdownCallback[]): Promise<void> {
+async function runShutdownCallbacks(
+  callbacks: readonly HostShutdownCallback[],
+): Promise<void> {
   for (const cb of callbacks) {
     /* eslint-disable no-catch-all/no-catch-all -- graceful shutdown must continue through every registered cleanup */
     try {

@@ -47,10 +47,18 @@ export class FakeSupervisedProcess implements SupervisedProcess {
 
 export class FakeCli implements Cli {
   readonly calls: FakeCall[] = [];
-  readonly started: Array<{ args: string[]; proc: FakeSupervisedProcess; seq: number }> = [];
+  readonly started: Array<{
+    args: string[];
+    proc: FakeSupervisedProcess;
+    seq: number;
+  }> = [];
   #seq = 0;
   /** Matched in order against the joined argv; first hit wins. */
-  responses: Array<{ match: RegExp; output?: string; throws?: Error | string }> = [];
+  responses: Array<{
+    match: RegExp;
+    output?: string;
+    throws?: Error | string;
+  }> = [];
 
   constructor(readonly bin = 'fake') {}
 
@@ -60,7 +68,9 @@ export class FakeCli implements Cli {
     for (const response of this.responses) {
       if (!response.match.test(joined)) continue;
       if (response.throws) {
-        throw response.throws instanceof Error ? response.throws : new Error(response.throws);
+        throw response.throws instanceof Error
+          ? response.throws
+          : new Error(response.throws);
       }
       return response.output ?? '';
     }

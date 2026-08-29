@@ -36,6 +36,11 @@ export async function recordDroppedMessage(msg: {
   );
 }
 
-export async function getUnregisteredSenders(limit = 50): Promise<UnregisteredSender[]> {
-  return getDb().all<UnregisteredSender>('SELECT * FROM unregistered_senders ORDER BY last_seen DESC LIMIT ?', limit);
+export async function getUnregisteredSenders(
+  limit = 50,
+): Promise<UnregisteredSender[]> {
+  return getDb().all<UnregisteredSender>(
+    'SELECT * FROM unregistered_senders ORDER BY last_seen DESC LIMIT ?',
+    limit,
+  );
 }

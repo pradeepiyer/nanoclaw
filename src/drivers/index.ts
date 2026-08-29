@@ -40,7 +40,11 @@ import os from 'os';
 import path from 'path';
 
 import { DATA_DIR, GROUPS_DIR } from '../config.js';
-import { EGRESS_NETWORK, egressNetworkArgs, ensureEgressNetwork } from '../egress-lockdown.js';
+import {
+  EGRESS_NETWORK,
+  egressNetworkArgs,
+  ensureEgressNetwork,
+} from '../egress-lockdown.js';
 import { readEnvFile } from '../env.js';
 import { log } from '../log.js';
 
@@ -55,15 +59,24 @@ import {
 // Everything it pulls in registers before this module's body runs, which is the
 // whole reason the registry lives in its own module — see `driver-registry.ts`.
 import './installed.js';
-import { withSessionEvents, type SessionEventsDriver } from './session-events.js';
+import {
+  withSessionEvents,
+  type SessionEventsDriver,
+} from './session-events.js';
 import type { MountPolicy, SessionDriver, SessionSpec } from './types.js';
 
 const DEFAULT_DRIVER_KIND = 'docker';
 
-const SETTINGS = ['NANOCLAW_RUNTIME_DRIVER', 'NANOCLAW_SESSION_MATERIAL_ROOT'] as const;
+const SETTINGS = [
+  'NANOCLAW_RUNTIME_DRIVER',
+  'NANOCLAW_SESSION_MATERIAL_ROOT',
+] as const;
 
 /** `process.env` wins, then `.env`, then the default. */
-export function readSetting(key: (typeof SETTINGS)[number], env: NodeJS.ProcessEnv = process.env): string {
+export function readSetting(
+  key: (typeof SETTINGS)[number],
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   return env[key]?.trim() || readEnvFile([...SETTINGS])[key]?.trim() || '';
 }
 
@@ -77,19 +90,30 @@ export function readSetting(key: (typeof SETTINGS)[number], env: NodeJS.ProcessE
  */
 function dockerNetworkArgs(spec: SessionSpec): string[] {
   if (ensureEgressNetwork()) {
-    log.info('Egress lockdown active', { containerName: agentContainerName(spec), network: EGRESS_NETWORK });
+    log.info('Egress lockdown active', {
+      containerName: agentContainerName(spec),
+      network: EGRESS_NETWORK,
+    });
     return egressNetworkArgs();
   }
-  return os.platform() === 'linux' ? ['--add-host=host.docker.internal:host-gateway'] : [];
+  return os.platform() === 'linux'
+    ? ['--add-host=host.docker.internal:host-gateway']
+    : [];
 }
 
 registerSessionDriver(
   DEFAULT_DRIVER_KIND,
-  (policy) => new DockerSessionDriver({ ...policy, networkArgsFor: dockerNetworkArgs }),
+  (policy) =>
+    new DockerSessionDriver({ ...policy, networkArgsFor: dockerNetworkArgs }),
 );
 
-export function configuredDriverKind(env: NodeJS.ProcessEnv = process.env): DriverKind {
-  return readSetting('NANOCLAW_RUNTIME_DRIVER', env).toLowerCase() || DEFAULT_DRIVER_KIND;
+export function configuredDriverKind(
+  env: NodeJS.ProcessEnv = process.env,
+): DriverKind {
+  return (
+    readSetting('NANOCLAW_RUNTIME_DRIVER', env).toLowerCase() ||
+    DEFAULT_DRIVER_KIND
+  );
 }
 
 /**
@@ -122,7 +146,9 @@ export function mountPolicy(env: NodeJS.ProcessEnv = process.env): MountPolicy {
     // coincidence of their defaults: move it in `.env` and every
     // identity-material mount is denied by a policy naming a path that looks
     // correct.
-    materialsRoot: readSetting('NANOCLAW_SESSION_MATERIAL_ROOT', env) || path.join(DATA_DIR, 'session-materials'),
+    materialsRoot:
+      readSetting('NANOCLAW_SESSION_MATERIAL_ROOT', env) ||
+      path.join(DATA_DIR, 'session-materials'),
   };
 }
 
@@ -133,7 +159,10 @@ export function getSessionDriver(): SessionEventsDriver {
   return installed;
 }
 
-export function createSessionDriver(kind: DriverKind, overrides: Partial<MountPolicy> = {}): SessionEventsDriver {
+export function createSessionDriver(
+  kind: DriverKind,
+  overrides: Partial<MountPolicy> = {},
+): SessionEventsDriver {
   const factory = getSessionDriverFactory(kind);
   if (!factory) {
     // Name the fix in the first line: the setting, the value it holds, and what
@@ -151,7 +180,10 @@ export function createSessionDriver(kind: DriverKind, overrides: Partial<MountPo
   // re-implemented per driver (see `session-events.ts`).
   const driver: SessionEventsDriver = withSessionEvents(factory(policy));
   // Boot-scoped marker; see the crash-loop caveat at the top of this file.
-  log.info('Session runtime driver selected', { driver: driver.kind, capabilities: driver.capabilities() });
+  log.info('Session runtime driver selected', {
+    driver: driver.kind,
+    capabilities: driver.capabilities(),
+  });
   return driver;
 }
 

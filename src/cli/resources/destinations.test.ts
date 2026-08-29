@@ -25,7 +25,12 @@ vi.mock('../../config.js', async () => {
 
 const TEST_DIR = '/tmp/nanoclaw-test-cli-destinations';
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from '../../db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from '../../db/index.js';
 import { createSession } from '../../db/sessions.js';
 import { inboundDbPath } from '../../mailbox/sqlite/paths.js';
 import { initSessionFolder } from '../../session-manager.js';
@@ -38,8 +43,14 @@ function now(): string {
 }
 
 function readSessionDestinations(agentGroupId: string, sessionId: string) {
-  const db = new Database(inboundDbPath(agentGroupId, sessionId), { readonly: true });
-  const rows = db.prepare('SELECT name, type, agent_group_id FROM destinations ORDER BY name').all() as Array<{
+  const db = new Database(inboundDbPath(agentGroupId, sessionId), {
+    readonly: true,
+  });
+  const rows = db
+    .prepare(
+      'SELECT name, type, agent_group_id FROM destinations ORDER BY name',
+    )
+    .all() as Array<{
     name: string;
     type: string;
     agent_group_id: string | null;
@@ -61,8 +72,20 @@ describe('destinations CLI custom ops project to inbound.db (#2465)', () => {
     const db = await initTestDb();
     await runMigrations(db);
 
-    await createAgentGroup({ id: SOURCE, name: 'source', folder: 'source', agent_provider: null, created_at: now() });
-    await createAgentGroup({ id: TARGET, name: 'target', folder: 'target', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: SOURCE,
+      name: 'source',
+      folder: 'source',
+      agent_provider: null,
+      created_at: now(),
+    });
+    await createAgentGroup({
+      id: TARGET,
+      name: 'target',
+      folder: 'target',
+      agent_provider: null,
+      created_at: now(),
+    });
 
     // Two active sessions for the source agent — both must receive the
     // projected destination row. Fixing only the "newest" session is a
@@ -117,7 +140,11 @@ describe('destinations CLI custom ops project to inbound.db (#2465)', () => {
     for (const sid of [SESSION_A, SESSION_B]) {
       const rows = readSessionDestinations(SOURCE, sid);
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ name: 'helper', type: 'agent', agent_group_id: TARGET });
+      expect(rows[0]).toMatchObject({
+        name: 'helper',
+        type: 'agent',
+        agent_group_id: TARGET,
+      });
     }
   });
 
@@ -126,7 +153,12 @@ describe('destinations CLI custom ops project to inbound.db (#2465)', () => {
       {
         id: 'req-add',
         command: 'destinations-add',
-        args: { agent_group_id: SOURCE, local_name: 'helper', target_type: 'agent', target_id: TARGET },
+        args: {
+          agent_group_id: SOURCE,
+          local_name: 'helper',
+          target_type: 'agent',
+          target_id: TARGET,
+        },
       },
       { caller: 'host' },
     );

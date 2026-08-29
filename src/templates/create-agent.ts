@@ -12,7 +12,10 @@ import {
 } from '../db/container-configs.js';
 import type { McpServerConfig } from '../container-config.js';
 import { isValidTimezone } from '../timezone.js';
-import { assertValidGroupFolder, resolveGroupFolderPath } from '../group-folder.js';
+import {
+  assertValidGroupFolder,
+  resolveGroupFolderPath,
+} from '../group-folder.js';
 import { stageGroupPersona } from '../group-persona.js';
 import { log } from '../log.js';
 import { normalizeName } from '../modules/agent-to-agent/db/agent-destinations.js';
@@ -38,7 +41,13 @@ export interface CreateAgentResult {
 
 /** Group-private skills overlay — where plugin skills are discovered and executed from. */
 export function groupSkillsOverlayDir(agentGroupId: string): string {
-  return path.join(DATA_DIR, 'v2-sessions', agentGroupId, '.claude-shared', 'skills');
+  return path.join(
+    DATA_DIR,
+    'v2-sessions',
+    agentGroupId,
+    '.claude-shared',
+    'skills',
+  );
 }
 
 /**
@@ -86,14 +95,20 @@ export function markPluginServers(
  * Returns the created group + the reader's report; the caller wires the group
  * to a channel as usual.
  */
-export async function createAgentFromTemplate(ref: string, opts?: CreateAgentOptions): Promise<CreateAgentResult> {
+export async function createAgentFromTemplate(
+  ref: string,
+  opts?: CreateAgentOptions,
+): Promise<CreateAgentResult> {
   const dir = resolveLocalTemplate(ref);
   const tpl = parseTemplate(dir);
   // The group doesn't exist yet, so resolveGroupTimezone can't apply — the
   // effective timezone is derived from the option here and stamped onto the
   // config row below, BEFORE tasks are created, so a template task's first
   // run and its later re-arms agree on the same zone.
-  const timezone = opts?.timezone && isValidTimezone(opts.timezone) ? opts.timezone : undefined;
+  const timezone =
+    opts?.timezone && isValidTimezone(opts.timezone)
+      ? opts.timezone
+      : undefined;
   const tasks = prepareTemplateTasks(tpl.tasks, timezone ?? TIMEZONE);
 
   const id = `ag-${randomUUID()}`;
@@ -102,9 +117,16 @@ export async function createAgentFromTemplate(ref: string, opts?: CreateAgentOpt
   const name = opts?.name ?? tpl.agentName ?? path.basename(dir);
   let folder = normalizeName(name);
   assertValidGroupFolder(folder);
-  if (fs.existsSync(resolveGroupFolderPath(folder))) folder = `${folder}-${randomUUID().slice(0, 8)}`;
+  if (fs.existsSync(resolveGroupFolderPath(folder)))
+    folder = `${folder}-${randomUUID().slice(0, 8)}`;
 
-  const group: AgentGroup = { id, name, folder, agent_provider: null, created_at: new Date().toISOString() };
+  const group: AgentGroup = {
+    id,
+    name,
+    folder,
+    agent_provider: null,
+    created_at: new Date().toISOString(),
+  };
   await createAgentGroup(group);
   await ensureContainerConfig(id);
   if (timezone) await updateContainerConfigScalars(id, { timezone });
@@ -117,7 +139,8 @@ export async function createAgentFromTemplate(ref: string, opts?: CreateAgentOpt
   // Persona → provider-neutral prepend, inlined at the top of the group's
   // CLAUDE.md/AGENTS.md every spawn (system-prompt tier on any provider).
   // Optional: a plain conformant plugin has no persona and stamps without one.
-  if (tpl.instructions !== undefined) stageGroupPersona(groupDir, tpl.instructions);
+  if (tpl.instructions !== undefined)
+    stageGroupPersona(groupDir, tpl.instructions);
 
   // Context extras keep their template-relative layout, placed next to the doc
   // the persona is inlined into — so a reference written in instructions.md
@@ -135,12 +158,20 @@ export async function createAgentFromTemplate(ref: string, opts?: CreateAgentOpt
   // idempotent (the directory is replaced). Mounted read-only in the
   // container; only plugin-data/ is writable, matching the spec's contract.
   copyPluginDir(dir, path.join(groupDir, 'plugins', tpl.name));
-  fs.mkdirSync(path.join(groupDir, 'plugin-data', tpl.name), { recursive: true });
+  fs.mkdirSync(path.join(groupDir, 'plugin-data', tpl.name), {
+    recursive: true,
+  });
   for (const sub of pluginDataCwdSubpaths(tpl.mcpServers)) {
-    fs.mkdirSync(path.join(groupDir, 'plugin-data', tpl.name, sub), { recursive: true });
+    fs.mkdirSync(path.join(groupDir, 'plugin-data', tpl.name, sub), {
+      recursive: true,
+    });
   }
 
-  await updateContainerConfigJson(id, 'mcp_servers', markPluginServers(tpl.mcpServers, tpl.name));
+  await updateContainerConfigJson(
+    id,
+    'mcp_servers',
+    markPluginServers(tpl.mcpServers, tpl.name),
+  );
 
   // Per-group skills overlay — keyed by group id, never shared. Copied through
   // the hardened copier like everything else that leaves the plugin.
@@ -151,9 +182,11 @@ export async function createAgentFromTemplate(ref: string, opts?: CreateAgentOpt
 
   // Template tasks require explicit activation. The later welcome flow can
   // present these exact paused tasks and resume only the ones the user accepts.
-  for (const task of tasks.values()) await createScheduledTask(id, task, { status: 'paused' });
+  for (const task of tasks.values())
+    await createScheduledTask(id, task, { status: 'paused' });
 
-  for (const line of tpl.report) log.warn('Template reader notice', { ref, notice: line });
+  for (const line of tpl.report)
+    log.warn('Template reader notice', { ref, notice: line });
 
   return { group, report: tpl.report };
 }

@@ -39,7 +39,9 @@ function probeLiveServer(socketPath: string): Promise<boolean> {
   });
 }
 
-export async function startCliServer(socketPath: string = DEFAULT_SOCKET_PATH): Promise<void> {
+export async function startCliServer(
+  socketPath: string = DEFAULT_SOCKET_PATH,
+): Promise<void> {
   // Stale-socket cleanup — a previous run that crashed may have left the
   // file behind, and net.createServer refuses to bind to an existing path.
   // Only a socket nobody answers is stale: a live listener means another
@@ -57,7 +59,10 @@ export async function startCliServer(socketPath: string = DEFAULT_SOCKET_PATH): 
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
       if (e.code !== 'ENOENT') {
-        log.warn('Failed to unlink stale ncl socket (will try to bind anyway)', { socketPath, err });
+        log.warn(
+          'Failed to unlink stale ncl socket (will try to bind anyway)',
+          { socketPath, err },
+        );
       }
     }
   }
@@ -70,7 +75,10 @@ export async function startCliServer(socketPath: string = DEFAULT_SOCKET_PATH): 
       try {
         fs.chmodSync(socketPath, 0o600);
       } catch (err) {
-        log.warn('Failed to chmod ncl socket (continuing)', { socketPath, err });
+        log.warn('Failed to chmod ncl socket (continuing)', {
+          socketPath,
+          err,
+        });
       }
       log.info('ncl CLI server listening', { socketPath });
       resolve();
@@ -140,5 +148,10 @@ function write(conn: net.Socket, frame: ResponseFrame): void {
 function isRequestFrame(x: unknown): x is RequestFrame {
   if (!x || typeof x !== 'object') return false;
   const o = x as Record<string, unknown>;
-  return typeof o.id === 'string' && typeof o.command === 'string' && typeof o.args === 'object' && o.args !== null;
+  return (
+    typeof o.id === 'string' &&
+    typeof o.command === 'string' &&
+    typeof o.args === 'object' &&
+    o.args !== null
+  );
 }

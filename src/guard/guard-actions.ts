@@ -45,14 +45,18 @@ declare const guardedActionBrand: unique symbol;
  * brand makes the type nominal: a hand-rolled { action, decide } object
  * does not typecheck at a consult site, and fails the runtime check too.
  */
-export type GuardedAction = Readonly<GuardedActionSpec> & { readonly [guardedActionBrand]: true };
+export type GuardedAction = Readonly<GuardedActionSpec> & {
+  readonly [guardedActionBrand]: true;
+};
 
 const defined = new Map<string, GuardedAction>();
 const minted = new WeakSet<object>();
 
 export function defineGuardedAction(spec: GuardedActionSpec): GuardedAction {
   if (defined.has(spec.action)) {
-    throw new Error(`guarded action "${spec.action}" is already defined — action names are the catalog key`);
+    throw new Error(
+      `guarded action "${spec.action}" is already defined — action names are the catalog key`,
+    );
   }
   const def = Object.freeze({ ...spec }) as GuardedAction;
   minted.add(def);

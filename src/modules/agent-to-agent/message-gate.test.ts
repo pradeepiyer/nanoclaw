@@ -4,12 +4,30 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import './guard.js'; // register the a2a.send catalog entry (incl. the policy hold)
 import { routeAgentMessage } from './agent-route.js';
-import { createDestination, deleteDestination, deleteAllDestinationsTouching } from './db/agent-destinations.js';
-import { getMessagePolicy, removeMessagePolicy, setMessagePolicy } from './db/agent-message-policies.js';
+import {
+  createDestination,
+  deleteDestination,
+  deleteAllDestinationsTouching,
+} from './db/agent-destinations.js';
+import {
+  getMessagePolicy,
+  removeMessagePolicy,
+  setMessagePolicy,
+} from './db/agent-message-policies.js';
 import { applyA2aMessageGate } from './message-gate.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from '../../db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from '../../db/index.js';
 import { getDb } from '../../db/connection.js';
-import { createPendingApproval, createSession, deletePendingApproval, getPendingApproval } from '../../db/sessions.js';
+import {
+  createPendingApproval,
+  createSession,
+  deletePendingApproval,
+  getPendingApproval,
+} from '../../db/sessions.js';
 import { requestApproval } from '../approvals/index.js';
 import { inboundDbPath } from '../../mailbox/sqlite/paths.js';
 import { initSessionFolder } from '../../session-manager.js';
@@ -41,12 +59,18 @@ function now(): string {
 }
 
 async function policyCount(): Promise<number> {
-  return (await getDb().get<{ n: number }>('SELECT COUNT(*) AS n FROM agent_message_policies'))!.n;
+  return (await getDb().get<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM agent_message_policies',
+  ))!.n;
 }
 
 function readInbound(agentGroupId: string, sessionId: string) {
-  const db = new Database(inboundDbPath(agentGroupId, sessionId), { readonly: true });
-  const rows = db.prepare('SELECT id, platform_id, content FROM messages_in ORDER BY seq').all() as Array<{
+  const db = new Database(inboundDbPath(agentGroupId, sessionId), {
+    readonly: true,
+  });
+  const rows = db
+    .prepare('SELECT id, platform_id, content FROM messages_in ORDER BY seq')
+    .all() as Array<{
     id: string;
     platform_id: string | null;
     content: string;
@@ -70,7 +94,10 @@ function makeSession(id: string, agentGroupId: string): Session {
 }
 
 /** Seed a live a2a hold row (what requestApproval writes) and return it as the grant. */
-async function seedA2aHold(approvalId: string, payload: Record<string, unknown>): Promise<PendingApproval> {
+async function seedA2aHold(
+  approvalId: string,
+  payload: Record<string, unknown>,
+): Promise<PendingApproval> {
   await createPendingApproval({
     approval_id: approvalId,
     session_id: 'sess-A',
@@ -97,8 +124,20 @@ describe('agent message policies', () => {
     await runMigrations(db);
     vi.mocked(requestApproval).mockClear();
 
-    await createAgentGroup({ id: A, name: 'A', folder: 'a', agent_provider: null, created_at: now() });
-    await createAgentGroup({ id: B, name: 'B', folder: 'b', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: A,
+      name: 'A',
+      folder: 'a',
+      agent_provider: null,
+      created_at: now(),
+    });
+    await createAgentGroup({
+      id: B,
+      name: 'B',
+      folder: 'b',
+      agent_provider: null,
+      created_at: now(),
+    });
     SA = makeSession('sess-A', A);
     SB = makeSession('sess-B', B);
     await createSession(SA);
@@ -147,7 +186,12 @@ describe('agent message policies', () => {
 
   it('no policy → routes normally, no approval requested', async () => {
     await routeAgentMessage(
-      { id: 'm1', platform_id: B, content: JSON.stringify({ text: 'hi B' }), in_reply_to: null },
+      {
+        id: 'm1',
+        platform_id: B,
+        content: JSON.stringify({ text: 'hi B' }),
+        in_reply_to: null,
+      },
       SA,
     );
     expect(readInbound(B, SB.id)).toHaveLength(1);
@@ -158,7 +202,12 @@ describe('agent message policies', () => {
     await setMessagePolicy(A, B, 'telegram:dana', now());
 
     await routeAgentMessage(
-      { id: 'm2', platform_id: B, content: JSON.stringify({ text: 'sensitive' }), in_reply_to: null },
+      {
+        id: 'm2',
+        platform_id: B,
+        content: JSON.stringify({ text: 'sensitive' }),
+        in_reply_to: null,
+      },
       SA,
     );
 
@@ -176,7 +225,12 @@ describe('agent message policies', () => {
   it('self-message is never gated even if a policy row somehow exists', async () => {
     await setMessagePolicy(A, A, 'telegram:dana', now()); // pathological, but must be ignored
     await routeAgentMessage(
-      { id: 'self', platform_id: A, content: JSON.stringify({ text: 'note' }), in_reply_to: null },
+      {
+        id: 'self',
+        platform_id: A,
+        content: JSON.stringify({ text: 'note' }),
+        in_reply_to: null,
+      },
       SA,
     );
     expect(requestApproval).not.toHaveBeenCalled();
@@ -188,7 +242,15 @@ describe('agent message policies', () => {
     await setMessagePolicy(A, B, 'telegram:dana', now()); // ...but a stale policy row remains
 
     await expect(
-      routeAgentMessage({ id: 'ghost', platform_id: B, content: JSON.stringify({ text: 'x' }), in_reply_to: null }, SA),
+      routeAgentMessage(
+        {
+          id: 'ghost',
+          platform_id: B,
+          content: JSON.stringify({ text: 'x' }),
+          in_reply_to: null,
+        },
+        SA,
+      ),
     ).rejects.toThrow(/unauthorized agent-to-agent/);
     expect(requestApproval).not.toHaveBeenCalled();
     expect(readInbound(B, SB.id)).toHaveLength(0);
@@ -198,11 +260,22 @@ describe('agent message policies', () => {
 
   it('applyA2aMessageGate delivers the held message to the target (valid grant)', async () => {
     await setMessagePolicy(A, B, 'telegram:dana', now());
-    const payload = { id: 'held-1', platform_id: B, content: JSON.stringify({ text: 'approved!' }), in_reply_to: null };
+    const payload = {
+      id: 'held-1',
+      platform_id: B,
+      content: JSON.stringify({ text: 'approved!' }),
+      in_reply_to: null,
+    };
     const approval = await seedA2aHold('appr-a2a-1', payload);
 
     const notify = vi.fn();
-    await applyA2aMessageGate({ session: SA, userId: 'telegram:dana', notify, payload, approval });
+    await applyA2aMessageGate({
+      session: SA,
+      userId: 'telegram:dana',
+      notify,
+      payload,
+      approval,
+    });
 
     const bRows = readInbound(B, SB.id);
     expect(bRows).toHaveLength(1);
@@ -214,7 +287,12 @@ describe('agent message policies', () => {
 
   it('destination revoked between hold and approve → refused cleanly, requester told, nothing delivered', async () => {
     await setMessagePolicy(A, B, 'telegram:dana', now());
-    const payload = { id: 'held-2', platform_id: B, content: JSON.stringify({ text: 'stale' }), in_reply_to: null };
+    const payload = {
+      id: 'held-2',
+      platform_id: B,
+      content: JSON.stringify({ text: 'stale' }),
+      in_reply_to: null,
+    };
     const approval = await seedA2aHold('appr-a2a-2', payload);
 
     await deleteDestination(A, 'b'); // revoke A→B while the card is pending
@@ -222,37 +300,76 @@ describe('agent message policies', () => {
     const notify = vi.fn();
     // An expected policy refusal — resolves (no throw), so the response
     // handler never records it as a handler crash.
-    await applyA2aMessageGate({ session: SA, userId: 'telegram:dana', notify, payload, approval });
+    await applyA2aMessageGate({
+      session: SA,
+      userId: 'telegram:dana',
+      notify,
+      payload,
+      approval,
+    });
 
     expect(readInbound(B, SB.id)).toHaveLength(0);
-    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/not delivered.*no destination for/));
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/not delivered.*no destination for/),
+    );
   });
 
   it('mismatched grant (held for another target) refuses the replay cleanly', async () => {
     await setMessagePolicy(A, B, 'telegram:dana', now());
     // Grant was approved for a message to A (different target than the replay).
-    const approval = await seedA2aHold('appr-a2a-3', { id: 'other', platform_id: A, content: '{}', in_reply_to: null });
-    const payload = { id: 'held-3', platform_id: B, content: JSON.stringify({ text: 'swap' }), in_reply_to: null };
+    const approval = await seedA2aHold('appr-a2a-3', {
+      id: 'other',
+      platform_id: A,
+      content: '{}',
+      in_reply_to: null,
+    });
+    const payload = {
+      id: 'held-3',
+      platform_id: B,
+      content: JSON.stringify({ text: 'swap' }),
+      in_reply_to: null,
+    };
 
     const notify = vi.fn();
-    await applyA2aMessageGate({ session: SA, userId: 'telegram:dana', notify, payload, approval });
+    await applyA2aMessageGate({
+      session: SA,
+      userId: 'telegram:dana',
+      notify,
+      payload,
+      approval,
+    });
 
     expect(readInbound(B, SB.id)).toHaveLength(0);
-    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/not delivered.*invalid or mismatched grant/));
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/not delivered.*invalid or mismatched grant/),
+    );
   });
 
   it('a grant only works while its row is live (executes once)', async () => {
     await setMessagePolicy(A, B, 'telegram:dana', now());
-    const payload = { id: 'held-4', platform_id: B, content: JSON.stringify({ text: 'once' }), in_reply_to: null };
+    const payload = {
+      id: 'held-4',
+      platform_id: B,
+      content: JSON.stringify({ text: 'once' }),
+      in_reply_to: null,
+    };
     const approval = await seedA2aHold('appr-a2a-4', payload);
 
     await deletePendingApproval(approval.approval_id); // resolution already consumed the row
 
     const notify = vi.fn();
-    await applyA2aMessageGate({ session: SA, userId: 'telegram:dana', notify, payload, approval });
+    await applyA2aMessageGate({
+      session: SA,
+      userId: 'telegram:dana',
+      notify,
+      payload,
+      approval,
+    });
 
     expect(readInbound(B, SB.id)).toHaveLength(0);
-    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/not delivered.*invalid or mismatched grant/));
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/not delivered.*invalid or mismatched grant/),
+    );
   });
 
   // ── ghost-gate cleanup ──

@@ -5,7 +5,9 @@ import { formatTransportError } from './transport-errors.js';
 
 describe('formatTransportError', () => {
   it('renders per-install service names on ENOENT, not the bare v1 names', () => {
-    const out = formatTransportError(new Error('connect ENOENT /tmp/nanoclaw.sock'));
+    const out = formatTransportError(
+      new Error('connect ENOENT /tmp/nanoclaw.sock'),
+    );
 
     // Regression for #2484: pre-fix, this string was a hardcoded
     // `com.nanoclaw` / `nanoclaw`, which doesn't match the actual

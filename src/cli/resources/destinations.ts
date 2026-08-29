@@ -17,14 +17,21 @@ import { registerResource } from '../crud.js';
  * See the destination-projection invariant in
  * src/modules/agent-to-agent/db/agent-destinations.ts.
  */
-export async function projectDestinationsToSessions(agentGroupId: string): Promise<void> {
+export async function projectDestinationsToSessions(
+  agentGroupId: string,
+): Promise<void> {
   if (!(await hasTable(getDb(), 'agent_destinations'))) return;
-  const { writeDestinations } = await import('../../modules/agent-to-agent/write-destinations.js');
+  const { writeDestinations } =
+    await import('../../modules/agent-to-agent/write-destinations.js');
   for (const session of await getSessionsByAgentGroup(agentGroupId)) {
     try {
       await writeDestinations(agentGroupId, session.id);
     } catch (err) {
-      log.warn('Failed to project destinations to session mailbox', { agentGroupId, sessionId: session.id, err });
+      log.warn('Failed to project destinations to session mailbox', {
+        agentGroupId,
+        sessionId: session.id,
+        err,
+      });
     }
   }
 }
@@ -41,7 +48,8 @@ registerResource({
     {
       name: 'agent_group_id',
       type: 'string',
-      description: 'The agent that owns this destination. References agent_groups.id.',
+      description:
+        'The agent that owns this destination. References agent_groups.id.',
     },
     {
       name: 'local_name',
@@ -52,16 +60,26 @@ registerResource({
     {
       name: 'target_type',
       type: 'string',
-      description: '"channel" for messaging group targets, "agent" for agent-to-agent targets.',
+      description:
+        '"channel" for messaging group targets, "agent" for agent-to-agent targets.',
       enum: ['channel', 'agent'],
     },
     {
       name: 'target_id',
       type: 'string',
-      description: "The target's ID — messaging_groups.id for channels, agent_groups.id for agents.",
+      description:
+        "The target's ID — messaging_groups.id for channels, agent_groups.id for agents.",
     },
-    { name: 'channel_type', type: 'string', description: 'Resolved channel type for channel destinations.' },
-    { name: 'display_name', type: 'string', description: 'Resolved chat title or agent name.' },
+    {
+      name: 'channel_type',
+      type: 'string',
+      description: 'Resolved channel type for channel destinations.',
+    },
+    {
+      name: 'display_name',
+      type: 'string',
+      description: 'Resolved chat title or agent name.',
+    },
     { name: 'created_at', type: 'string', description: 'Auto-set.' },
   ],
   operations: {},
@@ -70,7 +88,9 @@ registerResource({
       access: 'open',
       description: 'List destinations with resolved channel/title labels.',
       handler: async (args) => {
-        const agentGroupId = (args.agent_group_id as string | undefined) ?? (args.id as string | undefined);
+        const agentGroupId =
+          (args.agent_group_id as string | undefined) ??
+          (args.id as string | undefined);
         const params: unknown[] = [];
         const where = agentGroupId ? 'WHERE ad.agent_group_id = ?' : '';
         if (agentGroupId) params.push(agentGroupId);
@@ -94,7 +114,8 @@ registerResource({
     },
     add: {
       access: 'approval',
-      description: 'Add a destination for an agent. Use --agent-group-id, --local-name, --target-type, --target-id.',
+      description:
+        'Add a destination for an agent. Use --agent-group-id, --local-name, --target-type, --target-id.',
       handler: async (args) => {
         const agentGroupId = args.agent_group_id as string;
         const localName = args.local_name as string;
@@ -116,12 +137,18 @@ registerResource({
           new Date().toISOString(),
         );
         await projectDestinationsToSessions(agentGroupId);
-        return { agent_group_id: agentGroupId, local_name: localName, target_type: targetType, target_id: targetId };
+        return {
+          agent_group_id: agentGroupId,
+          local_name: localName,
+          target_type: targetType,
+          target_id: targetId,
+        };
       },
     },
     remove: {
       access: 'approval',
-      description: 'Remove a destination from an agent. Use --agent-group-id and --local-name.',
+      description:
+        'Remove a destination from an agent. Use --agent-group-id and --local-name.',
       handler: async (args) => {
         const agentGroupId = args.agent_group_id as string;
         const localName = args.local_name as string;
@@ -134,7 +161,9 @@ registerResource({
         );
         if (result.changes === 0) throw new Error('destination not found');
         await projectDestinationsToSessions(agentGroupId);
-        return { removed: { agent_group_id: agentGroupId, local_name: localName } };
+        return {
+          removed: { agent_group_id: agentGroupId, local_name: localName },
+        };
       },
     },
   },

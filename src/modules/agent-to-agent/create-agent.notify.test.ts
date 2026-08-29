@@ -27,14 +27,21 @@ vi.mock('../../db/container-configs.js', () => ({
   getContainerConfig: () => ({ cli_scope: 'global' }),
 }));
 vi.mock('../../db/agent-groups.js', () => ({
-  getAgentGroup: (id: string) => ({ id, name: id.toUpperCase(), folder: id, agent_provider: null, created_at: '' }),
+  getAgentGroup: (id: string) => ({
+    id,
+    name: id.toUpperCase(),
+    folder: id,
+    agent_provider: null,
+    created_at: '',
+  }),
   getAgentGroupByFolder: () => undefined,
   createAgentGroup: vi.fn(),
 }));
 vi.mock('../../group-init.js', () => ({ initGroupFilesystem: vi.fn() }));
 vi.mock('./write-destinations.js', () => ({ writeDestinations: vi.fn() }));
 vi.mock('./db/agent-destinations.js', () => ({
-  getDestinationByName: (group: string, name: string) => destinations.get(`${group}/${name}`),
+  getDestinationByName: (group: string, name: string) =>
+    destinations.get(`${group}/${name}`),
   createDestination: vi.fn(),
   normalizeName: (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
 }));
@@ -54,7 +61,9 @@ import { createAgent } from './create-agent.js';
 const SESSION = { id: 'sess-1', agent_group_id: 'ag-1' } as Session;
 
 function notifyTexts(): string[] {
-  return mockNotifyWrite.mock.calls.map((c) => JSON.parse((c[2] as { content: string }).content).text as string);
+  return mockNotifyWrite.mock.calls.map(
+    (c) => JSON.parse((c[2] as { content: string }).content).text as string,
+  );
 }
 
 beforeEach(() => {
@@ -66,20 +75,33 @@ describe('createAgent — suppressCreatedNotify option', () => {
   it('default: the success notify fires', async () => {
     await createAgent({ name: 'Scout' }, SESSION);
 
-    expect(notifyTexts().some((t) => t.includes('Agent "scout" created'))).toBe(true);
+    expect(notifyTexts().some((t) => t.includes('Agent "scout" created'))).toBe(
+      true,
+    );
   });
 
   it('suppressCreatedNotify: creation runs but the success notify is silenced', async () => {
-    await createAgent({ name: 'Scout' }, SESSION, { suppressCreatedNotify: true });
+    await createAgent({ name: 'Scout' }, SESSION, {
+      suppressCreatedNotify: true,
+    });
 
     expect(notifyTexts()).toHaveLength(0);
   });
 
   it('suppressCreatedNotify does NOT silence the collision error notify', async () => {
-    destinations.set('ag-1/scout', { target_type: 'agent', target_id: 'ag-existing' });
+    destinations.set('ag-1/scout', {
+      target_type: 'agent',
+      target_id: 'ag-existing',
+    });
 
-    await createAgent({ name: 'Scout' }, SESSION, { suppressCreatedNotify: true });
+    await createAgent({ name: 'Scout' }, SESSION, {
+      suppressCreatedNotify: true,
+    });
 
-    expect(notifyTexts().some((t) => t.includes('already have a destination named "scout"'))).toBe(true);
+    expect(
+      notifyTexts().some((t) =>
+        t.includes('already have a destination named "scout"'),
+      ),
+    ).toBe(true);
   });
 });

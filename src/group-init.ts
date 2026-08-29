@@ -95,7 +95,12 @@ export async function initGroupFilesystem(
 
   // 2. data/v2-sessions/<id>/.claude-shared/ — Claude state + per-group skills
   if (defaultSurfaces) {
-    const claudeDir = path.join(DATA_DIR, 'v2-sessions', group.id, '.claude-shared');
+    const claudeDir = path.join(
+      DATA_DIR,
+      'v2-sessions',
+      group.id,
+      '.claude-shared',
+    );
     if (!fs.existsSync(claudeDir)) {
       fs.mkdirSync(claudeDir, { recursive: true });
       initialized.push('.claude-shared');

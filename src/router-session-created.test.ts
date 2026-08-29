@@ -19,8 +19,16 @@ import {
   createMessagingGroup,
   createMessagingGroupAgent,
 } from './db/index.js';
-import { initChannelAdapters, registerChannelAdapter, teardownChannelAdapters } from './channels/channel-registry.js';
-import { registerSessionCreatedHook, routeInbound, type SessionCreatedEvent } from './router.js';
+import {
+  initChannelAdapters,
+  registerChannelAdapter,
+  teardownChannelAdapters,
+} from './channels/channel-registry.js';
+import {
+  registerSessionCreatedHook,
+  routeInbound,
+  type SessionCreatedEvent,
+} from './router.js';
 import type { ChannelAdapter, ChannelDefaults } from './channels/adapter.js';
 import type { MessagingGroupAgent } from './types.js';
 
@@ -45,8 +53,17 @@ function now(): string {
 }
 
 const channelDefaults: ChannelDefaults = {
-  dm: { engageMode: 'pattern', engagePattern: '.', threads: true, unknownSenderPolicy: 'public' },
-  group: { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'request_approval' },
+  dm: {
+    engageMode: 'pattern',
+    engagePattern: '.',
+    threads: true,
+    unknownSenderPolicy: 'public',
+  },
+  group: {
+    engageMode: 'mention-sticky',
+    threads: true,
+    unknownSenderPolicy: 'request_approval',
+  },
   mentions: 'platform',
 };
 
@@ -64,7 +81,10 @@ function makeAdapter(): ChannelAdapter {
 }
 
 async function activate(): Promise<void> {
-  registerChannelAdapter('testchat', { factory: () => makeAdapter(), defaults: channelDefaults });
+  registerChannelAdapter('testchat', {
+    factory: () => makeAdapter(),
+    defaults: channelDefaults,
+  });
   await initChannelAdapters(() => ({
     onInbound: () => {},
     onInboundEvent: () => {},
@@ -102,7 +122,8 @@ async function seedWiring(options: {
     messaging_group_id: 'mg-1',
     agent_group_id: 'ag-1',
     engage_mode: options.engageMode ?? 'pattern',
-    engage_pattern: options.engagePattern === undefined ? '.' : options.engagePattern,
+    engage_pattern:
+      options.engagePattern === undefined ? '.' : options.engagePattern,
     sender_scope: 'all',
     ignored_message_policy: options.ignoredMessagePolicy ?? 'drop',
     session_mode: options.sessionMode ?? 'per-thread',
@@ -112,7 +133,12 @@ async function seedWiring(options: {
   });
 }
 
-async function inbound(id: string, threadId: string | null, text: string, isMention = true): Promise<void> {
+async function inbound(
+  id: string,
+  threadId: string | null,
+  text: string,
+  isMention = true,
+): Promise<void> {
   await routeInbound({
     channelType: 'testchat',
     platformId: 'testchat:C1',
@@ -179,7 +205,12 @@ describe('registerSessionCreatedHook', () => {
     await activate();
     // A mention-mode wiring with accumulate policy: a non-mention message
     // takes the accumulate path (wake=false) and still creates the session.
-    await seedWiring({ isGroup: 1, engageMode: 'mention', ignoredMessagePolicy: 'accumulate', sessionMode: 'shared' });
+    await seedWiring({
+      isGroup: 1,
+      engageMode: 'mention',
+      ignoredMessagePolicy: 'accumulate',
+      sessionMode: 'shared',
+    });
 
     const events: SessionCreatedEvent[] = [];
     registerSessionCreatedHook((event) => {
@@ -198,7 +229,12 @@ describe('registerSessionCreatedHook', () => {
     await activate();
     // Group chat + thread-enabled wiring: shared session_mode resolves to
     // per-thread at fanout — the hook must see the RESOLVED mode.
-    await seedWiring({ isGroup: 1, engageMode: 'pattern', engagePattern: '.', sessionMode: 'shared' });
+    await seedWiring({
+      isGroup: 1,
+      engageMode: 'pattern',
+      engagePattern: '.',
+      sessionMode: 'shared',
+    });
 
     const events: SessionCreatedEvent[] = [];
     registerSessionCreatedHook((event) => {
@@ -227,7 +263,9 @@ describe('registerSessionCreatedHook', () => {
     });
 
     const { wakeContainer } = await import('./container-runner.js');
-    await expect(inbound('m1', 'testchat:C1:555', 'still routes')).resolves.toBeUndefined();
+    await expect(
+      inbound('m1', 'testchat:C1:555', 'still routes'),
+    ).resolves.toBeUndefined();
 
     // Hooks registered after the throwing ones still ran, and the message
     // still woke the container.

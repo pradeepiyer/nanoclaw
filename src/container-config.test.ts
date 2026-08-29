@@ -21,7 +21,11 @@ import {
 } from './container-config.js';
 import { createAgentGroup } from './db/agent-groups.js';
 import { closeDb, initTestDb } from './db/connection.js';
-import { ensureContainerConfig, getContainerConfig, updateContainerConfigScalars } from './db/container-configs.js';
+import {
+  ensureContainerConfig,
+  getContainerConfig,
+  updateContainerConfigScalars,
+} from './db/container-configs.js';
 import { runMigrations } from './db/migrations/index.js';
 import type { AgentGroup } from './types.js';
 
@@ -58,10 +62,14 @@ describe('resolveGroupTimezone', () => {
 
   it('configFromDb ships a valid timezone to the container and drops an invalid one', async () => {
     await updateContainerConfigScalars(GROUP.id, { timezone: 'Asia/Tokyo' });
-    expect(configFromDb((await getContainerConfig(GROUP.id))!, GROUP).timezone).toBe('Asia/Tokyo');
+    expect(
+      configFromDb((await getContainerConfig(GROUP.id))!, GROUP).timezone,
+    ).toBe('Asia/Tokyo');
 
     await updateContainerConfigScalars(GROUP.id, { timezone: 'Not/AZone' });
-    expect(configFromDb((await getContainerConfig(GROUP.id))!, GROUP).timezone).toBeUndefined();
+    expect(
+      configFromDb((await getContainerConfig(GROUP.id))!, GROUP).timezone,
+    ).toBeUndefined();
   });
 
   // The composer widens a corrupt selection to 'all' rather than dropping
@@ -71,8 +79,12 @@ describe('resolveGroupTimezone', () => {
   it('configFromDb widens a corrupt skill selection instead of throwing', async () => {
     const row = (await getContainerConfig(GROUP.id))!;
     expect(configFromDb(row, GROUP).skills).toBe('all');
-    expect(configFromDb({ ...row, skills: '["welcome"]' }, GROUP).skills).toEqual(['welcome']);
-    expect(configFromDb({ ...row, skills: '{not json' }, GROUP).skills).toBe('all');
+    expect(
+      configFromDb({ ...row, skills: '["welcome"]' }, GROUP).skills,
+    ).toEqual(['welcome']);
+    expect(configFromDb({ ...row, skills: '{not json' }, GROUP).skills).toBe(
+      'all',
+    );
     expect(configFromDb({ ...row, skills: 'null' }, GROUP).skills).toBe('all');
   });
 
@@ -83,33 +95,53 @@ describe('resolveGroupTimezone', () => {
     // invalid value fails closed rather than composing at the default tier.
     const row = (await getContainerConfig(GROUP.id))!;
     expect(configFromDb(row, GROUP).runtimeTier).toBeUndefined();
-    expect(configFromDb({ ...row, runtime_tier: 'container' }, GROUP).runtimeTier).toBe('container');
-    expect(configFromDb({ ...row, runtime_tier: 'vm' }, GROUP).runtimeTier).toBe('vm');
-    expect(() => configFromDb({ ...row, runtime_tier: 'hypervisor' }, GROUP)).toThrow(
-      /invalid runtime_tier "hypervisor"/,
-    );
-    expect(configFromDb({ ...row, runtime_tier: null }, GROUP).runtimeTier).toBeUndefined();
+    expect(
+      configFromDb({ ...row, runtime_tier: 'container' }, GROUP).runtimeTier,
+    ).toBe('container');
+    expect(
+      configFromDb({ ...row, runtime_tier: 'vm' }, GROUP).runtimeTier,
+    ).toBe('vm');
+    expect(() =>
+      configFromDb({ ...row, runtime_tier: 'hypervisor' }, GROUP),
+    ).toThrow(/invalid runtime_tier "hypervisor"/);
+    expect(
+      configFromDb({ ...row, runtime_tier: null }, GROUP).runtimeTier,
+    ).toBeUndefined();
   });
 });
 
 describe('parseMcpServerConfig', () => {
   it('preserves stdio config and accepts HTTPS Streamable HTTP config', () => {
-    expect(parseMcpServerConfig({ command: 'pnpm', args: ['dlx', 'server'], env: { TOKEN: 'stub' } })).toEqual({
+    expect(
+      parseMcpServerConfig({
+        command: 'pnpm',
+        args: ['dlx', 'server'],
+        env: { TOKEN: 'stub' },
+      }),
+    ).toEqual({
       command: 'pnpm',
       args: ['dlx', 'server'],
       env: { TOKEN: 'stub' },
     });
-    expect(parseMcpServerConfig({ url: 'https://mcp.example.com/mcp' })).toEqual({
+    expect(
+      parseMcpServerConfig({ url: 'https://mcp.example.com/mcp' }),
+    ).toEqual({
       type: 'http',
       url: 'https://mcp.example.com/mcp',
     });
     // Non-secret query params (e.g. Datadog toolset selection) are legitimate endpoint config.
-    expect(parseMcpServerConfig({ url: 'https://mcp.datadoghq.com/v1/mcp?toolsets=apm,llmobs' })).toEqual({
+    expect(
+      parseMcpServerConfig({
+        url: 'https://mcp.datadoghq.com/v1/mcp?toolsets=apm,llmobs',
+      }),
+    ).toEqual({
       type: 'http',
       url: 'https://mcp.datadoghq.com/v1/mcp?toolsets=apm,llmobs',
     });
     // Credential keys match as whole words: `author` is not `auth`.
-    expect(parseMcpServerConfig({ url: 'https://mcp.example.com/mcp?author=jane' })).toEqual({
+    expect(
+      parseMcpServerConfig({ url: 'https://mcp.example.com/mcp?author=jane' }),
+    ).toEqual({
       type: 'http',
       url: 'https://mcp.example.com/mcp?author=jane',
     });
@@ -131,16 +163,37 @@ describe('parseMcpServerConfig', () => {
     // The loopback exception is an exact-hostname match, not a suffix match.
     [{ url: 'http://localhost.evil.com/mcp' }, /HTTPS/],
     [{ url: 'https://token@mcp.example.com/mcp' }, /credentials/],
-    [{ url: 'https://mcp.example.com/mcp?api_key=secret' }, /looks like a credential/],
-    [{ url: 'https://mcp.example.com/mcp?authorization=x' }, /looks like a credential/],
+    [
+      { url: 'https://mcp.example.com/mcp?api_key=secret' },
+      /looks like a credential/,
+    ],
+    [
+      { url: 'https://mcp.example.com/mcp?authorization=x' },
+      /looks like a credential/,
+    ],
     // camelCase keys are normalized before the word-boundary match.
-    [{ url: 'https://mcp.example.com/mcp?authToken=x' }, /looks like a credential/],
-    [{ url: 'https://mcp.example.com/mcp?privateKey=x' }, /looks like a credential/],
+    [
+      { url: 'https://mcp.example.com/mcp?authToken=x' },
+      /looks like a credential/,
+    ],
+    [
+      { url: 'https://mcp.example.com/mcp?privateKey=x' },
+      /looks like a credential/,
+    ],
     [{ url: 'https://mcp.example.com/mcp#secret' }, /fragments/],
-    [{ url: 'https://mcp.example.com/mcp', env: {} }, /only valid with command/],
+    [
+      { url: 'https://mcp.example.com/mcp', env: {} },
+      /only valid with command/,
+    ],
     // Env keys reach codex's TOML writer as table keys — charset is allowlisted.
-    [{ command: 'server', env: { 'BAD KEY': 'v' } }, /valid environment variable name/],
-    [{ command: 'server', env: { 'X]\n[mcp_servers.evil]': 'v' } }, /valid environment variable name/],
+    [
+      { command: 'server', env: { 'BAD KEY': 'v' } },
+      /valid environment variable name/,
+    ],
+    [
+      { command: 'server', env: { 'X]\n[mcp_servers.evil]': 'v' } },
+      /valid environment variable name/,
+    ],
   ])('rejects invalid transport config %#', (input, message) => {
     expect(() => parseMcpServerConfig(input)).toThrow(message);
   });
@@ -151,39 +204,65 @@ describe('parseMcpServerConfig', () => {
       args: [],
       env: {},
     });
-    expect(parseMcpServerConfig({ type: 'streamable-http', url: 'https://mcp.example.com/mcp' })).toEqual({
+    expect(
+      parseMcpServerConfig({
+        type: 'streamable-http',
+        url: 'https://mcp.example.com/mcp',
+      }),
+    ).toEqual({
       type: 'http',
       url: 'https://mcp.example.com/mcp',
     });
   });
 
   it.each([
-    [{ type: 'sse', url: 'https://mcp.example.com/mcp' }, /unsupported transport "sse"/],
+    [
+      { type: 'sse', url: 'https://mcp.example.com/mcp' },
+      /unsupported transport "sse"/,
+    ],
     [{ type: 'websocket', url: 'https://mcp.example.com/mcp' }, /type must be/],
     [{ type: 'stdio', url: 'https://mcp.example.com/mcp' }, /requires command/],
     [{ type: 'http', command: 'server' }, /requires url/],
-  ])('rejects a mismatched or unsupported declared type %#', (input, message) => {
-    expect(() => parseMcpServerConfig(input)).toThrow(message);
-  });
+  ])(
+    'rejects a mismatched or unsupported declared type %#',
+    (input, message) => {
+      expect(() => parseMcpServerConfig(input)).toThrow(message);
+    },
+  );
 
   it('accepts headers on http entries and rejects them on stdio entries', () => {
-    expect(parseMcpServerConfig({ url: 'https://mcp.example.com/mcp', headers: { 'X-Client': 'nanoclaw' } })).toEqual({
+    expect(
+      parseMcpServerConfig({
+        url: 'https://mcp.example.com/mcp',
+        headers: { 'X-Client': 'nanoclaw' },
+      }),
+    ).toEqual({
       type: 'http',
       url: 'https://mcp.example.com/mcp',
       headers: { 'X-Client': 'nanoclaw' },
     });
-    expect(() => parseMcpServerConfig({ command: 'server', headers: { A: 'b' } })).toThrow(/only valid with url/);
-    expect(() => parseMcpServerConfig({ url: 'https://mcp.example.com/mcp', headers: { A: 1 } })).toThrow(
-      /string values/,
-    );
+    expect(() =>
+      parseMcpServerConfig({ command: 'server', headers: { A: 'b' } }),
+    ).toThrow(/only valid with url/);
+    expect(() =>
+      parseMcpServerConfig({
+        url: 'https://mcp.example.com/mcp',
+        headers: { A: 1 },
+      }),
+    ).toThrow(/string values/);
   });
 
-  it.each(['./sub', '${PLUGIN_ROOT}', '${PLUGIN_ROOT}/srv', '${PLUGIN_DATA}', '${PLUGIN_DATA}/cache'])(
-    'accepts the fixed cwd form %s',
-    (cwd) => {
-      expect(parseMcpServerConfig({ command: 'server', cwd })).toMatchObject({ cwd });
-    },
-  );
+  it.each([
+    './sub',
+    '${PLUGIN_ROOT}',
+    '${PLUGIN_ROOT}/srv',
+    '${PLUGIN_DATA}',
+    '${PLUGIN_DATA}/cache',
+  ])('accepts the fixed cwd form %s', (cwd) => {
+    expect(parseMcpServerConfig({ command: 'server', cwd })).toMatchObject({
+      cwd,
+    });
+  });
 
   it.each([
     ['sub', /cwd must be/],
@@ -196,7 +275,9 @@ describe('parseMcpServerConfig', () => {
     ['./a//b', /escapes the plugin root/],
     [7, /cwd must be/],
   ])('rejects cwd %s', (cwd, message) => {
-    expect(() => parseMcpServerConfig({ command: 'server', cwd })).toThrow(message);
+    expect(() => parseMcpServerConfig({ command: 'server', cwd })).toThrow(
+      message,
+    );
   });
 });
 
@@ -204,7 +285,12 @@ describe('sanitizeStoredMcpServers', () => {
   it('keeps valid entries, preserves a well-formed pluginRoot, and drops the rest', () => {
     const sanitized = sanitizeStoredMcpServers(
       {
-        good: { command: 'server', args: [], env: {}, pluginRoot: `${CONTAINER_PLUGINS_DIR}/sdr` },
+        good: {
+          command: 'server',
+          args: [],
+          env: {},
+          pluginRoot: `${CONTAINER_PLUGINS_DIR}/sdr`,
+        },
         remote: { type: 'http', url: 'https://mcp.example.com/mcp' },
         badRoot: { command: 'server', pluginRoot: '/etc' },
         broken: { url: 'http://insecure.example.com' },
@@ -213,8 +299,14 @@ describe('sanitizeStoredMcpServers', () => {
       },
       'test-group',
     );
-    expect(Object.keys(sanitized).sort()).toEqual(['badRoot', 'good', 'remote']);
-    expect(sanitized.good).toMatchObject({ pluginRoot: `${CONTAINER_PLUGINS_DIR}/sdr` });
+    expect(Object.keys(sanitized).sort()).toEqual([
+      'badRoot',
+      'good',
+      'remote',
+    ]);
+    expect(sanitized.good).toMatchObject({
+      pluginRoot: `${CONTAINER_PLUGINS_DIR}/sdr`,
+    });
     expect(sanitized.badRoot).not.toHaveProperty('pluginRoot');
   });
 
@@ -222,7 +314,11 @@ describe('sanitizeStoredMcpServers', () => {
     const sanitized = sanitizeStoredMcpServers(
       {
         planted: { command: 'server', cwd: '${PLUGIN_DATA}/x' },
-        plugin: { command: 'server', cwd: '${PLUGIN_DATA}/x', pluginRoot: `${CONTAINER_PLUGINS_DIR}/sdr` },
+        plugin: {
+          command: 'server',
+          cwd: '${PLUGIN_DATA}/x',
+          pluginRoot: `${CONTAINER_PLUGINS_DIR}/sdr`,
+        },
       },
       'test-group',
     );
@@ -240,7 +336,15 @@ describe('validateMcpServerName', () => {
     expect(() => validateMcpServerName('brave-search_2')).not.toThrow();
     // __proto__ matches the regex but would set the record's prototype
     // instead of an own key on assignment — rejected by name.
-    for (const name of ['', 'docs]\n[mcp_servers.evil]', 'a b', 'a.b', '"quoted"', 'x'.repeat(65), '__proto__']) {
+    for (const name of [
+      '',
+      'docs]\n[mcp_servers.evil]',
+      'a b',
+      'a.b',
+      '"quoted"',
+      'x'.repeat(65),
+      '__proto__',
+    ]) {
       expect(() => validateMcpServerName(name)).toThrow(/1-64 characters/);
     }
   });
@@ -253,10 +357,16 @@ describe('validateMcpServerName', () => {
  */
 describe('host/container validation parity', () => {
   it('keeps the duplicated regex literals identical', () => {
-    const read = (p: string): string => fs.readFileSync(path.join(process.cwd(), p), 'utf-8');
+    const read = (p: string): string =>
+      fs.readFileSync(path.join(process.cwd(), p), 'utf-8');
     const host = read('src/container-config.ts');
     const container = read('container/agent-runner/src/mcp-tools/self-mod.ts');
-    for (const name of ['SECRET_QUERY_KEY_RE', 'CAMEL_SPLIT_RE', 'MCP_SERVER_NAME_RE', 'ENV_KEY_RE']) {
+    for (const name of [
+      'SECRET_QUERY_KEY_RE',
+      'CAMEL_SPLIT_RE',
+      'MCP_SERVER_NAME_RE',
+      'ENV_KEY_RE',
+    ]) {
       const literal = (src: string): string | undefined =>
         src
           .match(new RegExp(`const ${name} =\\s*([^;]+);`))?.[1]

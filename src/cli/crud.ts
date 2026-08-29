@@ -53,7 +53,10 @@ export interface CustomOperation {
   examples?: string[];
   /** Operator-only: never runnable from inside a container (see CommandDef.hostOnly). */
   hostOnly?: boolean;
-  handler: (args: Record<string, unknown>, ctx: CallerContext) => Promise<unknown>;
+  handler: (
+    args: Record<string, unknown>,
+    ctx: CallerContext,
+  ) => Promise<unknown>;
   /** Presentational renderer for human mode — see CommandDef.formatHuman. */
   formatHuman?: (data: unknown) => string;
 }
@@ -115,7 +118,10 @@ export interface ResourceDef {
    * whose column combinations need cross-checks — a partial update must not
    * be able to produce a combination `create` would have rejected.
    */
-  preUpdate?: (updates: Record<string, unknown>, current: Record<string, unknown>) => void | Promise<void>;
+  preUpdate?: (
+    updates: Record<string, unknown>,
+    current: Record<string, unknown>,
+  ) => void | Promise<void>;
   /**
    * Runs after a successful `create` INSERT, with the row that was just
    * written. Used to wire in side effects that the central row alone
@@ -150,7 +156,9 @@ export interface ResourceDef {
 const resources = new Map<string, ResourceDef>();
 
 export function getResources(): ResourceDef[] {
-  return [...resources.values()].sort((a, b) => a.plural.localeCompare(b.plural));
+  return [...resources.values()].sort((a, b) =>
+    a.plural.localeCompare(b.plural),
+  );
 }
 
 export function getResource(plural: string): ResourceDef | undefined {
@@ -169,13 +177,18 @@ function coerceListFilter(column: ColumnDef, value: unknown): unknown {
   switch (column.type) {
     case 'number': {
       const number = Number(value);
-      if (Number.isNaN(number)) throw new Error(`--${column.name.replace(/_/g, '-')} must be a number`);
+      if (Number.isNaN(number))
+        throw new Error(`--${column.name.replace(/_/g, '-')} must be a number`);
       return number;
     }
     case 'boolean':
-      if (value === true || value === 'true' || value === '1' || value === 1) return 1;
-      if (value === false || value === 'false' || value === '0' || value === 0) return 0;
-      throw new Error(`--${column.name.replace(/_/g, '-')} must be true or false`);
+      if (value === true || value === 'true' || value === '1' || value === 1)
+        return 1;
+      if (value === false || value === 'false' || value === '0' || value === 0)
+        return 0;
+      throw new Error(
+        `--${column.name.replace(/_/g, '-')} must be true or false`,
+      );
     case 'json':
       return typeof value === 'string' ? value : JSON.stringify(value);
     case 'string':
@@ -185,15 +198,20 @@ function coerceListFilter(column: ColumnDef, value: unknown): unknown {
 
 function listOrder(def: ResourceDef): string {
   if (def.listOrder) return def.listOrder;
-  const timestamp = def.columns.find((column) => column.name.endsWith('_at'))?.name;
+  const timestamp = def.columns.find((column) =>
+    column.name.endsWith('_at'),
+  )?.name;
   return timestamp ? `${timestamp} DESC, ${def.idColumn}` : def.idColumn;
 }
 
 function genericList(def: ResourceDef) {
   const cols = visibleColumns(def).join(', ');
-  const filterableColumns = new Map(def.columns.filter((c) => !c.generated).map((c) => [c.name, c]));
+  const filterableColumns = new Map(
+    def.columns.filter((c) => !c.generated).map((c) => [c.name, c]),
+  );
   return async (args: Record<string, unknown>) => {
-    const limit = args.limit !== undefined ? Math.max(1, Number(args.limit)) : 200;
+    const limit =
+      args.limit !== undefined ? Math.max(1, Number(args.limit)) : 200;
     const filters: string[] = [];
     const params: unknown[] = [];
     for (const [k, v] of Object.entries(args)) {
@@ -209,7 +227,10 @@ function genericList(def: ResourceDef) {
     // Newest first: without an ORDER BY the LIMIT silently hides the most
     // recently inserted rows once a table outgrows it (bit `sessions list`
     // past 200 sessions — a just-created session was invisible).
-    return getDb().all(`SELECT ${cols} FROM ${def.table}${where} ORDER BY ${listOrder(def)} LIMIT ?`, ...params);
+    return getDb().all(
+      `SELECT ${cols} FROM ${def.table}${where} ORDER BY ${listOrder(def)} LIMIT ?`,
+      ...params,
+    );
   };
 }
 
@@ -218,7 +239,10 @@ function genericGet(def: ResourceDef) {
   return async (args: Record<string, unknown>) => {
     const id = args.id as string;
     if (!id) throw new Error(`${def.name} id is required`);
-    const row = await getDb().get(`SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`, id);
+    const row = await getDb().get(
+      `SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`,
+      id,
+    );
     if (!row) throw new Error(`${def.name} not found: ${id}`);
     return row;
   };
@@ -261,7 +285,10 @@ function genericCreate(def: ResourceDef) {
       if (col.generated || values[col.name] !== undefined) continue;
       if (col.default !== undefined) {
         values[col.name] = col.default;
-      } else if (col.defaultFrom !== undefined && values[col.defaultFrom] !== undefined) {
+      } else if (
+        col.defaultFrom !== undefined &&
+        values[col.defaultFrom] !== undefined
+      ) {
         values[col.name] = values[col.defaultFrom];
       }
     }
@@ -273,9 +300,14 @@ function genericCreate(def: ResourceDef) {
     // postCommit are correctly skipped — no new companion rows to create.
     const findNaturalKeyRow = async (): Promise<unknown | undefined> => {
       if (!def.naturalKey || def.naturalKey.length === 0) return undefined;
-      const where = def.naturalKey.map((c) => `${c} IS NOT DISTINCT FROM ?`).join(' AND ');
+      const where = def.naturalKey
+        .map((c) => `${c} IS NOT DISTINCT FROM ?`)
+        .join(' AND ');
       const params = def.naturalKey.map((c) => values[c]);
-      return getDb().get(`SELECT ${visibleColumns(def).join(', ')} FROM ${def.table} WHERE ${where}`, ...params);
+      return getDb().get(
+        `SELECT ${visibleColumns(def).join(', ')} FROM ${def.table} WHERE ${where}`,
+        ...params,
+      );
     };
     if (def.naturalKey && def.naturalKey.length > 0) {
       const existing = await findNaturalKeyRow();
@@ -292,7 +324,10 @@ function genericCreate(def: ResourceDef) {
     const db = getDb();
     try {
       await db.transaction(async () => {
-        await db.run(`INSERT INTO ${def.table} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')})`, values);
+        await db.run(
+          `INSERT INTO ${def.table} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')})`,
+          values,
+        );
         if (def.postCreate) await def.postCreate(values);
       });
     } catch (error) {
@@ -341,13 +376,19 @@ function genericUpdate(def: ResourceDef) {
     const setClause = Object.keys(updates)
       .map((k) => `${k} = @${k}`)
       .join(', ');
-    const result = await getDb().run(`UPDATE ${def.table} SET ${setClause} WHERE ${def.idColumn} = @_id`, {
-      ...updates,
-      _id: id,
-    });
+    const result = await getDb().run(
+      `UPDATE ${def.table} SET ${setClause} WHERE ${def.idColumn} = @_id`,
+      {
+        ...updates,
+        _id: id,
+      },
+    );
     if (result.changes === 0) throw new Error(`${def.name} not found: ${id}`);
 
-    return getDb().get(`SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`, id);
+    return getDb().get(
+      `SELECT ${cols} FROM ${def.table} WHERE ${def.idColumn} = ?`,
+      id,
+    );
   };
 }
 
@@ -355,7 +396,10 @@ function genericDelete(def: ResourceDef) {
   return async (args: Record<string, unknown>) => {
     const id = args.id as string;
     if (!id) throw new Error(`${def.name} id is required`);
-    const result = await getDb().run(`DELETE FROM ${def.table} WHERE ${def.idColumn} = ?`, id);
+    const result = await getDb().run(
+      `DELETE FROM ${def.table} WHERE ${def.idColumn} = ?`,
+      id,
+    );
     if (result.changes === 0) throw new Error(`${def.name} not found: ${id}`);
     return { deleted: id };
   };
@@ -397,7 +441,10 @@ export function validateArgs(
   opts: { allowExtra?: readonly string[] } = {},
 ): Record<string, unknown> {
   const declared = new Map(defs.map((d) => [d.name, d]));
-  const allowed = new Set<string>([...declared.keys(), ...(opts.allowExtra ?? DISPATCH_INJECTED_KEYS)]);
+  const allowed = new Set<string>([
+    ...declared.keys(),
+    ...(opts.allowExtra ?? DISPATCH_INJECTED_KEYS),
+  ]);
 
   for (const key of Object.keys(args)) {
     if (!allowed.has(key)) {
@@ -421,13 +468,15 @@ export function validateArgs(
     switch (def.type) {
       case 'number': {
         const n = Number(v);
-        if (Number.isNaN(n)) throw new Error(`${flag} must be a number, got "${v}"`);
+        if (Number.isNaN(n))
+          throw new Error(`${flag} must be a number, got "${v}"`);
         out[def.name] = n;
         break;
       }
       case 'boolean': {
         if (v === true || v === 'true' || v === '1') out[def.name] = true;
-        else if (v === false || v === 'false' || v === '0') out[def.name] = false;
+        else if (v === false || v === 'false' || v === '0')
+          out[def.name] = false;
         else throw new Error(`${flag} must be true or false, got "${v}"`);
         break;
       }
@@ -541,11 +590,14 @@ export function registerResource(def: ResourceDef): void {
               } catch (e) {
                 const usage = renderVerbHelp(def, verb);
                 const msg = e instanceof Error ? e.message : String(e);
-                throw new Error(usage ? `${msg}\n\n${usage}` : msg, { cause: e });
+                throw new Error(usage ? `${msg}\n\n${usage}` : msg, {
+                  cause: e,
+                });
               }
             }
           : (raw) => normalizeArgs(raw),
-        handler: async (args, ctx) => op.handler(args as Record<string, unknown>, ctx),
+        handler: async (args, ctx) =>
+          op.handler(args as Record<string, unknown>, ctx),
         formatHuman: op.formatHuman,
       });
     }

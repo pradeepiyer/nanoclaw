@@ -21,15 +21,26 @@
  * exposing just user-roles/user-dms) is more churn than it's worth. Revisit
  * if either module becomes genuinely optional (see REFACTOR_PLAN open q #3).
  */
-import { normalizeOptions, type RawOption } from '../../channels/ask-question.js';
+import {
+  normalizeOptions,
+  type RawOption,
+} from '../../channels/ask-question.js';
 import { getMessagingGroup } from '../../db/messaging-groups.js';
-import { createPendingApproval, deletePendingApproval, getSession } from '../../db/sessions.js';
+import {
+  createPendingApproval,
+  deletePendingApproval,
+  getSession,
+} from '../../db/sessions.js';
 import { getDeliveryAdapter } from '../../delivery.js';
 import { requestWake } from '../../request-wake.js';
 import { log } from '../../log.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import type { MessagingGroup, PendingApproval, Session } from '../../types.js';
-import { getAdminsOfAgentGroup, getGlobalAdmins, getOwners } from '../permissions/db/user-roles.js';
+import {
+  getAdminsOfAgentGroup,
+  getGlobalAdmins,
+  getOwners,
+} from '../permissions/db/user-roles.js';
 import { ensureUserDm } from '../permissions/user-dm.js';
 
 /**
@@ -46,9 +57,23 @@ export const REJECT_WITH_REASON_VALUE = 'reject_with_reason';
  * keep their own two-button set in onecli-approvals.ts.
  */
 const APPROVAL_OPTIONS: RawOption[] = [
-  { label: 'Approve', selectedLabel: '✅ Approved', value: 'approve', style: 'primary' },
-  { label: 'Reject', selectedLabel: '❌ Rejected', value: 'reject', style: 'danger' },
-  { label: 'Reject with reason…', selectedLabel: '📝 Rejected (awaiting reason)', value: REJECT_WITH_REASON_VALUE },
+  {
+    label: 'Approve',
+    selectedLabel: '✅ Approved',
+    value: 'approve',
+    style: 'primary',
+  },
+  {
+    label: 'Reject',
+    selectedLabel: '❌ Rejected',
+    value: 'reject',
+    style: 'danger',
+  },
+  {
+    label: 'Reject with reason…',
+    selectedLabel: '📝 Rejected (awaiting reason)',
+    value: REJECT_WITH_REASON_VALUE,
+  },
 ];
 
 // ── Approval handler registry ──
@@ -75,14 +100,19 @@ export type ApprovalHandler = (ctx: ApprovalHandlerContext) => Promise<void>;
 
 const approvalHandlers = new Map<string, ApprovalHandler>();
 
-export function registerApprovalHandler(action: string, handler: ApprovalHandler): void {
+export function registerApprovalHandler(
+  action: string,
+  handler: ApprovalHandler,
+): void {
   if (approvalHandlers.has(action)) {
     log.warn('Approval handler re-registered (overwriting)', { action });
   }
   approvalHandlers.set(action, handler);
 }
 
-export function getApprovalHandler(action: string): ApprovalHandler | undefined {
+export function getApprovalHandler(
+  action: string,
+): ApprovalHandler | undefined {
   return approvalHandlers.get(action);
 }
 
@@ -105,16 +135,22 @@ export interface ApprovalResolvedEvent {
   userId: string;
 }
 
-export type ApprovalResolvedHandler = (event: ApprovalResolvedEvent) => Promise<void> | void;
+export type ApprovalResolvedHandler = (
+  event: ApprovalResolvedEvent,
+) => Promise<void> | void;
 
 const approvalResolvedHandlers: ApprovalResolvedHandler[] = [];
 
-export function registerApprovalResolvedHandler(handler: ApprovalResolvedHandler): void {
+export function registerApprovalResolvedHandler(
+  handler: ApprovalResolvedHandler,
+): void {
   approvalResolvedHandlers.push(handler);
 }
 
 /** Fire every registered approval-resolved callback. Called by the response handler. */
-export async function notifyApprovalResolved(event: ApprovalResolvedEvent): Promise<void> {
+export async function notifyApprovalResolved(
+  event: ApprovalResolvedEvent,
+): Promise<void> {
   for (const handler of approvalResolvedHandlers) {
     try {
       await handler(event);
@@ -136,7 +172,9 @@ export async function notifyApprovalResolved(event: ApprovalResolvedEvent): Prom
  * Ordered list of user IDs eligible to approve an action for the given agent
  * group. Preference: admins @ that group → global admins → owners.
  */
-export async function pickApprover(agentGroupId: string | null): Promise<string[]> {
+export async function pickApprover(
+  agentGroupId: string | null,
+): Promise<string[]> {
   const approvers: string[] = [];
   const seen = new Set<string>();
   const add = (id: string): void => {
@@ -171,12 +209,16 @@ export async function pickApprovalDelivery(
   if (originChannelType) {
     for (const userId of approvers) {
       if (channelTypeOf(userId) !== originChannelType) continue;
-      const mg = await ensureUserDm(userId, originInstance === undefined ? undefined : { instance: originInstance });
+      const mg = await ensureUserDm(
+        userId,
+        originInstance === undefined ? undefined : { instance: originInstance },
+      );
       if (mg) return { userId, messagingGroup: mg };
     }
   }
   for (const userId of approvers) {
-    if (originChannelType && channelTypeOf(userId) === originChannelType) continue;
+    if (originChannelType && channelTypeOf(userId) === originChannelType)
+      continue;
     const mg = await ensureUserDm(userId);
     if (mg) return { userId, messagingGroup: mg };
   }
@@ -191,7 +233,10 @@ function channelTypeOf(userId: string): string {
 // ── Request API ──
 
 /** Send a system chat to the agent's session. Used by callers and by the response handler. */
-export async function notifyAgent(session: Session, text: string): Promise<void> {
+export async function notifyAgent(
+  session: Session,
+  text: string,
+): Promise<void> {
   await writeSessionMessage(session.agent_group_id, session.id, {
     id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind: 'chat',
@@ -226,21 +271,45 @@ export interface RequestApprovalOptions {
  * caller's perspective — the admin's response kicks off the registered
  * approval handler for this action via the response dispatcher.
  */
-export async function requestApproval(opts: RequestApprovalOptions): Promise<void> {
-  const { session, action, payload, title, question, agentName, approverUserId } = opts;
+export async function requestApproval(
+  opts: RequestApprovalOptions,
+): Promise<void> {
+  const {
+    session,
+    action,
+    payload,
+    title,
+    question,
+    agentName,
+    approverUserId,
+  } = opts;
 
-  const approvers = approverUserId ? [approverUserId] : await pickApprover(session.agent_group_id);
+  const approvers = approverUserId
+    ? [approverUserId]
+    : await pickApprover(session.agent_group_id);
   if (approvers.length === 0) {
-    await notifyAgent(session, `${action} failed: no owner or admin configured to approve.`);
+    await notifyAgent(
+      session,
+      `${action} failed: no owner or admin configured to approve.`,
+    );
     return;
   }
 
-  const origin = session.messaging_group_id ? await getMessagingGroup(session.messaging_group_id) : undefined;
+  const origin = session.messaging_group_id
+    ? await getMessagingGroup(session.messaging_group_id)
+    : undefined;
   const originChannelType = origin?.channel_type ?? '';
 
-  const target = await pickApprovalDelivery(approvers, originChannelType, origin?.instance);
+  const target = await pickApprovalDelivery(
+    approvers,
+    originChannelType,
+    origin?.instance,
+  );
   if (!target) {
-    await notifyAgent(session, `${action} failed: no DM channel found for any eligible approver.`);
+    await notifyAgent(
+      session,
+      `${action} failed: no DM channel found for any eligible approver.`,
+    );
     return;
   }
 
@@ -287,10 +356,18 @@ export async function requestApproval(opts: RequestApprovalOptions): Promise<voi
       // The single delivery target never saw the card — remove the row so it
       // can't linger as a pending approval nobody can act on.
       await deletePendingApproval(approvalId);
-      await notifyAgent(session, `${action} failed: could not deliver approval request to ${target.userId}.`);
+      await notifyAgent(
+        session,
+        `${action} failed: could not deliver approval request to ${target.userId}.`,
+      );
       return;
     }
   }
 
-  log.info('Approval requested', { action, approvalId, agentName, approver: target.userId });
+  log.info('Approval requested', {
+    action,
+    approvalId,
+    agentName,
+    approver: target.userId,
+  });
 }

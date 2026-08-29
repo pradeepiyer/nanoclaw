@@ -22,7 +22,12 @@ export function startLocalProxy(realToken: string): Promise<LocalProxy> {
       const fwdHeaders: Record<string, string | string[] | undefined> = {};
       for (const [k, v] of Object.entries(req.headers)) {
         // Drop connection-management headers that don't survive proxying.
-        if (['connection', 'keep-alive', 'transfer-encoding', 'upgrade'].includes(k)) continue;
+        if (
+          ['connection', 'keep-alive', 'transfer-encoding', 'upgrade'].includes(
+            k,
+          )
+        )
+          continue;
         fwdHeaders[k] = v as string | string[];
       }
       fwdHeaders['host'] = 'api.anthropic.com';

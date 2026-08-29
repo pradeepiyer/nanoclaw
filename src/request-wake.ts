@@ -27,6 +27,9 @@ export type WakeReason =
   | 'approval-response'
   | 'adoption';
 
-export async function requestWake(session: Session, _reason: WakeReason): Promise<boolean> {
+export async function requestWake(
+  session: Session,
+  _reason: WakeReason,
+): Promise<boolean> {
   return wakeContainer(session);
 }

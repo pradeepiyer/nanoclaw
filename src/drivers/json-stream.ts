@@ -16,7 +16,11 @@ export class JsonDocumentStream {
   push(chunk: string): unknown[] {
     const docs: unknown[] = [];
     this.#buffer += chunk;
-    for (let i = this.#buffer.length - chunk.length; i < this.#buffer.length; i++) {
+    for (
+      let i = this.#buffer.length - chunk.length;
+      i < this.#buffer.length;
+      i++
+    ) {
       const ch = this.#buffer[i];
       if (this.#inString) {
         if (this.#escaped) this.#escaped = false;

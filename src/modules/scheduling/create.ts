@@ -3,7 +3,10 @@ import { CronExpressionParser } from 'cron-parser';
 
 import { TIMEZONE } from '../../config.js';
 import type { TaskRecord } from '../../mailbox/index.js';
-import { resolveTaskSession, withMailboxSession } from '../../session-manager.js';
+import {
+  resolveTaskSession,
+  withMailboxSession,
+} from '../../session-manager.js';
 import { parseZonedToUtc } from '../../timezone.js';
 
 export const MAX_DAILY_FIRES = 4;
@@ -57,14 +60,22 @@ export function makeTaskId(name: unknown): string {
   return slug ? `${slug}-${hex(4)}` : `t-${hex(6)}`;
 }
 
-export function parseProcessAfter(value: unknown, tz: string = TIMEZONE): string {
-  if (typeof value !== 'string' || value.length === 0) throw new Error('--process-after is required');
+export function parseProcessAfter(
+  value: unknown,
+  tz: string = TIMEZONE,
+): string {
+  if (typeof value !== 'string' || value.length === 0)
+    throw new Error('--process-after is required');
   const date = parseZonedToUtc(value, tz);
-  if (Number.isNaN(date.getTime())) throw new Error(`invalid --process-after: ${value}`);
+  if (Number.isNaN(date.getTime()))
+    throw new Error(`invalid --process-after: ${value}`);
   return date.toISOString();
 }
 
-export function validateRecurrence(value: string | null | undefined, tz: string = TIMEZONE): void {
+export function validateRecurrence(
+  value: string | null | undefined,
+  tz: string = TIMEZONE,
+): void {
   if (!value) return;
   try {
     CronExpressionParser.parse(value, { tz });
@@ -114,18 +125,32 @@ export function prepareScheduledTask(input: {
   const script = input.script ?? null;
   const tz = input.timezone ?? TIMEZONE;
   validateRecurrence(recurrence, tz);
-  enforceRecurrenceLimit(recurrence, input.dangerouslyOverrideRecurrenceLimit === true, script !== null, tz);
+  enforceRecurrenceLimit(
+    recurrence,
+    input.dangerouslyOverrideRecurrenceLimit === true,
+    script !== null,
+    tz,
+  );
 
   let processAfter: string;
   if (input.processAfter === undefined && recurrence) {
-    const next = CronExpressionParser.parse(recurrence, { tz }).next().toISOString();
-    if (!next) throw new Error(`--recurrence has no upcoming run: ${recurrence}`);
+    const next = CronExpressionParser.parse(recurrence, { tz })
+      .next()
+      .toISOString();
+    if (!next)
+      throw new Error(`--recurrence has no upcoming run: ${recurrence}`);
     processAfter = next;
   } else {
     processAfter = parseProcessAfter(input.processAfter, tz);
   }
 
-  return { name: input.name, prompt: input.prompt, recurrence, script, processAfter };
+  return {
+    name: input.name,
+    prompt: input.prompt,
+    recurrence,
+    script,
+    processAfter,
+  };
 }
 
 /** Persist a prepared task through NanoClaw's single task/session representation. */
@@ -133,7 +158,10 @@ export async function createScheduledTask(
   agentGroupId: string,
   task: PreparedScheduledTask,
   options?: { status?: 'pending' | 'paused'; originSessionId?: string | null },
-): Promise<{ session: { id: string; agent_group_id: string }; row: ScheduledTaskRow }> {
+): Promise<{
+  session: { id: string; agent_group_id: string };
+  row: ScheduledTaskRow;
+}> {
   const id = makeTaskId(task.name);
   const { session } = await resolveTaskSession(agentGroupId, id);
 
@@ -155,5 +183,8 @@ export async function createScheduledTask(
     return stored;
   });
 
-  return { session: { id: session.id, agent_group_id: session.agent_group_id }, row };
+  return {
+    session: { id: session.id, agent_group_id: session.agent_group_id },
+    row,
+  };
 }

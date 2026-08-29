@@ -13,7 +13,8 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./config.js', async () => {
-  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
+  const actual =
+    await vi.importActual<typeof import('./config.js')>('./config.js');
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-write-outbound' };
 });
 
@@ -28,7 +29,12 @@ import {
   writeSessionMessage,
 } from './session-manager.js';
 import { inboundDbPath, outboundDbPath } from './mailbox/sqlite/paths.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from './db/index.js';
 import { createSession } from './db/sessions.js';
 import type { Session } from './types.js';
 
@@ -36,10 +42,17 @@ const TEST_DIR = '/tmp/nanoclaw-test-write-outbound';
 const AG = 'ag-test';
 const SESS = 'sess-test';
 
-function readMessagesOut(): Array<{ id: string; seq: number; kind: string; content: string }> {
+function readMessagesOut(): Array<{
+  id: string;
+  seq: number;
+  kind: string;
+  content: string;
+}> {
   const db = new Database(outboundDbPath(AG, SESS), { readonly: true });
   try {
-    return db.prepare('SELECT id, seq, kind, content FROM messages_out ORDER BY seq').all() as Array<{
+    return db
+      .prepare('SELECT id, seq, kind, content FROM messages_out ORDER BY seq')
+      .all() as Array<{
       id: string;
       seq: number;
       kind: string;
@@ -62,12 +75,16 @@ afterEach(() => {
 
 describe('withMailboxSession', () => {
   it('rejects same-key nesting and allows different keys', async () => {
-    await expect(withMailboxSession(AG, SESS, () => withMailboxSession(AG, SESS, () => undefined))).rejects.toThrow(
-      `Nested mailbox session for ${AG}/${SESS}`,
-    );
+    await expect(
+      withMailboxSession(AG, SESS, () =>
+        withMailboxSession(AG, SESS, () => undefined),
+      ),
+    ).rejects.toThrow(`Nested mailbox session for ${AG}/${SESS}`);
 
     await expect(
-      withMailboxSession(AG, SESS, () => withMailboxSession(AG, `${SESS}-other`, () => undefined)),
+      withMailboxSession(AG, SESS, () =>
+        withMailboxSession(AG, `${SESS}-other`, () => undefined),
+      ),
     ).resolves.toBeUndefined();
   });
 
@@ -85,7 +102,10 @@ describe('withMailboxSession', () => {
 
 describe('writeSessionContext', () => {
   it('writes from a host-owned path even if the agent plants the old session path', () => {
-    const plantedPath = path.join(sessionDir(AG, SESS), '.nanoclaw-session.json');
+    const plantedPath = path.join(
+      sessionDir(AG, SESS),
+      '.nanoclaw-session.json',
+    );
     const victimPath = path.join(TEST_DIR, 'victim.json');
     fs.writeFileSync(victimPath, 'unchanged');
     fs.symlinkSync(victimPath, plantedPath);
@@ -93,7 +113,9 @@ describe('writeSessionContext', () => {
     writeSessionContext(AG, SESS, { implementation: 'test' });
 
     const contextPath = sessionContextPath(AG, SESS);
-    expect(contextPath.startsWith(`${sessionDir(AG, SESS)}${path.sep}`)).toBe(false);
+    expect(contextPath.startsWith(`${sessionDir(AG, SESS)}${path.sep}`)).toBe(
+      false,
+    );
     expect(fs.readFileSync(victimPath, 'utf8')).toBe('unchanged');
     expect(fs.lstatSync(plantedPath).isSymbolicLink()).toBe(true);
     expect(JSON.parse(fs.readFileSync(contextPath, 'utf8'))).toEqual({
@@ -122,7 +144,9 @@ describe('writeOutboundDirect', () => {
     expect(rows[0].id).toBe('denial-1');
     expect(rows[0].seq).toBe(2);
     expect(rows[0].seq % 2).toBe(0); // host uses even seq numbers
-    expect(JSON.parse(rows[0].content).text).toBe('Admin commands are restricted.');
+    expect(JSON.parse(rows[0].content).text).toBe(
+      'Admin commands are restricted.',
+    );
   });
 
   it('keeps host seq numbers even across multiple writes and ignores duplicate ids', async () => {
@@ -190,7 +214,9 @@ describe('writeOutboundDirect', () => {
     await insert('in-2');
 
     const inbound = new Database(inboundDbPath(AG, SESS), { readonly: true });
-    const inboundSeq = inbound.prepare('SELECT seq FROM messages_in ORDER BY seq').all() as Array<{ seq: number }>;
+    const inboundSeq = inbound
+      .prepare('SELECT seq FROM messages_in ORDER BY seq')
+      .all() as Array<{ seq: number }>;
     inbound.close();
     expect(inboundSeq.map(({ seq }) => seq)).toEqual([2, 4]);
     expect(readMessagesOut().map(({ seq }) => seq)).toEqual([2]);
@@ -254,9 +280,9 @@ describe('writeSessionMessage re-provisions a deleted session folder', () => {
     expect(fs.existsSync(inboundDbPath(AG, SESS))).toBe(true);
     const db = new Database(inboundDbPath(AG, SESS), { readonly: true });
     try {
-      const row = db.prepare('SELECT id, content FROM messages_in WHERE id = ?').get('after-reset-1') as
-        | { id: string; content: string }
-        | undefined;
+      const row = db
+        .prepare('SELECT id, content FROM messages_in WHERE id = ?')
+        .get('after-reset-1') as { id: string; content: string } | undefined;
       expect(row?.id).toBe('after-reset-1');
       expect(JSON.parse(row!.content).text).toBe('still here?');
     } finally {

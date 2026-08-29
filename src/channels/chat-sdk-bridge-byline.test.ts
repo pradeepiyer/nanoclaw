@@ -37,15 +37,23 @@ function makeAdapter(edits: CapturedEdit[]): Adapter {
     name: 'stub',
     initialize: async () => {},
     channelIdFromThreadId: (threadId: string) => `stub:${threadId}`,
-    editMessage: async (threadId: string, messageId: string, message: AdapterPostableMessage) => {
+    editMessage: async (
+      threadId: string,
+      messageId: string,
+      message: AdapterPostableMessage,
+    ) => {
       edits.push({ threadId, messageId, message });
     },
   } as unknown as Adapter;
 }
 
-function terminalText(edit: CapturedEdit): Array<{ type: string; content?: string; style?: string }> {
+function terminalText(
+  edit: CapturedEdit,
+): Array<{ type: string; content?: string; style?: string }> {
   const message = edit.message as {
-    card: { children: Array<{ type: string; content?: string; style?: string }> };
+    card: {
+      children: Array<{ type: string; content?: string; style?: string }>;
+    };
   };
   return message.card.children;
 }
@@ -100,8 +108,18 @@ beforeEach(async () => {
     title: 'Approval needed',
     question: 'Keep these full request details.',
     options_json: JSON.stringify([
-      { label: 'Approve', selectedLabel: '✅ Approved', value: 'approve', style: 'primary' },
-      { label: 'Reject', selectedLabel: '❌ Rejected', value: 'reject', style: 'danger' },
+      {
+        label: 'Approve',
+        selectedLabel: '✅ Approved',
+        value: 'approve',
+        style: 'primary',
+      },
+      {
+        label: 'Reject',
+        selectedLabel: '❌ Rejected',
+        value: 'reject',
+        style: 'danger',
+      },
     ]),
   });
 });
@@ -112,7 +130,11 @@ afterEach(async () => {
 
 describe('chat-sdk-bridge approval-card terminal state', () => {
   it('retains the body, removes actions, and shows the acting user', async () => {
-    const { edits, actions } = await fireAction({ userId: 'U1', userName: 'gavriel', fullName: 'Gavriel C' });
+    const { edits, actions } = await fireAction({
+      userId: 'U1',
+      userName: 'gavriel',
+      fullName: 'Gavriel C',
+    });
 
     expect(edits).toHaveLength(1);
     expect(edits[0].threadId).toBe('T-1');
@@ -121,7 +143,9 @@ describe('chat-sdk-bridge approval-card terminal state', () => {
       { type: 'text', content: 'Keep these full request details.' },
       { type: 'text', content: '✅ Approved by gavriel', style: 'muted' },
     ]);
-    expect(terminalText(edits[0]).some((child) => child.type === 'actions')).toBe(false);
+    expect(
+      terminalText(edits[0]).some((child) => child.type === 'actions'),
+    ).toBe(false);
     expect(actions).toEqual(['q-1:approve:U1']);
   });
 
@@ -129,11 +153,16 @@ describe('chat-sdk-bridge approval-card terminal state', () => {
     const { edits } = await fireAction({ userId: 'U2', fullName: 'Gavriel C' });
 
     expect(edits).toHaveLength(1);
-    expect(terminalText(edits[0]).at(-1)?.content).toBe('✅ Approved by Gavriel C');
+    expect(terminalText(edits[0]).at(-1)?.content).toBe(
+      '✅ Approved by Gavriel C',
+    );
   });
 
   it('renders a rejected decision with the actor and original body', async () => {
-    const { edits, actions } = await fireAction({ userId: 'U4', userName: 'reviewer' }, 'reject');
+    const { edits, actions } = await fireAction(
+      { userId: 'U4', userName: 'reviewer' },
+      'reject',
+    );
 
     expect(terminalText(edits[0])).toEqual([
       { type: 'text', content: 'Keep these full request details.' },
@@ -158,7 +187,13 @@ describe('chat-sdk-bridge approval-card terminal state', () => {
       if (questionId !== 'module-compact-question') return undefined;
       return {
         title: 'Custom approval',
-        options: [{ label: 'Approve', selectedLabel: 'Approved safely', value: 'approve-real-value' }],
+        options: [
+          {
+            label: 'Approve',
+            selectedLabel: 'Approved safely',
+            value: 'approve-real-value',
+          },
+        ],
       };
     });
 

@@ -16,9 +16,16 @@
  */
 import { getSessionsByAgentGroup, isTaskThread } from '../../db/sessions.js';
 import { log } from '../../log.js';
-import { withExistingMailboxSession, writeSessionMessage } from '../../session-manager.js';
+import {
+  withExistingMailboxSession,
+  writeSessionMessage,
+} from '../../session-manager.js';
 import type { AgentGroup, MessagingGroup, Session } from '../../types.js';
-import { ECHO_CHANNEL_TIMELINE_SURFACE, ECHO_CHANNEL_TYPE, ECHO_TIMELINE_SURFACE } from './config.js';
+import {
+  ECHO_CHANNEL_TIMELINE_SURFACE,
+  ECHO_CHANNEL_TYPE,
+  ECHO_TIMELINE_SURFACE,
+} from './config.js';
 import { truncateEchoText } from './fan.js';
 
 export const BACKFILL_LIMIT = 12;
@@ -32,9 +39,19 @@ interface BackfillRow {
   self: boolean;
 }
 
-function parseContent(raw: string): { text?: string; sender?: string; senderId?: string; echo?: unknown } {
+function parseContent(raw: string): {
+  text?: string;
+  sender?: string;
+  senderId?: string;
+  echo?: unknown;
+} {
   try {
-    return JSON.parse(raw) as { text?: string; sender?: string; senderId?: string; echo?: unknown };
+    return JSON.parse(raw) as {
+      text?: string;
+      sender?: string;
+      senderId?: string;
+      echo?: unknown;
+    };
   } catch {
     return {};
   }
@@ -56,16 +73,25 @@ async function collectSiblingTopLevel(
   limit: number,
 ): Promise<BackfillRow[]> {
   const rows: BackfillRow[] = [];
-  const timeline = await withExistingMailboxSession(agentGroup.id, sessionId, (mailbox) => ({
-    root: mailbox.getConversationRoot(),
-    outbound: mailbox.getTopLevelOutbound(limit),
-  }));
+  const timeline = await withExistingMailboxSession(
+    agentGroup.id,
+    sessionId,
+    (mailbox) => ({
+      root: mailbox.getConversationRoot(),
+      outbound: mailbox.getTopLevelOutbound(limit),
+    }),
+  );
   if (!timeline) return rows;
 
   if (timeline.root) {
     const r = timeline.root;
     const c = parseContent(r.content);
-    if (c.text && c.senderId !== 'system' && c.sender !== 'system' && !c.text.startsWith('System instruction:')) {
+    if (
+      c.text &&
+      c.senderId !== 'system' &&
+      c.sender !== 'system' &&
+      !c.text.startsWith('System instruction:')
+    ) {
       // Host-injected triggers (the welcome hand-off) are attributed to the
       // OWNER for sender-gating, so filter them by shape too — internal
       // prompts must never surface as user timeline entries (live-hit: the
@@ -101,20 +127,35 @@ async function collectSiblingTopLevel(
  * means the same audience. Call BEFORE the triggering message is written.
  * Non-throwing; no-ops for task sessions and sessions with no siblings.
  */
-export async function backfillNewSession(agentGroup: AgentGroup, session: Session, mg: MessagingGroup): Promise<void> {
+export async function backfillNewSession(
+  agentGroup: AgentGroup,
+  session: Session,
+  mg: MessagingGroup,
+): Promise<void> {
   try {
     if (session.thread_id !== null && isTaskThread(session.thread_id)) return;
 
     const siblings = (await getSessionsByAgentGroup(agentGroup.id)).filter(
-      (s) => s.id !== session.id && s.status === 'active' && s.messaging_group_id === mg.id,
+      (s) =>
+        s.id !== session.id &&
+        s.status === 'active' &&
+        s.messaging_group_id === mg.id,
     );
     if (siblings.length === 0) return;
 
     const rows: BackfillRow[] = [];
     for (const sibling of siblings) {
-      rows.push(...(await collectSiblingTopLevel(agentGroup, sibling.id, BACKFILL_LIMIT)));
+      rows.push(
+        ...(await collectSiblingTopLevel(
+          agentGroup,
+          sibling.id,
+          BACKFILL_LIMIT,
+        )),
+      );
     }
-    rows.sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
+    rows.sort((a, b) =>
+      a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0,
+    );
     const newest = rows.slice(-BACKFILL_LIMIT);
     if (newest.length === 0) return;
 
@@ -122,7 +163,9 @@ export async function backfillNewSession(agentGroup: AgentGroup, session: Sessio
     const label = isGroupSurface
       ? 'this channel, just before this conversation'
       : 'this DM, just before this conversation';
-    const surface = isGroupSurface ? ECHO_CHANNEL_TIMELINE_SURFACE : ECHO_TIMELINE_SURFACE;
+    const surface = isGroupSurface
+      ? ECHO_CHANNEL_TIMELINE_SURFACE
+      : ECHO_TIMELINE_SURFACE;
     for (const [i, row] of newest.entries()) {
       // The most recent entry is what a short opener ("sure") is usually
       // answering — deliver it whole; earlier entries get the normal cap.
@@ -148,6 +191,9 @@ export async function backfillNewSession(agentGroup: AgentGroup, session: Sessio
       siblings: siblings.length,
     });
   } catch (err) {
-    log.warn('New-session backfill failed (continuing without context)', { sessionId: session.id, err });
+    log.warn('New-session backfill failed (continuing without context)', {
+      sessionId: session.id,
+      err,
+    });
   }
 }

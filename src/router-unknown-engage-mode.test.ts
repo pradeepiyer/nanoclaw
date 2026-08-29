@@ -39,7 +39,11 @@ import {
   createMessagingGroupAgent,
 } from './db/index.js';
 import { getUnregisteredSenders } from './db/dropped-messages.js';
-import { initChannelAdapters, registerChannelAdapter, teardownChannelAdapters } from './channels/channel-registry.js';
+import {
+  initChannelAdapters,
+  registerChannelAdapter,
+  teardownChannelAdapters,
+} from './channels/channel-registry.js';
 import { routeInbound } from './router.js';
 import { log } from './log.js';
 import type { ChannelAdapter, ChannelDefaults } from './channels/adapter.js';
@@ -51,8 +55,17 @@ function now(): string {
 }
 
 const channelDefaults: ChannelDefaults = {
-  dm: { engageMode: 'pattern', engagePattern: '.', threads: true, unknownSenderPolicy: 'public' },
-  group: { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'request_approval' },
+  dm: {
+    engageMode: 'pattern',
+    engagePattern: '.',
+    threads: true,
+    unknownSenderPolicy: 'public',
+  },
+  group: {
+    engageMode: 'mention-sticky',
+    threads: true,
+    unknownSenderPolicy: 'request_approval',
+  },
   mentions: 'platform',
 };
 
@@ -70,7 +83,10 @@ function makeAdapter(): ChannelAdapter {
 }
 
 async function activate(): Promise<void> {
-  registerChannelAdapter('testchat', { factory: () => makeAdapter(), defaults: channelDefaults });
+  registerChannelAdapter('testchat', {
+    factory: () => makeAdapter(),
+    defaults: channelDefaults,
+  });
   await initChannelAdapters(() => ({
     onInbound: () => {},
     onInboundEvent: () => {},

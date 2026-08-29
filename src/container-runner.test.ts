@@ -29,7 +29,13 @@ import type { VolumeMount } from './providers/provider-container-registry.js';
 import type { AgentGroup, Session } from './types.js';
 
 vi.mock('./log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 describe('resolveProviderName', () => {
@@ -134,7 +140,10 @@ function composeWithFolder(folder: string) {
 
 describe('composeSessionSpec', () => {
   it('keys the session by install, group and session id', () => {
-    expect(compose().key).toMatchObject({ agentGroupId: 'agent-1', sessionId: 'session-1' });
+    expect(compose().key).toMatchObject({
+      agentGroupId: 'agent-1',
+      sessionId: 'session-1',
+    });
   });
 
   it('routes the model provider contribution onto the contributed lane', () => {
@@ -143,7 +152,12 @@ describe('composeSessionSpec', () => {
     // for the gateway to overwrite on the wire, and composed-lane rules would
     // deny that install's every spawn.
     const spec = compose({
-      contribution: { env: { XDG_DATA_HOME: '/workspace/xdg', ANTHROPIC_AUTH_TOKEN: 'placeholder' } },
+      contribution: {
+        env: {
+          XDG_DATA_HOME: '/workspace/xdg',
+          ANTHROPIC_AUTH_TOKEN: 'placeholder',
+        },
+      },
     });
     expect(spec.containers[0].contributedEnv).toMatchObject({
       XDG_DATA_HOME: '/workspace/xdg',
@@ -161,7 +175,9 @@ describe('composeSessionSpec', () => {
       contribution: { env: { HTTPS_PROXY: 'http://provider:1' } },
       gateway: { env: { HTTPS_PROXY: 'http://gateway-must-win:15001' } },
     });
-    expect(spec.containers[0].contributedEnv?.HTTPS_PROXY).toBe('http://gateway-must-win:15001');
+    expect(spec.containers[0].contributedEnv?.HTTPS_PROXY).toBe(
+      'http://gateway-must-win:15001',
+    );
   });
 
   it('gateway mounts merge collision-free, shadowing a composed mount on the same target', () => {
@@ -187,17 +203,25 @@ describe('composeSessionSpec', () => {
     });
     const targets = spec.containers[0].mounts.map((m) => m.containerPath);
     expect(targets.filter((t) => t === '/workspace')).toHaveLength(1);
-    expect(spec.containers[0].mounts.find((m) => m.containerPath === '/workspace')?.hostPath).toBe('/tmp/stub');
+    expect(
+      spec.containers[0].mounts.find((m) => m.containerPath === '/workspace')
+        ?.hostPath,
+    ).toBe('/tmp/stub');
     expect(targets).toContain('/tmp/onecli-ca.pem');
   });
 
   it('gateway containers ride beside the agent', () => {
     const spec = compose({
       gateway: {
-        containers: [{ role: 'egress-proxy', image: 'proxy:1', env: {}, mounts: [] }],
+        containers: [
+          { role: 'egress-proxy', image: 'proxy:1', env: {}, mounts: [] },
+        ],
       },
     });
-    expect(spec.containers.map((c) => c.role)).toEqual(['agent', 'egress-proxy']);
+    expect(spec.containers.map((c) => c.role)).toEqual([
+      'agent',
+      'egress-proxy',
+    ]);
   });
 
   it('carries the lineage label and stamps the group folder VERBATIM (D9)', () => {
@@ -205,7 +229,9 @@ describe('composeSessionSpec', () => {
     // on the session is what lets an admission-side check pin `groups/<folder>`
     // mounts to the session. Byte-identical to `agentGroup.folder` — drivers
     // refuse rather than project it, so composition must never pre-mangle it.
-    expect(compose().labels['nanoclaw-container-name']).toBe('nanoclaw-v2-agent-one-1700000000000');
+    expect(compose().labels['nanoclaw-container-name']).toBe(
+      'nanoclaw-v2-agent-one-1700000000000',
+    );
     expect(compose().labels['nanoclaw-group-folder']).toBe(agentGroup.folder);
   });
 
@@ -222,8 +248,12 @@ describe('composeSessionSpec', () => {
       thrown = error;
     }
     expect(thrown).toMatchObject({ kind: 'spec-invalid', retryable: false });
-    expect(String((thrown as Error).message)).toContain('nanoclaw-group-folder');
-    expect(String((thrown as Error).message)).toContain('rename the group folder');
+    expect(String((thrown as Error).message)).toContain(
+      'nanoclaw-group-folder',
+    );
+    expect(String((thrown as Error).message)).toContain(
+      'rename the group folder',
+    );
   });
 
   it('REFUSES a folder outside the label-value charset, even a short one', () => {
@@ -234,7 +264,10 @@ describe('composeSessionSpec', () => {
       } catch (error) {
         thrown = error;
       }
-      expect(thrown, `folder '${folder}' must refuse`).toMatchObject({ kind: 'spec-invalid', retryable: false });
+      expect(thrown, `folder '${folder}' must refuse`).toMatchObject({
+        kind: 'spec-invalid',
+        retryable: false,
+      });
     }
   });
 
@@ -244,9 +277,13 @@ describe('composeSessionSpec', () => {
     // so refusals are rare and loud rather than routine.
     const sixtyThree = `a${'b'.repeat(61)}c`;
     expect(sixtyThree.length).toBe(63);
-    expect(composeWithFolder(sixtyThree).labels['nanoclaw-group-folder']).toBe(sixtyThree);
+    expect(composeWithFolder(sixtyThree).labels['nanoclaw-group-folder']).toBe(
+      sixtyThree,
+    );
     const minted = 'agent-ef251cff-7911-42a6-b835-942fa947ab74';
-    expect(composeWithFolder(minted).labels['nanoclaw-group-folder']).toBe(minted);
+    expect(composeWithFolder(minted).labels['nanoclaw-group-folder']).toBe(
+      minted,
+    );
   });
 
   it('splits PID 1 so a driver can preserve the image init', () => {
@@ -265,10 +302,15 @@ describe('composeSessionSpec', () => {
 
   it('reads the isolation tier from the group container config, defaulting to container', () => {
     expect(compose().runtimeTier).toBe('container');
-    expect(compose({ containerConfig: { ...containerConfig, runtimeTier: 'vm' } }).runtimeTier).toBe('vm');
-    expect(compose({ containerConfig: { ...containerConfig, runtimeTier: 'container' } }).runtimeTier).toBe(
-      'container',
-    );
+    expect(
+      compose({ containerConfig: { ...containerConfig, runtimeTier: 'vm' } })
+        .runtimeTier,
+    ).toBe('vm');
+    expect(
+      compose({
+        containerConfig: { ...containerConfig, runtimeTier: 'container' },
+      }).runtimeTier,
+    ).toBe('container');
   });
 
   it('composes an explicit runAs posture on a uid-1000 host', () => {
@@ -355,7 +397,9 @@ describe('parseMemoryMb', () => {
     // reject an invalid value at spawn. Returning undefined would fail in the
     // one wrong direction a resource limit has — quietly uncapped.
     for (const value of ['lots', '-4', '8gb extra', '8 gigs']) {
-      expect(() => parseMemoryMb(value), `'${value}' must refuse`).toThrow(/CONTAINER_MEMORY_LIMIT/);
+      expect(() => parseMemoryMb(value), `'${value}' must refuse`).toThrow(
+        /CONTAINER_MEMORY_LIMIT/,
+      );
     }
   });
 });
@@ -395,7 +439,10 @@ describe('toMountSpecs', () => {
   });
 
   it('defaults an unclassed mount to the vetted-upstream class', () => {
-    const [spec] = toMountSpecs([{ hostPath: '/x', containerPath: '/y', readonly: false }], 'agent-1');
+    const [spec] = toMountSpecs(
+      [{ hostPath: '/x', containerPath: '/y', readonly: false }],
+      'agent-1',
+    );
     expect(spec.class).toBe('allowlisted-extra');
     expect(spec.groupScope).toBe('agent-1');
   });
@@ -461,7 +508,10 @@ describe('syncSkillSymlinks', () => {
 
   it('links every selected skill to its container path', () => {
     const dir = tmpClaudeDir();
-    syncSkillSymlinks(dir, { ...containerConfig, skills: ['welcome'] } as ContainerConfig);
+    syncSkillSymlinks(dir, {
+      ...containerConfig,
+      skills: ['welcome'],
+    } as ContainerConfig);
 
     const link = path.join(dir, 'skills', 'welcome');
     expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
@@ -471,8 +521,14 @@ describe('syncSkillSymlinks', () => {
 
   it('prunes symlinks that are no longer selected', () => {
     const dir = tmpClaudeDir();
-    syncSkillSymlinks(dir, { ...containerConfig, skills: ['welcome', 'vercel-cli'] } as ContainerConfig);
-    syncSkillSymlinks(dir, { ...containerConfig, skills: ['welcome'] } as ContainerConfig);
+    syncSkillSymlinks(dir, {
+      ...containerConfig,
+      skills: ['welcome', 'vercel-cli'],
+    } as ContainerConfig);
+    syncSkillSymlinks(dir, {
+      ...containerConfig,
+      skills: ['welcome'],
+    } as ContainerConfig);
 
     expect(fs.existsSync(path.join(dir, 'skills', 'vercel-cli'))).toBe(false);
   });
@@ -484,7 +540,10 @@ describe('syncSkillSymlinks', () => {
     const dir = tmpClaudeDir();
     fs.mkdirSync(path.join(dir, 'skills', 'welcome'), { recursive: true });
 
-    syncSkillSymlinks(dir, { ...containerConfig, skills: ['welcome'] } as ContainerConfig);
+    syncSkillSymlinks(dir, {
+      ...containerConfig,
+      skills: ['welcome'],
+    } as ContainerConfig);
 
     expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining('Shared skill not symlinked'),

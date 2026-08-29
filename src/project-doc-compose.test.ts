@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const TEST_ROOT = '/tmp/nanoclaw-project-doc-compose-test';
 
 vi.mock('./log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 import {
@@ -13,10 +19,20 @@ import {
   updateContainerConfigScalars,
   updateContainerConfigJson,
 } from './db/container-configs.js';
-import { closeDb, createAgentGroup, getDb, initTestDb, runMigrations } from './db/index.js';
+import {
+  closeDb,
+  createAgentGroup,
+  getDb,
+  initTestDb,
+  runMigrations,
+} from './db/index.js';
 import { PERSONA_PREPEND_FILE } from './group-persona.js';
 import { log } from './log.js';
-import { composeGroupProjectDoc, DEFAULT_PROJECT_DOC, type ProjectDocSpec } from './project-doc-compose.js';
+import {
+  composeGroupProjectDoc,
+  DEFAULT_PROJECT_DOC,
+  type ProjectDocSpec,
+} from './project-doc-compose.js';
 import type { AgentGroup } from './types.js';
 
 const CLAUDE_SPEC: ProjectDocSpec = {
@@ -25,7 +41,13 @@ const CLAUDE_SPEC: ProjectDocSpec = {
 };
 
 function group(id: string, folder: string): AgentGroup {
-  return { id, name: folder, folder, agent_provider: null, created_at: new Date().toISOString() } as AgentGroup;
+  return {
+    id,
+    name: folder,
+    folder,
+    agent_provider: null,
+    created_at: new Date().toISOString(),
+  } as AgentGroup;
 }
 
 function groupDirOf(folder: string): string {
@@ -44,9 +66,15 @@ function writePersona(folder: string, text: string): void {
   fs.writeFileSync(path.join(groupDirOf(folder), PERSONA_PREPEND_FILE), text);
 }
 
-async function compose(ag: AgentGroup, spec: ProjectDocSpec = CLAUDE_SPEC): Promise<string> {
+async function compose(
+  ag: AgentGroup,
+  spec: ProjectDocSpec = CLAUDE_SPEC,
+): Promise<string> {
   await composeGroupProjectDoc(ag, groupDirOf(ag.folder), spec);
-  return fs.readFileSync(path.join(groupDirOf(ag.folder), spec.fileName), 'utf-8');
+  return fs.readFileSync(
+    path.join(groupDirOf(ag.folder), spec.fileName),
+    'utf-8',
+  );
 }
 
 beforeEach(async () => {
@@ -91,17 +119,40 @@ describe('composeGroupProjectDoc delivery', () => {
     // Whole files, not sentinel phrases: a heading proves a section was
     // emitted, only the body proves the file was read, and reading the source
     // here means adding a paragraph to it cannot break this test.
-    const read = (...p: string[]): string => fs.readFileSync(path.join(process.cwd(), ...p), 'utf-8').trim();
+    const read = (...p: string[]): string =>
+      fs.readFileSync(path.join(process.cwd(), ...p), 'utf-8').trim();
     expect(doc).toContain(read('container', 'CLAUDE.md'));
-    expect(doc).toContain(read('container', 'skills', 'onecli-gateway', 'instructions.md'));
-    expect(doc).toContain(read('container', 'agent-runner', 'src', 'mcp-tools', 'cli.instructions.md'));
-    expect(doc).toContain(read('container', 'agent-runner', 'src', 'mcp-tools', 'core.instructions.md'));
+    expect(doc).toContain(
+      read('container', 'skills', 'onecli-gateway', 'instructions.md'),
+    );
+    expect(doc).toContain(
+      read(
+        'container',
+        'agent-runner',
+        'src',
+        'mcp-tools',
+        'cli.instructions.md',
+      ),
+    );
+    expect(doc).toContain(
+      read(
+        'container',
+        'agent-runner',
+        'src',
+        'mcp-tools',
+        'core.instructions.md',
+      ),
+    );
   });
 
   it('inlines MCP server instructions from the container config', async () => {
     const ag = await seed('ag-mcp', 'mcp-group');
     await updateContainerConfigJson(ag.id, 'mcp_servers', {
-      tooling: { command: 'x', args: [], instructions: 'use the tooling server for builds' },
+      tooling: {
+        command: 'x',
+        args: [],
+        instructions: 'use the tooling server for builds',
+      },
     });
 
     const doc = await compose(ag);
@@ -120,14 +171,19 @@ describe('composeGroupProjectDoc delivery', () => {
     expect(doc.startsWith('<!-- Composed at spawn')).toBe(true);
     // A heading here instead of a comment would make the header the document's
     // first section and displace the persona.
-    expect(doc.split('\n').find((l) => l.startsWith('# '))).not.toBe('# Composed at spawn');
+    expect(doc.split('\n').find((l) => l.startsWith('# '))).not.toBe(
+      '# Composed at spawn',
+    );
   });
 
   it('never reads agent-authored files under the group directory except the persona', async () => {
     const ag = await seed('ag-memory', 'memory-group');
     const memoryDir = path.join(groupDirOf(ag.folder), 'memory');
     fs.mkdirSync(memoryDir, { recursive: true });
-    fs.writeFileSync(path.join(memoryDir, 'index.md'), 'must not enter the project document');
+    fs.writeFileSync(
+      path.join(memoryDir, 'index.md'),
+      'must not enter the project document',
+    );
 
     const doc = await compose(ag);
 
@@ -145,7 +201,10 @@ describe('composeGroupProjectDoc temp-file safety', () => {
     fs.writeFileSync(victim, 'ORIGINAL');
     // Exactly the name the old implementation used, and the pid is stable for
     // the life of the host process.
-    const squat = path.join(groupDirOf(ag.folder), `CLAUDE.md.tmp-${process.pid}`);
+    const squat = path.join(
+      groupDirOf(ag.folder),
+      `CLAUDE.md.tmp-${process.pid}`,
+    );
     fs.symlinkSync(victim, squat);
 
     const doc = await compose(ag);
@@ -159,7 +218,10 @@ describe('composeGroupProjectDoc temp-file safety', () => {
   // ERR_FS_EISDIR, which rides wakeContainer's retry and darks the group forever.
   it('composes even when a directory occupies the old temp path', async () => {
     const ag = await seed('ag-squat-dir', 'squat-dir-group');
-    fs.mkdirSync(path.join(groupDirOf(ag.folder), `CLAUDE.md.tmp-${process.pid}`), { recursive: true });
+    fs.mkdirSync(
+      path.join(groupDirOf(ag.folder), `CLAUDE.md.tmp-${process.pid}`),
+      { recursive: true },
+    );
 
     await expect(compose(ag)).resolves.toContain('# NanoClaw Runtime Contract');
   });
@@ -169,7 +231,9 @@ describe('composeGroupProjectDoc temp-file safety', () => {
 
     await compose(ag);
 
-    expect(fs.readdirSync(groupDirOf(ag.folder)).filter((f) => f.includes('.tmp-'))).toEqual([]);
+    expect(
+      fs.readdirSync(groupDirOf(ag.folder)).filter((f) => f.includes('.tmp-')),
+    ).toEqual([]);
   });
 });
 
@@ -182,15 +246,28 @@ describe('composeGroupProjectDoc corrupt skill selection', () => {
     ['a number', '7'],
     ['an object', '{"welcome":true}'],
     ['malformed JSON', '{not json'],
-  ])('falls back to every skill when the selection is %s', async (_label, stored) => {
-    const ag = await seed(`ag-bad-${stored.length}`, `bad-skills-${stored.length}`);
-    await getDb().run('UPDATE container_configs SET skills = ? WHERE agent_group_id = ?', stored, ag.id);
+  ])(
+    'falls back to every skill when the selection is %s',
+    async (_label, stored) => {
+      const ag = await seed(
+        `ag-bad-${stored.length}`,
+        `bad-skills-${stored.length}`,
+      );
+      await getDb().run(
+        'UPDATE container_configs SET skills = ? WHERE agent_group_id = ?',
+        stored,
+        ag.id,
+      );
 
-    const doc = await compose(ag);
+      const doc = await compose(ag);
 
-    expect(doc).toContain('# NanoClaw Skill: onecli-gateway');
-    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('skill selection'), expect.anything());
-  });
+      expect(doc).toContain('# NanoClaw Skill: onecli-gateway');
+      expect(log.warn).toHaveBeenCalledWith(
+        expect.stringContaining('skill selection'),
+        expect.anything(),
+      );
+    },
+  );
 
   it('does not substring-match a stored string against skill names', async () => {
     const ag = await seed('ag-substr', 'substr-group');
@@ -204,7 +281,10 @@ describe('composeGroupProjectDoc corrupt skill selection', () => {
 
     // Treated as corrupt and widened to 'all', never as a selection that
     // happens to contain the skill's name as a substring.
-    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('skill selection'), expect.anything());
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.stringContaining('skill selection'),
+      expect.anything(),
+    );
     expect(doc).toContain('# NanoClaw Skill: onecli-gateway');
   });
 });
@@ -217,7 +297,9 @@ describe('composeGroupProjectDoc persona', () => {
     const doc = await compose(ag);
 
     expect(doc.indexOf('# Persona')).toBeGreaterThan(-1);
-    expect(doc.indexOf('# Persona')).toBeLessThan(doc.indexOf('# NanoClaw Runtime Contract'));
+    expect(doc.indexOf('# Persona')).toBeLessThan(
+      doc.indexOf('# NanoClaw Runtime Contract'),
+    );
     expect(doc).toContain('You are an SDR agent.');
   });
 
@@ -300,8 +382,12 @@ describe('composeGroupProjectDoc spec', () => {
       extraSections: [{ name: 'Memory System', body: 'memory pointer body' }],
     });
 
-    expect(doc.indexOf('# NanoClaw Runtime Contract')).toBeLessThan(doc.indexOf('# Memory System'));
-    expect(doc.indexOf('# Memory System')).toBeLessThan(doc.indexOf('# NanoClaw Module: agents'));
+    expect(doc.indexOf('# NanoClaw Runtime Contract')).toBeLessThan(
+      doc.indexOf('# Memory System'),
+    );
+    expect(doc.indexOf('# Memory System')).toBeLessThan(
+      doc.indexOf('# NanoClaw Module: agents'),
+    );
   });
 
   // Tolerated so a partial payload install still spawns, but never silent: an
@@ -310,7 +396,10 @@ describe('composeGroupProjectDoc spec', () => {
   it('writes the file named by the spec and warns loudly on a missing base document', async () => {
     const ag = await seed('ag-nobase', 'nobase-group');
 
-    const doc = await compose(ag, { fileName: 'AGENTS.md', baseDocPath: path.join('container', 'nope.md') });
+    const doc = await compose(ag, {
+      fileName: 'AGENTS.md',
+      baseDocPath: path.join('container', 'nope.md'),
+    });
 
     expect(doc).not.toContain('# NanoClaw Runtime Contract');
     expect(doc).toContain('# NanoClaw Module: core');
@@ -322,9 +411,17 @@ describe('composeGroupProjectDoc spec', () => {
 });
 
 describe('composeGroupProjectDoc size cap', () => {
-  const bigMcp = (n: number): Record<string, { command: string; args: string[]; instructions: string }> =>
+  const bigMcp = (
+    n: number,
+  ): Record<
+    string,
+    { command: string; args: string[]; instructions: string }
+  > =>
     Object.fromEntries(
-      Array.from({ length: n }, (_, i) => [`bloated${i}`, { command: 'x', args: [], instructions: 'B'.repeat(9000) }]),
+      Array.from({ length: n }, (_, i) => [
+        `bloated${i}`,
+        { command: 'x', args: [], instructions: 'B'.repeat(9000) },
+      ]),
     );
 
   it('drops the largest droppable sections, keeps the core, and says so in the document', async () => {
@@ -380,7 +477,10 @@ describe('composeGroupProjectDoc size cap', () => {
     const bytes = Buffer.byteLength(await compose(ag), 'utf-8');
     vi.clearAllMocks();
 
-    const doc = await compose(ag, { ...CLAUDE_SPEC, maxBytes: Math.ceil(bytes * 1.05) });
+    const doc = await compose(ag, {
+      ...CLAUDE_SPEC,
+      maxBytes: Math.ceil(bytes * 1.05),
+    });
 
     expect(doc).not.toContain('# Omitted for size');
     expect(log.warn).toHaveBeenCalled();

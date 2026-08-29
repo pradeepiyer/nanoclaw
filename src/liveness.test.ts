@@ -20,6 +20,8 @@ describe('heartbeat-file liveness source', () => {
     fs.utimesSync(hb, stamp, stamp);
     const observed = await source.lastActivityMs(session);
     expect(observed).not.toBeNull();
-    expect(Math.abs((observed as number) - stamp.getTime())).toBeLessThan(1_000);
+    expect(Math.abs((observed as number) - stamp.getTime())).toBeLessThan(
+      1_000,
+    );
   });
 });

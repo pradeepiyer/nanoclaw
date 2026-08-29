@@ -12,10 +12,21 @@ const SCALAR_COLUMNS = new Set([
   'cli_scope',
   'timezone',
 ]);
-const JSON_COLUMNS = new Set(['skills', 'mcp_servers', 'packages_apt', 'packages_npm', 'additional_mounts']);
+const JSON_COLUMNS = new Set([
+  'skills',
+  'mcp_servers',
+  'packages_apt',
+  'packages_npm',
+  'additional_mounts',
+]);
 
-export async function getContainerConfig(agentGroupId: string): Promise<ContainerConfigRow | undefined> {
-  return getDb().get<ContainerConfigRow>('SELECT * FROM container_configs WHERE agent_group_id = ?', agentGroupId);
+export async function getContainerConfig(
+  agentGroupId: string,
+): Promise<ContainerConfigRow | undefined> {
+  return getDb().get<ContainerConfigRow>(
+    'SELECT * FROM container_configs WHERE agent_group_id = ?',
+    agentGroupId,
+  );
 }
 
 export async function getAllContainerConfigs(): Promise<ContainerConfigRow[]> {
@@ -23,7 +34,9 @@ export async function getAllContainerConfigs(): Promise<ContainerConfigRow[]> {
 }
 
 /** Insert a new config row. Caller must supply all JSON fields (use defaults for empty). */
-export async function createContainerConfig(config: ContainerConfigRow): Promise<void> {
+export async function createContainerConfig(
+  config: ContainerConfigRow,
+): Promise<void> {
   await getDb().run(
     `INSERT INTO container_configs (
         agent_group_id, provider, model, effort, image_tag, assistant_name,
@@ -48,7 +61,10 @@ export async function createContainerConfig(config: ContainerConfigRow): Promise
  * `claude` and an absent value that resolves to claude are stored as NULL — the
  * column means "follows the built-in default", matching pre-feature rows.
  */
-export async function ensureContainerConfig(agentGroupId: string, provider?: string | null): Promise<void> {
+export async function ensureContainerConfig(
+  agentGroupId: string,
+  provider?: string | null,
+): Promise<void> {
   // Single chokepoint for the instance default: a fresh row with no explicit
   // provider is stamped with DEFAULT_AGENT_PROVIDER, so every new-group creation
   // path inherits it without each having to remember. INSERT OR IGNORE keeps an
@@ -94,7 +110,8 @@ export async function updateContainerConfigScalars(
 
   for (const [key, value] of Object.entries(updates)) {
     if (value !== undefined) {
-      if (!SCALAR_COLUMNS.has(key)) throw new Error(`Invalid scalar column: ${key}`);
+      if (!SCALAR_COLUMNS.has(key))
+        throw new Error(`Invalid scalar column: ${key}`);
       fields.push(`${key} = @${key}`);
       values[key] = value;
     }
@@ -104,16 +121,25 @@ export async function updateContainerConfigScalars(
   fields.push('updated_at = @updated_at');
   values.updated_at = new Date().toISOString();
 
-  await getDb().run(`UPDATE container_configs SET ${fields.join(', ')} WHERE agent_group_id = @agent_group_id`, values);
+  await getDb().run(
+    `UPDATE container_configs SET ${fields.join(', ')} WHERE agent_group_id = @agent_group_id`,
+    values,
+  );
 }
 
 /** Overwrite a JSON column wholesale. Used for skills, mcp_servers, packages_*, additional_mounts. */
 export async function updateContainerConfigJson(
   agentGroupId: string,
-  column: 'skills' | 'mcp_servers' | 'packages_apt' | 'packages_npm' | 'additional_mounts',
+  column:
+    | 'skills'
+    | 'mcp_servers'
+    | 'packages_apt'
+    | 'packages_npm'
+    | 'additional_mounts',
   value: unknown,
 ): Promise<void> {
-  if (!JSON_COLUMNS.has(column)) throw new Error(`Invalid JSON column: ${column}`);
+  if (!JSON_COLUMNS.has(column))
+    throw new Error(`Invalid JSON column: ${column}`);
   const now = new Date().toISOString();
   await getDb().run(
     `UPDATE container_configs SET ${column} = ?, updated_at = ? WHERE agent_group_id = ?`,
@@ -123,6 +149,11 @@ export async function updateContainerConfigJson(
   );
 }
 
-export async function deleteContainerConfig(agentGroupId: string): Promise<void> {
-  await getDb().run('DELETE FROM container_configs WHERE agent_group_id = ?', agentGroupId);
+export async function deleteContainerConfig(
+  agentGroupId: string,
+): Promise<void> {
+  await getDb().run(
+    'DELETE FROM container_configs WHERE agent_group_id = ?',
+    agentGroupId,
+  );
 }

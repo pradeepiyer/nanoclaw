@@ -78,7 +78,11 @@ export class SqliteStateAdapter implements StateAdapter {
     );
   }
 
-  async setIfNotExists(key: string, value: unknown, ttlMs?: number): Promise<boolean> {
+  async setIfNotExists(
+    key: string,
+    value: unknown,
+    ttlMs?: number,
+  ): Promise<boolean> {
     const k = this.k(key);
     const existing = await this.db.get<{ expires_at: number | null }>(
       'SELECT expires_at FROM chat_sdk_kv WHERE key = ?',
@@ -113,11 +117,17 @@ export class SqliteStateAdapter implements StateAdapter {
   }
 
   async unsubscribe(threadId: string): Promise<void> {
-    await this.db.run('DELETE FROM chat_sdk_subscriptions WHERE thread_id = ?', this.k(threadId));
+    await this.db.run(
+      'DELETE FROM chat_sdk_subscriptions WHERE thread_id = ?',
+      this.k(threadId),
+    );
   }
 
   async isSubscribed(threadId: string): Promise<boolean> {
-    const row = await this.db.get('SELECT 1 FROM chat_sdk_subscriptions WHERE thread_id = ? LIMIT 1', this.k(threadId));
+    const row = await this.db.get(
+      'SELECT 1 FROM chat_sdk_subscriptions WHERE thread_id = ? LIMIT 1',
+      this.k(threadId),
+    );
     return !!row;
   }
 
@@ -128,7 +138,11 @@ export class SqliteStateAdapter implements StateAdapter {
     const token = crypto.randomUUID();
     const expiresAt = now + ttlMs;
     const k = this.k(threadId);
-    await this.db.run('DELETE FROM chat_sdk_locks WHERE thread_id = ? AND expires_at < ?', k, now);
+    await this.db.run(
+      'DELETE FROM chat_sdk_locks WHERE thread_id = ? AND expires_at < ?',
+      k,
+      now,
+    );
     const result = await this.db.run(
       `INSERT INTO chat_sdk_locks (thread_id, token, expires_at) VALUES (?, ?, ?)
        ON CONFLICT (thread_id) DO NOTHING`,
@@ -166,12 +180,19 @@ export class SqliteStateAdapter implements StateAdapter {
   }
 
   async forceReleaseLock(threadId: string): Promise<void> {
-    await this.db.run('DELETE FROM chat_sdk_locks WHERE thread_id = ?', this.k(threadId));
+    await this.db.run(
+      'DELETE FROM chat_sdk_locks WHERE thread_id = ?',
+      this.k(threadId),
+    );
   }
 
   // --- Lists ---
 
-  async appendToList(key: string, value: unknown, options?: { maxLength?: number; ttlMs?: number }): Promise<void> {
+  async appendToList(
+    key: string,
+    value: unknown,
+    options?: { maxLength?: number; ttlMs?: number },
+  ): Promise<void> {
     const expiresAt = options?.ttlMs ? Date.now() + options.ttlMs : null;
     const k = this.k(key);
     for (;;) {
@@ -188,11 +209,16 @@ export class SqliteStateAdapter implements StateAdapter {
             expiresAt,
             k,
           );
-          if (!inserted) throw new Error('Chat SDK list append returned no row');
+          if (!inserted)
+            throw new Error('Chat SDK list append returned no row');
           if (options?.maxLength) {
             const cutoff = inserted.idx - options.maxLength;
             if (cutoff >= 0) {
-              await this.db.run('DELETE FROM chat_sdk_lists WHERE key = ? AND idx <= ?', k, cutoff);
+              await this.db.run(
+                'DELETE FROM chat_sdk_lists WHERE key = ? AND idx <= ?',
+                k,
+                cutoff,
+              );
             }
           }
         });
@@ -218,7 +244,11 @@ export class SqliteStateAdapter implements StateAdapter {
 
   // --- Queue ---
 
-  async enqueue(threadId: string, entry: QueueEntry, maxSize: number): Promise<number> {
+  async enqueue(
+    threadId: string,
+    entry: QueueEntry,
+    maxSize: number,
+  ): Promise<number> {
     // No k() here: appendToList prefixes at its own SQL boundary. Prefixing
     // twice would write `ns:ns:queue:<tid>` and the queue would never drain.
     // Resulting on-disk layout is `ns:queue:<tid>`.
@@ -253,7 +283,10 @@ export class SqliteStateAdapter implements StateAdapter {
 
   async queueDepth(threadId: string): Promise<number> {
     const key = this.k(`queue:${threadId}`);
-    const row = await this.db.get<{ count: number }>('SELECT COUNT(*) as count FROM chat_sdk_lists WHERE key = ?', key);
+    const row = await this.db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM chat_sdk_lists WHERE key = ?',
+      key,
+    );
     if (!row) return 0;
     return row.count;
   }
@@ -262,8 +295,14 @@ export class SqliteStateAdapter implements StateAdapter {
 
   private async cleanup(): Promise<void> {
     const now = Date.now();
-    await this.db.run('DELETE FROM chat_sdk_kv WHERE expires_at IS NOT NULL AND expires_at < ?', now);
+    await this.db.run(
+      'DELETE FROM chat_sdk_kv WHERE expires_at IS NOT NULL AND expires_at < ?',
+      now,
+    );
     await this.db.run('DELETE FROM chat_sdk_locks WHERE expires_at < ?', now);
-    await this.db.run('DELETE FROM chat_sdk_lists WHERE expires_at IS NOT NULL AND expires_at < ?', now);
+    await this.db.run(
+      'DELETE FROM chat_sdk_lists WHERE expires_at IS NOT NULL AND expires_at < ?',
+      now,
+    );
   }
 }

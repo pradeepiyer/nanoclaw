@@ -6,7 +6,10 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import type { SupervisedHandle, SupervisedSnapshot } from './drivers/session-events.js';
+import type {
+  SupervisedHandle,
+  SupervisedSnapshot,
+} from './drivers/session-events.js';
 
 const snapshots: SupervisedSnapshot[] = [];
 vi.mock('./drivers/index.js', () => ({
@@ -17,9 +20,19 @@ vi.mock('./drivers/index.js', () => ({
   isSessionEventsDriver: () => false,
 }));
 
-import { adoptRunningSessions, isContainerRunning, killContainer } from './container-runner.js';
+import {
+  adoptRunningSessions,
+  isContainerRunning,
+  killContainer,
+} from './container-runner.js';
 import { getSessionClaim } from './db/coordination.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup, createSession } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  createSession,
+} from './db/index.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -78,7 +91,10 @@ afterEach(async () => {
 
 describe('session claim lifecycle', () => {
   it('adoption shadow-claims the session and finalization releases it', async () => {
-    snapshots.push({ handle: fakeHandle('sess-1', 'container-a'), phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: fakeHandle('sess-1', 'container-a'),
+      phase: 'running',
+    } as SupervisedSnapshot);
     const { adopted } = await adoptRunningSessions();
     expect(adopted).toBe(1);
 
@@ -96,13 +112,21 @@ describe('session claim lifecycle', () => {
   });
 
   it('a re-adopted session bumps the incarnation via CAS', async () => {
-    snapshots.push({ handle: fakeHandle('sess-1', 'container-a'), phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: fakeHandle('sess-1', 'container-a'),
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     killContainer('sess-1', 'test-stop');
-    await vi.waitFor(async () => expect((await getSessionClaim('sess-1'))?.claimed_by).toBeNull());
+    await vi.waitFor(async () =>
+      expect((await getSessionClaim('sess-1'))?.claimed_by).toBeNull(),
+    );
 
     snapshots.length = 0;
-    snapshots.push({ handle: fakeHandle('sess-1', 'container-b'), phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: fakeHandle('sess-1', 'container-b'),
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     const claim = await getSessionClaim('sess-1');
     expect(claim?.incarnation).toBe(2);

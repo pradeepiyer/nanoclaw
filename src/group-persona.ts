@@ -10,16 +10,29 @@ export const PERSONA_PREPEND_FILE = 'instructions.prepend.md';
  * Create a group's standing instructions without following or replacing an
  * existing path. Returns false when the content is empty or the path exists.
  */
-export function stageGroupPersona(groupDir: string, instructions: string): boolean {
+export function stageGroupPersona(
+  groupDir: string,
+  instructions: string,
+): boolean {
   const content = instructions.trimEnd();
   if (!content.trim()) return false;
 
   fs.mkdirSync(groupDir, { recursive: true });
   try {
-    fs.writeFileSync(path.join(groupDir, PERSONA_PREPEND_FILE), `${content}\n`, { flag: 'wx' });
+    fs.writeFileSync(
+      path.join(groupDir, PERSONA_PREPEND_FILE),
+      `${content}\n`,
+      { flag: 'wx' },
+    );
     return true;
   } catch (err) {
-    if (typeof err === 'object' && err !== null && 'code' in err && err.code === 'EEXIST') return false;
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      err.code === 'EEXIST'
+    )
+      return false;
     throw err;
   }
 }
@@ -34,7 +47,13 @@ export function readGroupPersona(groupDir: string): string | null {
     const content = fs.readFileSync(fd, 'utf-8').trim();
     return content || null;
   } catch (err) {
-    if (typeof err === 'object' && err !== null && 'code' in err && err.code === 'ENOENT') return null;
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      err.code === 'ENOENT'
+    )
+      return null;
     log.warn('Could not read group standing instructions; omitting persona', {
       file,
       error: err instanceof Error ? err.message : String(err),

@@ -20,7 +20,17 @@ interface TaskListRow {
   prompt?: string | null;
 }
 
-const COLS = ['SERIES', 'SCHEDULE', 'RUNS', 'FAILED', 'LAST RUN', 'NEXT RUN', 'STATUS', 'AGE', 'PROMPT'] as const;
+const COLS = [
+  'SERIES',
+  'SCHEDULE',
+  'RUNS',
+  'FAILED',
+  'LAST RUN',
+  'NEXT RUN',
+  'STATUS',
+  'AGE',
+  'PROMPT',
+] as const;
 
 function parseMs(iso: string): number {
   return Date.parse(/[Z+]|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z');
@@ -61,7 +71,10 @@ function clip(s: string | null | undefined, n: number): string {
   return v.length > n ? v.slice(0, n - 1) + '…' : v;
 }
 
-export function formatTasksTable(rows: TaskListRow[], now: number = Date.now()): string {
+export function formatTasksTable(
+  rows: TaskListRow[],
+  now: number = Date.now(),
+): string {
   if (!rows.length) return 'No tasks.';
   const body = rows.map((r) => [
     r.series_id, // full id, copy-pasteable into `ncl tasks get --id <…>`
@@ -74,7 +87,9 @@ export function formatTasksTable(rows: TaskListRow[], now: number = Date.now()):
     age(r.created_at, now),
     clip(r.prompt, 40),
   ]);
-  const widths = COLS.map((c, i) => Math.max(c.length, ...body.map((row) => row[i].length)));
+  const widths = COLS.map((c, i) =>
+    Math.max(c.length, ...body.map((row) => row[i].length)),
+  );
   const line = (cells: string[]) =>
     cells
       .map((c, i) => c.padEnd(widths[i]))

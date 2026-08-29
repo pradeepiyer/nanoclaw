@@ -26,7 +26,13 @@ import { DATA_DIR } from './config.js';
 
 /** The group-private store templates stamp skills into (Claude's read plane). */
 function templateSkillsSource(agentGroupId: string): string {
-  return path.join(DATA_DIR, 'v2-sessions', agentGroupId, '.claude-shared', 'skills');
+  return path.join(
+    DATA_DIR,
+    'v2-sessions',
+    agentGroupId,
+    '.claude-shared',
+    'skills',
+  );
 }
 
 /**
@@ -37,7 +43,10 @@ function templateSkillsSource(agentGroupId: string): string {
  * manages only its own skill dirs — other entries in the destination (e.g. a
  * provider's shared-skill symlinks) are left untouched.
  */
-export function materializeTemplateSkills(agentGroupId: string, destSkillsDir: string): void {
+export function materializeTemplateSkills(
+  agentGroupId: string,
+  destSkillsDir: string,
+): void {
   const src = templateSkillsSource(agentGroupId);
   if (!fs.existsSync(src)) return;
   if (path.resolve(src) === path.resolve(destSkillsDir)) return;

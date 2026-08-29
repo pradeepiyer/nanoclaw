@@ -18,7 +18,11 @@ import type { ContainerSpec, MountPolicy, SessionSpec } from './types.js';
 export const FIXTURE_POLICY: MountPolicy = {
   groupsRoot: '/install/groups',
   dataRoot: '/install/data',
-  surfaceRoots: ['/install/container/agent-runner/src', '/install/container/skills', '/install/container/CLAUDE.md'],
+  surfaceRoots: [
+    '/install/container/agent-runner/src',
+    '/install/container/skills',
+    '/install/container/CLAUDE.md',
+  ],
   materialsRoot: '/install/data/session-materials',
 };
 
@@ -87,7 +91,8 @@ export function fixtureAuxContainer(): ContainerSpec {
     mounts: [
       {
         class: 'identity-material',
-        hostPath: '/install/data/session-materials/channel-abc-XXXX/session-key.pem',
+        hostPath:
+          '/install/data/session-materials/channel-abc-XXXX/session-key.pem',
         containerPath: '/run/session/session-key.pem',
         mode: 'ro',
         groupScope: 'g1',
@@ -109,7 +114,9 @@ export function fixtureAuxContainer(): ContainerSpec {
 }
 
 /** The two-container session an overlay composes; see the module comment. */
-export function fixtureSpecWithAux(overrides: Partial<SessionSpec> = {}): SessionSpec {
+export function fixtureSpecWithAux(
+  overrides: Partial<SessionSpec> = {},
+): SessionSpec {
   const spec = fixtureSpec(overrides);
   spec.containers = [...spec.containers, fixtureAuxContainer()];
   return spec;

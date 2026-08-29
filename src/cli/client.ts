@@ -44,7 +44,9 @@ async function main(): Promise<void> {
   if (stdinJson) {
     if (process.stdin.isTTY) {
       // Reading a TTY would silently block until the user types Ctrl-D.
-      process.stderr.write('ncl: --stdin-json requires piped stdin (e.g. `echo {...} | ncl ...`)\n');
+      process.stderr.write(
+        'ncl: --stdin-json requires piped stdin (e.g. `echo {...} | ncl ...`)\n',
+      );
       process.exit(2);
     }
     try {
@@ -96,6 +98,8 @@ function printUsage(): void {
 }
 
 main().catch((err) => {
-  process.stderr.write(`ncl: unexpected error: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.stderr.write(
+    `ncl: unexpected error: ${err instanceof Error ? err.message : String(err)}\n`,
+  );
   process.exit(2);
 });

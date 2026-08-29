@@ -13,25 +13,33 @@ registerResource({
     {
       name: 'user_id',
       type: 'string',
-      description: 'The user to grant membership. Must reference an existing user (users.id).',
+      description:
+        'The user to grant membership. Must reference an existing user (users.id).',
     },
     {
       name: 'agent_group_id',
       type: 'string',
-      description: 'The agent group to grant access to. Must reference an existing agent group (agent_groups.id).',
+      description:
+        'The agent group to grant access to. Must reference an existing agent group (agent_groups.id).',
     },
     {
       name: 'added_by',
       type: 'string',
-      description: 'User ID of whoever added this member. Informational — not enforced.',
+      description:
+        'User ID of whoever added this member. Informational — not enforced.',
     },
-    { name: 'added_at', type: 'string', description: 'ISO 8601 timestamp of when the membership was granted.' },
+    {
+      name: 'added_at',
+      type: 'string',
+      description: 'ISO 8601 timestamp of when the membership was granted.',
+    },
   ],
   operations: { list: 'open' },
   customOperations: {
     add: {
       access: 'approval',
-      description: 'Add a user as a member of an agent group. Use --user and --group.',
+      description:
+        'Add a user as a member of an agent group. Use --user and --group.',
       handler: async (args) => {
         const userId = args.user as string;
         const groupId = args.group as string;

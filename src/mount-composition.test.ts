@@ -27,22 +27,40 @@ vi.mock('./project-doc-compose.js', async (importOriginal) => ({
   composeGroupProjectDoc: vi.fn(),
 }));
 vi.mock('./log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 import { DATA_DIR, GROUPS_DIR, INSTALL_SLUG } from './config.js';
 import type { ContainerConfig } from './container-config.js';
 import { buildMounts, toMountSpecs } from './container-runner.js';
 import { mountPolicy } from './drivers/index.js';
-import { GROUP_FOLDER_LABEL, validateSpec, type SessionSpec } from './drivers/types.js';
+import {
+  GROUP_FOLDER_LABEL,
+  validateSpec,
+  type SessionSpec,
+} from './drivers/types.js';
 import type { AgentGroup, Session } from './types.js';
 
 const GROUP_ID = 'ag-mount-composition';
 const FOLDER = 'mount-composition';
 const SESSION_ID = 'sess-mount-composition';
 
-const agentGroup = { id: GROUP_ID, name: 'Mount Composition', folder: FOLDER } as AgentGroup;
-const session = { id: SESSION_ID, agent_group_id: GROUP_ID, agent_provider: null } as Session;
+const agentGroup = {
+  id: GROUP_ID,
+  name: 'Mount Composition',
+  folder: FOLDER,
+} as AgentGroup;
+const session = {
+  id: SESSION_ID,
+  agent_group_id: GROUP_ID,
+  agent_provider: null,
+} as Session;
 const containerConfig = {
   mcpServers: {},
   packages: { apt: [], npm: [] },
@@ -52,7 +70,12 @@ const containerConfig = {
 
 const groupDir = path.resolve(GROUPS_DIR, FOLDER);
 const sessionDir = path.join(DATA_DIR, 'v2-sessions', GROUP_ID, SESSION_ID);
-const claudeShared = path.join(DATA_DIR, 'v2-sessions', GROUP_ID, '.claude-shared');
+const claudeShared = path.join(
+  DATA_DIR,
+  'v2-sessions',
+  GROUP_ID,
+  '.claude-shared',
+);
 
 /** Every optional mount is created, so the case covers the widest mount list. */
 beforeAll(() => {
@@ -65,21 +88,37 @@ beforeAll(() => {
 
 afterAll(() => {
   fs.rmSync(groupDir, { recursive: true, force: true });
-  fs.rmSync(path.join(DATA_DIR, 'v2-sessions', GROUP_ID), { recursive: true, force: true });
+  fs.rmSync(path.join(DATA_DIR, 'v2-sessions', GROUP_ID), {
+    recursive: true,
+    force: true,
+  });
 });
 
 async function composedMounts() {
   return buildMounts(agentGroup, session, containerConfig, 'claude', {});
 }
 
-function specFrom(mounts: Awaited<ReturnType<typeof composedMounts>>): SessionSpec {
+function specFrom(
+  mounts: Awaited<ReturnType<typeof composedMounts>>,
+): SessionSpec {
   return {
-    key: { installSlug: INSTALL_SLUG, agentGroupId: GROUP_ID, sessionId: SESSION_ID },
+    key: {
+      installSlug: INSTALL_SLUG,
+      agentGroupId: GROUP_ID,
+      sessionId: SESSION_ID,
+    },
     // composeSessionSpec always stamps this, and the mount policy joins the
     // stamped-plugins pin through it — a spec without it is not one this host
     // can produce.
     labels: { [GROUP_FOLDER_LABEL]: FOLDER },
-    containers: [{ role: 'agent', image: 'nanoclaw-agent:test', env: {}, mounts: toMountSpecs(mounts, GROUP_ID) }],
+    containers: [
+      {
+        role: 'agent',
+        image: 'nanoclaw-agent:test',
+        env: {},
+        mounts: toMountSpecs(mounts, GROUP_ID),
+      },
+    ],
     network: 'shared-private',
     hardening: 'standard',
     resources: {},
@@ -117,8 +156,12 @@ describe('buildMounts against the policy the drivers enforce', () => {
     for (const mount of specs.filter((m) => m.class === 'group-state')) {
       expect(mount.groupScope).toBe(GROUP_ID);
       // Pinned to this group's subtrees, under one root or the other.
-      const underGroup = mount.hostPath.startsWith(`${groupDir}/`) || mount.hostPath === groupDir;
-      const underSessions = mount.hostPath.startsWith(path.join(DATA_DIR, 'v2-sessions', GROUP_ID));
+      const underGroup =
+        mount.hostPath.startsWith(`${groupDir}/`) ||
+        mount.hostPath === groupDir;
+      const underSessions = mount.hostPath.startsWith(
+        path.join(DATA_DIR, 'v2-sessions', GROUP_ID),
+      );
       expect(underGroup || underSessions).toBe(true);
     }
   });
@@ -138,7 +181,9 @@ describe('buildMounts against the policy the drivers enforce', () => {
       const underSurfaceRoot = mountPolicy().surfaceRoots.some(
         (r) => mount.hostPath === r || mount.hostPath.startsWith(`${r}/`),
       );
-      const underPlugins = mount.hostPath === pluginsDir || mount.hostPath.startsWith(`${pluginsDir}/`);
+      const underPlugins =
+        mount.hostPath === pluginsDir ||
+        mount.hostPath.startsWith(`${pluginsDir}/`);
       expect(underSurfaceRoot || underPlugins, mount.hostPath).toBe(true);
     }
   });
@@ -149,7 +194,12 @@ describe('buildMounts against the policy the drivers enforce', () => {
     // composition choice, and `allowlisted-extra` is permitted unconditionally
     // with no ro rule at all — either one turns the read-only pin on executed
     // plugin code into a single word in a mount literal.
-    const byPath = new Map(toMountSpecs(await composedMounts(), GROUP_ID).map((m) => [m.containerPath, m]));
+    const byPath = new Map(
+      toMountSpecs(await composedMounts(), GROUP_ID).map((m) => [
+        m.containerPath,
+        m,
+      ]),
+    );
     const plugins = byPath.get('/workspace/agent/plugins');
     expect(plugins?.class).toBe('install-surface');
     expect(plugins?.mode).toBe('ro');
@@ -161,9 +211,16 @@ describe('buildMounts against the policy the drivers enforce', () => {
     // carries no ro rule. The runner source and the skills tree are the code the
     // agent executes; a writable mount of either is an escalation, so the class
     // itself has to be pinned, not just its pinning rule.
-    const byPath = new Map(toMountSpecs(await composedMounts(), GROUP_ID).map((m) => [m.containerPath, m]));
+    const byPath = new Map(
+      toMountSpecs(await composedMounts(), GROUP_ID).map((m) => [
+        m.containerPath,
+        m,
+      ]),
+    );
     for (const containerPath of ['/app/src', '/app/skills']) {
-      expect(byPath.get(containerPath)?.class, containerPath).toBe('install-surface');
+      expect(byPath.get(containerPath)?.class, containerPath).toBe(
+        'install-surface',
+      );
       expect(byPath.get(containerPath)?.mode, containerPath).toBe('ro');
     }
   });

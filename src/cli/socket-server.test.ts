@@ -24,7 +24,9 @@ describe('startCliServer single-bind', () => {
     const other = net.createServer(() => {});
     await new Promise<void>((resolve) => other.listen(socketPath, resolve));
     try {
-      await expect(startCliServer(socketPath)).rejects.toThrow(/already serving ncl/);
+      await expect(startCliServer(socketPath)).rejects.toThrow(
+        /already serving ncl/,
+      );
       // The live socket file must still be there — nothing was unlinked.
       expect(fs.existsSync(socketPath)).toBe(true);
     } finally {

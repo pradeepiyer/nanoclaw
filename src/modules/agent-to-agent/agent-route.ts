@@ -28,7 +28,12 @@ import { getSession } from '../../db/sessions.js';
 import { requestWake } from '../../request-wake.js';
 import { GuardDenyError, guard } from '../../guard/index.js';
 import { log } from '../../log.js';
-import { resolveSession, sessionDir, withExistingMailboxSession, writeSessionMessage } from '../../session-manager.js';
+import {
+  resolveSession,
+  sessionDir,
+  withExistingMailboxSession,
+  writeSessionMessage,
+} from '../../session-manager.js';
 import type { PendingApproval, Session } from '../../types.js';
 import { requestApproval } from '../approvals/index.js';
 import { A2A_MESSAGE_GATE_ACTION, a2aSend } from './guard.js';
@@ -55,17 +60,28 @@ export interface ForwardedAttachment {
  * reference shouldn't kill the accompanying text.
  */
 export function forwardAttachedFiles(
-  source: { agentGroupId: string; sessionId: string; messageId: string; filenames: string[] },
+  source: {
+    agentGroupId: string;
+    sessionId: string;
+    messageId: string;
+    filenames: string[];
+  },
   target: { agentGroupId: string; sessionId: string; messageId: string },
 ): ForwardedAttachment[] {
   if (source.filenames.length === 0) return [];
 
   if (!isSafeAttachmentName(source.messageId)) {
-    log.warn('agent-route: rejecting unsafe source outbox message id', { sourceMsgId: source.messageId });
+    log.warn('agent-route: rejecting unsafe source outbox message id', {
+      sourceMsgId: source.messageId,
+    });
     return [];
   }
 
-  const sourceDir = path.join(sessionDir(source.agentGroupId, source.sessionId), 'outbox', source.messageId);
+  const sourceDir = path.join(
+    sessionDir(source.agentGroupId, source.sessionId),
+    'outbox',
+    source.messageId,
+  );
   if (!fs.existsSync(sourceDir)) {
     log.warn('agent-route: source outbox dir missing, no files forwarded', {
       sourceMsgId: source.messageId,
@@ -99,7 +115,10 @@ export function forwardAttachedFiles(
   // pre-place `inbox` (or `inbox/<future-msgId>`) as a symlink pointing
   // anywhere host-writable; ensureContainedInboxDir refuses the symlink before
   // any copy lands outside the sandbox (#2828, CWE-59).
-  const inboxRoot = path.join(sessionDir(target.agentGroupId, target.sessionId), 'inbox');
+  const inboxRoot = path.join(
+    sessionDir(target.agentGroupId, target.sessionId),
+    'inbox',
+  );
   const targetInboxDir = ensureContainedInboxDir(inboxRoot, target.messageId, {
     targetGroup: target.agentGroupId,
     targetSession: target.sessionId,
@@ -112,10 +131,13 @@ export function forwardAttachedFiles(
   const attachments: ForwardedAttachment[] = [];
   for (const filename of source.filenames) {
     if (!isSafeAttachmentName(filename)) {
-      log.warn('agent-route: rejecting unsafe attachment filename (path traversal attempt?)', {
-        sourceMsgId: source.messageId,
-        filename,
-      });
+      log.warn(
+        'agent-route: rejecting unsafe attachment filename (path traversal attempt?)',
+        {
+          sourceMsgId: source.messageId,
+          filename,
+        },
+      );
       continue;
     }
     const src = path.join(sourceDir, filename);
@@ -131,10 +153,13 @@ export function forwardAttachedFiles(
       }
       realSrc = fs.realpathSync(src);
     } catch {
-      log.warn('agent-route: referenced file missing in source outbox, skipped', {
-        sourceMsgId: source.messageId,
-        filename,
-      });
+      log.warn(
+        'agent-route: referenced file missing in source outbox, skipped',
+        {
+          sourceMsgId: source.messageId,
+          filename,
+        },
+      );
       continue;
     }
     if (!isPathInside(realSourceDir, realSrc)) {
@@ -210,26 +235,35 @@ async function resolveTargetSession(
   sourceSession: Session,
   targetAgentGroupId: string,
 ): Promise<Session> {
-  const originSessionId = await withExistingMailboxSession(sourceSession.agent_group_id, sourceSession.id, (srcDb) => {
-    let origin: string | null = null;
-    if (msg.in_reply_to) {
-      origin = srcDb.getInboundSourceSessionId(msg.in_reply_to);
-    }
-    if (!origin) {
-      // Peer-affinity fallback — covers the case where the container's
-      // outbound write didn't carry in_reply_to (e.g. legacy MCP send_message
-      // path, container running pre-fix code).
-      origin = srcDb.getMostRecentPeerSourceSessionId(targetAgentGroupId);
-    }
-    return origin;
-  });
+  const originSessionId = await withExistingMailboxSession(
+    sourceSession.agent_group_id,
+    sourceSession.id,
+    (srcDb) => {
+      let origin: string | null = null;
+      if (msg.in_reply_to) {
+        origin = srcDb.getInboundSourceSessionId(msg.in_reply_to);
+      }
+      if (!origin) {
+        // Peer-affinity fallback — covers the case where the container's
+        // outbound write didn't carry in_reply_to (e.g. legacy MCP send_message
+        // path, container running pre-fix code).
+        origin = srcDb.getMostRecentPeerSourceSessionId(targetAgentGroupId);
+      }
+      return origin;
+    },
+  );
   if (originSessionId) {
     const candidate = await getSession(originSessionId);
-    if (candidate && candidate.agent_group_id === targetAgentGroupId && candidate.status === 'active') {
+    if (
+      candidate &&
+      candidate.agent_group_id === targetAgentGroupId &&
+      candidate.status === 'active'
+    ) {
       return candidate;
     }
   }
-  return (await resolveSession(targetAgentGroupId, null, null, 'agent-shared')).session;
+  return (await resolveSession(targetAgentGroupId, null, null, 'agent-shared'))
+    .session;
 }
 
 export async function routeAgentMessage(
@@ -240,7 +274,9 @@ export async function routeAgentMessage(
   const sourceAgentGroupId = session.agent_group_id;
   const targetAgentGroupId = msg.platform_id;
   if (!targetAgentGroupId) {
-    throw new Error(`agent-to-agent message ${msg.id} is missing a target agent group id`);
+    throw new Error(
+      `agent-to-agent message ${msg.id} is missing a target agent group id`,
+    );
   }
 
   // The a2a.send decision (guard.ts) carries the checks verbatim in their
@@ -249,9 +285,18 @@ export async function routeAgentMessage(
   // grant — the hold is satisfied but the structure is re-checked live, so
   // revoking a destination between hold and approve blocks delivery.
   const decision = await guard(a2aSend, {
-    actor: { kind: 'agent', agentGroupId: sourceAgentGroupId, sessionId: session.id },
+    actor: {
+      kind: 'agent',
+      agentGroupId: sourceAgentGroupId,
+      sessionId: session.id,
+    },
     resource: { from: sourceAgentGroupId, to: targetAgentGroupId },
-    payload: { id: msg.id, platform_id: targetAgentGroupId, content: msg.content, in_reply_to: msg.in_reply_to },
+    payload: {
+      id: msg.id,
+      platform_id: targetAgentGroupId,
+      content: msg.content,
+      in_reply_to: msg.in_reply_to,
+    },
     grant: opts.grant ?? null,
   });
 
@@ -263,8 +308,10 @@ export async function routeAgentMessage(
   // consumes the outbound row; `applyA2aMessageGate` re-enters here with the
   // grant on approve.
   if (decision.effect === 'hold') {
-    const sourceName = (await getAgentGroup(sourceAgentGroupId))?.name ?? sourceAgentGroupId;
-    const targetName = (await getAgentGroup(targetAgentGroupId))?.name ?? targetAgentGroupId;
+    const sourceName =
+      (await getAgentGroup(sourceAgentGroupId))?.name ?? sourceAgentGroupId;
+    const targetName =
+      (await getAgentGroup(targetAgentGroupId))?.name ?? targetAgentGroupId;
     await requestApproval({
       session,
       agentName: sourceName,
@@ -292,22 +339,41 @@ export async function routeAgentMessage(
 
 const GATE_CARD_BODY_MAX = 1500;
 
-function parseMessageContent(contentStr: string): { text: string; files: string[] } {
+function parseMessageContent(contentStr: string): {
+  text: string;
+  files: string[];
+} {
   try {
-    const parsed = JSON.parse(contentStr) as { text?: unknown; files?: unknown };
+    const parsed = JSON.parse(contentStr) as {
+      text?: unknown;
+      files?: unknown;
+    };
     return {
       text: typeof parsed.text === 'string' ? parsed.text : '',
-      files: Array.isArray(parsed.files) ? parsed.files.filter((f): f is string => typeof f === 'string') : [],
+      files: Array.isArray(parsed.files)
+        ? parsed.files.filter((f): f is string => typeof f === 'string')
+        : [],
     };
   } catch {
     return { text: contentStr, files: [] };
   }
 }
 
-function buildGateQuestion(sourceName: string, targetName: string, contentStr: string): string {
+function buildGateQuestion(
+  sourceName: string,
+  targetName: string,
+  contentStr: string,
+): string {
   const { text, files } = parseMessageContent(contentStr);
-  const body = text.length > GATE_CARD_BODY_MAX ? `${text.slice(0, GATE_CARD_BODY_MAX)}… (truncated)` : text;
-  const lines = [`Agent "${sourceName}" wants to send a message to "${targetName}":`, '', body];
+  const body =
+    text.length > GATE_CARD_BODY_MAX
+      ? `${text.slice(0, GATE_CARD_BODY_MAX)}… (truncated)`
+      : text;
+  const lines = [
+    `Agent "${sourceName}" wants to send a message to "${targetName}":`,
+    '',
+    body,
+  ];
   if (files.length > 0) lines.push('', `Attachments: ${files.join(', ')}`);
   lines.push(
     '',
@@ -327,7 +393,11 @@ async function performAgentRoute(
   session: Session,
   targetAgentGroupId: string,
 ): Promise<void> {
-  const targetSession = await resolveTargetSession(msg, session, targetAgentGroupId);
+  const targetSession = await resolveTargetSession(
+    msg,
+    session,
+    targetAgentGroupId,
+  );
   const a2aMsgId = `a2a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // If the source message references files (via `send_file`), forward the
@@ -335,7 +405,13 @@ async function performAgentRoute(
   // agent can actually see and re-send them. Without this, agent-to-agent
   // file attachments look like they arrive but the target has no way to
   // read the bytes — they live in a session dir it doesn't mount.
-  const forwardedContent = forwardFileAttachments(msg, a2aMsgId, session, targetAgentGroupId, targetSession.id);
+  const forwardedContent = forwardFileAttachments(
+    msg,
+    a2aMsgId,
+    session,
+    targetAgentGroupId,
+    targetSession.id,
+  );
 
   await writeSessionMessage(targetAgentGroupId, targetSession.id, {
     id: a2aMsgId,
@@ -399,7 +475,9 @@ function forwardFileAttachments(
   );
 
   // Merge into any existing `attachments` (unlikely in a2a context but safe).
-  const existing = Array.isArray(parsed.attachments) ? (parsed.attachments as Record<string, unknown>[]) : [];
+  const existing = Array.isArray(parsed.attachments)
+    ? (parsed.attachments as Record<string, unknown>[])
+    : [];
   parsed.attachments = [...existing, ...attachments];
 
   return JSON.stringify(parsed);

@@ -34,7 +34,11 @@ export interface HistoryRow {
 function cell(value: string): string {
   // Keep the one-line-per-message format intact: newlines and pipes in
   // message text would shred downstream line/field parsing.
-  return value.replace(/\s+/g, ' ').replace(/\|/g, '/').trim().slice(0, HISTORY_TEXT_MAX_CHARS);
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/\|/g, '/')
+    .trim()
+    .slice(0, HISTORY_TEXT_MAX_CHARS);
 }
 
 function parseText(raw: string): { text: string; sender: string | null } {
@@ -46,7 +50,10 @@ function parseText(raw: string): { text: string; sender: string | null } {
         : typeof parsed.action === 'string'
           ? `[${parsed.action}]`
           : '';
-    return { text, sender: typeof parsed.sender === 'string' ? parsed.sender : null };
+    return {
+      text,
+      sender: typeof parsed.sender === 'string' ? parsed.sender : null,
+    };
   } catch {
     return { text: raw, sender: null };
   }
@@ -59,38 +66,67 @@ function parseText(raw: string): { text: string; sender: string | null } {
  * Human rendering (pipe lines, localized stamps, capped cells) lives in
  * `formatHistoryLines`, wired as the operation's `formatHuman`.
  */
-export async function sessionHistory(args: Record<string, unknown>, ctx: CallerContext): Promise<HistoryRow[]> {
-  const sessionId = typeof args.id === 'string' && args.id.length > 0 ? args.id : undefined;
+export async function sessionHistory(
+  args: Record<string, unknown>,
+  ctx: CallerContext,
+): Promise<HistoryRow[]> {
+  const sessionId =
+    typeof args.id === 'string' && args.id.length > 0 ? args.id : undefined;
   if (!sessionId) throw new Error('session id is required');
   const limitRaw = Number(args.limit ?? HISTORY_DEFAULT_LIMIT);
-  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : HISTORY_DEFAULT_LIMIT;
+  const limit =
+    Number.isFinite(limitRaw) && limitRaw > 0
+      ? Math.floor(limitRaw)
+      : HISTORY_DEFAULT_LIMIT;
 
   const session = await getSession(sessionId);
   // Self-scope (see header): cross-group agents get "not found", never "forbidden".
-  if (!session || (ctx.caller === 'agent' && session.agent_group_id !== ctx.agentGroupId)) {
+  if (
+    !session ||
+    (ctx.caller === 'agent' && session.agent_group_id !== ctx.agentGroupId)
+  ) {
     throw new Error(`session not found: ${sessionId}`);
   }
 
-  const agentName = (await getAgentGroup(session.agent_group_id))?.name ?? 'agent';
+  const agentName =
+    (await getAgentGroup(session.agent_group_id))?.name ?? 'agent';
   const rows: HistoryRow[] = [];
 
-  const history = await withExistingMailboxSession(session.agent_group_id, session.id, (mailbox) => ({
-    inbound: mailbox.getInboundHistory(limit),
-    outbound: mailbox.getOutboundHistory(limit),
-  }));
+  const history = await withExistingMailboxSession(
+    session.agent_group_id,
+    session.id,
+    (mailbox) => ({
+      inbound: mailbox.getInboundHistory(limit),
+      outbound: mailbox.getOutboundHistory(limit),
+    }),
+  );
 
   if (history) {
     for (const r of history.inbound) {
       const { text, sender } = parseText(r.content);
-      rows.push({ timestamp: r.timestamp, direction: 'in', kind: r.kind, sender: sender ?? '', text });
+      rows.push({
+        timestamp: r.timestamp,
+        direction: 'in',
+        kind: r.kind,
+        sender: sender ?? '',
+        text,
+      });
     }
     for (const r of history.outbound) {
       const { text } = parseText(r.content);
-      rows.push({ timestamp: r.timestamp, direction: 'out', kind: r.kind, sender: agentName, text });
+      rows.push({
+        timestamp: r.timestamp,
+        direction: 'out',
+        kind: r.kind,
+        sender: agentName,
+        text,
+      });
     }
   }
 
-  rows.sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
+  rows.sort((a, b) =>
+    a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0,
+  );
   return rows.slice(-limit);
 }
 
@@ -100,7 +136,10 @@ export async function sessionHistory(args: Record<string, unknown>, ctx: CallerC
  * with the timestamp in the install timezone (`timezone` injectable for
  * deterministic tests). `--json` bypasses this and gets the raw rows.
  */
-export function formatHistoryLines(rows: HistoryRow[], timezone: string = TIMEZONE): string {
+export function formatHistoryLines(
+  rows: HistoryRow[],
+  timezone: string = TIMEZONE,
+): string {
   return rows
     .map(
       (r) =>

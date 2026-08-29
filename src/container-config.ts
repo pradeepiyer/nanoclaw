@@ -110,12 +110,15 @@ export function validateMcpServerName(name: string): void {
   // record's prototype instead of an own key — the server would be silently
   // dropped (or worse) on every intake path, so reject it by name.
   if (!MCP_SERVER_NAME_RE.test(name) || name === '__proto__') {
-    throw new Error('server name must be 1-64 characters of letters, digits, "_" or "-"');
+    throw new Error(
+      'server name must be 1-64 characters of letters, digits, "_" or "-"',
+    );
   }
 }
 
 // The Agent Plugins fixed cwd shapes: ./p, ${PLUGIN_ROOT}[/p], ${PLUGIN_DATA}[/p].
-const CWD_FORM_RE = /^(?:\.\/|\$\{PLUGIN_ROOT\}(?:\/|$)|\$\{PLUGIN_DATA\}(?:\/|$))/;
+const CWD_FORM_RE =
+  /^(?:\.\/|\$\{PLUGIN_ROOT\}(?:\/|$)|\$\{PLUGIN_DATA\}(?:\/|$))/;
 
 /**
  * Parse one CLI or approval payload into the persisted MCP config shape.
@@ -123,9 +126,17 @@ const CWD_FORM_RE = /^(?:\.\/|\$\{PLUGIN_ROOT\}(?:\/|$)|\$\{PLUGIN_DATA\}(?:\/|$
  * (parseMcpServerInput) — no shared modules across the host/container
  * boundary; keep the two in sync.
  */
-export function parseMcpServerConfig(input: Record<string, unknown>): McpServerConfig {
-  const command = typeof input.command === 'string' && input.command.trim() ? input.command : undefined;
-  const url = typeof input.url === 'string' && input.url.trim() ? input.url.trim() : undefined;
+export function parseMcpServerConfig(
+  input: Record<string, unknown>,
+): McpServerConfig {
+  const command =
+    typeof input.command === 'string' && input.command.trim()
+      ? input.command
+      : undefined;
+  const url =
+    typeof input.url === 'string' && input.url.trim()
+      ? input.url.trim()
+      : undefined;
 
   // A declared transport is honored; absence keeps the legacy CLI inference
   // (url → http, command → stdio). "streamable-http" is the Agent Plugins
@@ -135,7 +146,8 @@ export function parseMcpServerConfig(input: Record<string, unknown>): McpServerC
   if (type !== undefined && type !== 'stdio' && type !== 'http') {
     throw new Error('type must be "stdio", "http", or "streamable-http"');
   }
-  if (type === 'stdio' && !command) throw new Error('type "stdio" requires command');
+  if (type === 'stdio' && !command)
+    throw new Error('type "stdio" requires command');
   if (type === 'http' && !url) throw new Error('type "http" requires url');
 
   const instructions = input.instructions;
@@ -144,8 +156,13 @@ export function parseMcpServerConfig(input: Record<string, unknown>): McpServerC
   }
 
   if (url !== undefined) {
-    if (command !== undefined) throw new Error('Provide exactly one of command or url');
-    if (input.args !== undefined || input.env !== undefined || input.cwd !== undefined) {
+    if (command !== undefined)
+      throw new Error('Provide exactly one of command or url');
+    if (
+      input.args !== undefined ||
+      input.env !== undefined ||
+      input.cwd !== undefined
+    ) {
       throw new Error('args, env, and cwd are only valid with command');
     }
     let parsed: URL;
@@ -154,16 +171,30 @@ export function parseMcpServerConfig(input: Record<string, unknown>): McpServerC
     } catch (err) {
       throw new Error('url must be a valid HTTP(S) URL', { cause: err });
     }
-    const loopback = ['localhost', '127.0.0.1', '[::1]', 'host.docker.internal'].includes(parsed.hostname);
-    if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && loopback)) {
-      throw new Error('url must use HTTPS (plain HTTP is allowed only for localhost and host.docker.internal)');
+    const loopback = [
+      'localhost',
+      '127.0.0.1',
+      '[::1]',
+      'host.docker.internal',
+    ].includes(parsed.hostname);
+    if (
+      parsed.protocol !== 'https:' &&
+      !(parsed.protocol === 'http:' && loopback)
+    ) {
+      throw new Error(
+        'url must use HTTPS (plain HTTP is allowed only for localhost and host.docker.internal)',
+      );
     }
     if (parsed.username || parsed.password || parsed.hash) {
-      throw new Error('url must not contain credentials or fragments; use OneCLI for authentication');
+      throw new Error(
+        'url must not contain credentials or fragments; use OneCLI for authentication',
+      );
     }
     for (const key of parsed.searchParams.keys()) {
       if (SECRET_QUERY_KEY_RE.test(key.replace(CAMEL_SPLIT_RE, '$1_$2'))) {
-        throw new Error(`url query parameter "${key}" looks like a credential; use OneCLI for authentication`);
+        throw new Error(
+          `url query parameter "${key}" looks like a credential; use OneCLI for authentication`,
+        );
       }
     }
     const headers = parseStringRecord(input.headers, 'headers');
@@ -174,9 +205,11 @@ export function parseMcpServerConfig(input: Record<string, unknown>): McpServerC
       ...(instructions === undefined ? {} : { instructions }),
     };
   }
-  if (command === undefined) throw new Error('Provide exactly one of command or url');
+  if (command === undefined)
+    throw new Error('Provide exactly one of command or url');
 
-  if (input.headers !== undefined) throw new Error('headers is only valid with url');
+  if (input.headers !== undefined)
+    throw new Error('headers is only valid with url');
   const args = input.args ?? [];
   if (!Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) {
     throw new Error('args must be a JSON array of strings');
@@ -184,7 +217,9 @@ export function parseMcpServerConfig(input: Record<string, unknown>): McpServerC
   const env = parseStringRecord(input.env, 'env') ?? {};
   for (const key of Object.keys(env)) {
     if (!ENV_KEY_RE.test(key)) {
-      throw new Error(`env key ${JSON.stringify(key)} must be a valid environment variable name`);
+      throw new Error(
+        `env key ${JSON.stringify(key)} must be a valid environment variable name`,
+      );
     }
   }
   const cwd = parseCwd(input.cwd);
@@ -197,14 +232,18 @@ export function parseMcpServerConfig(input: Record<string, unknown>): McpServerC
   };
 }
 
-function parseStringRecord(value: unknown, flag: string): Record<string, string> | undefined {
+function parseStringRecord(
+  value: unknown,
+  flag: string,
+): Record<string, string> | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`${flag} must be a JSON object with string values`);
   }
   const record: Record<string, string> = {};
   for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry !== 'string') throw new Error(`${flag} must be a JSON object with string values`);
+    if (typeof entry !== 'string')
+      throw new Error(`${flag} must be a JSON object with string values`);
     record[key] = entry;
   }
   return record;
@@ -214,11 +253,15 @@ function parseStringRecord(value: unknown, flag: string): Record<string, string>
 function parseCwd(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'string' || !CWD_FORM_RE.test(value)) {
-    throw new Error('cwd must be ./path, ${PLUGIN_ROOT}[/path], or ${PLUGIN_DATA}[/path]');
+    throw new Error(
+      'cwd must be ./path, ${PLUGIN_ROOT}[/path], or ${PLUGIN_DATA}[/path]',
+    );
   }
   // rest === '' is the bare form (`${PLUGIN_DATA}`, `./`); empty segments in a
   // non-empty rest are rejected for symmetry with the command validator.
-  const rest = value.startsWith('./') ? value.slice(2) : value.replace(CWD_FORM_RE, '');
+  const rest = value.startsWith('./')
+    ? value.slice(2)
+    : value.replace(CWD_FORM_RE, '');
   if (
     rest.includes('${') ||
     rest.includes('\\') ||
@@ -260,7 +303,9 @@ export interface ContainerConfig {
  * flip scheduling to UTC — an invalid override falls back to the global tz,
  * same as no override.
  */
-export async function resolveGroupTimezone(agentGroupId: string): Promise<string> {
+export async function resolveGroupTimezone(
+  agentGroupId: string,
+): Promise<string> {
   const tz = (await getContainerConfig(agentGroupId))?.timezone;
   return tz && isValidTimezone(tz) ? tz : TIMEZONE;
 }
@@ -270,15 +315,24 @@ export async function resolveGroupTimezone(agentGroupId: string): Promise<string
  * hand-edited DB value bypassing the three validated write paths). Invalid
  * entries are dropped + logged instead of shipped to the container.
  */
-export function sanitizeStoredMcpServers(raw: unknown, groupName: string): Record<string, McpServerConfig> {
+export function sanitizeStoredMcpServers(
+  raw: unknown,
+  groupName: string,
+): Record<string, McpServerConfig> {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    log.warn('Stored mcp_servers is not an object; ignoring all entries', { group: groupName });
+    log.warn('Stored mcp_servers is not an object; ignoring all entries', {
+      group: groupName,
+    });
     return {};
   }
   const servers: Record<string, McpServerConfig> = {};
   for (const [name, entry] of Object.entries(raw)) {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
-      log.warn('Dropping invalid stored MCP server', { group: groupName, server: name, reason: 'not an object' });
+      log.warn('Dropping invalid stored MCP server', {
+        group: groupName,
+        server: name,
+        reason: 'not an object',
+      });
       continue;
     }
     try {
@@ -298,7 +352,10 @@ export function sanitizeStoredMcpServers(raw: unknown, groupName: string): Recor
         // provenance-less servers through untouched), and the breadcrumb
         // lands in host logs instead of nowhere.
         delete server.cwd;
-        log.warn('Stripping cwd from stored MCP server without plugin provenance', { group: groupName, server: name });
+        log.warn(
+          'Stripping cwd from stored MCP server without plugin provenance',
+          { group: groupName, server: name },
+        );
       }
       servers[name] = server;
       // eslint-disable-next-line no-catch-all/no-catch-all -- validation failures are data errors, not bugs
@@ -321,10 +378,15 @@ export function sanitizeStoredMcpServers(raw: unknown, groupName: string): Recor
  * realize is refused separately by validateSpec, against the driver's
  * capabilities.)
  */
-function parseRuntimeTier(raw: string | null | undefined, groupName: string): 'container' | 'vm' | undefined {
+function parseRuntimeTier(
+  raw: string | null | undefined,
+  groupName: string,
+): 'container' | 'vm' | undefined {
   if (raw == null) return undefined;
   if (raw === 'container' || raw === 'vm') return raw;
-  throw new Error(`agent group "${groupName}" has invalid runtime_tier "${raw}" — expected "container" or "vm"`);
+  throw new Error(
+    `agent group "${groupName}" has invalid runtime_tier "${raw}" — expected "container" or "vm"`,
+  );
 }
 
 /**
@@ -338,7 +400,10 @@ function parseRuntimeTier(raw: string | null | undefined, groupName: string): 'c
  * Two readings that must agree is also how the document ends up teaching a
  * skill the agent was never given.
  */
-export function parseSkillSelection(raw: string | undefined, groupName: string): string[] | 'all' {
+export function parseSkillSelection(
+  raw: string | undefined,
+  groupName: string,
+): string[] | 'all' {
   if (raw === undefined) return 'all';
   let parsed: unknown;
   try {
@@ -347,21 +412,33 @@ export function parseSkillSelection(raw: string | undefined, groupName: string):
     parsed = undefined;
   }
   if (parsed === 'all') return 'all';
-  if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'string')) return parsed;
-  log.warn('Stored skill selection is not "all" or a string list; inlining every skill', { group: groupName });
+  if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'string'))
+    return parsed;
+  log.warn(
+    'Stored skill selection is not "all" or a string list; inlining every skill',
+    { group: groupName },
+  );
   return 'all';
 }
 
 /** Build a `ContainerConfig` from a DB row + agent group identity. */
-export function configFromDb(row: ContainerConfigRow, group: AgentGroup): ContainerConfig {
+export function configFromDb(
+  row: ContainerConfigRow,
+  group: AgentGroup,
+): ContainerConfig {
   return {
-    mcpServers: sanitizeStoredMcpServers(JSON.parse(row.mcp_servers), group.name),
+    mcpServers: sanitizeStoredMcpServers(
+      JSON.parse(row.mcp_servers),
+      group.name,
+    ),
     packages: {
       apt: JSON.parse(row.packages_apt) as string[],
       npm: JSON.parse(row.packages_npm) as string[],
     },
     imageTag: row.image_tag ?? undefined,
-    additionalMounts: JSON.parse(row.additional_mounts) as AdditionalMountConfig[],
+    additionalMounts: JSON.parse(
+      row.additional_mounts,
+    ) as AdditionalMountConfig[],
     skills: parseSkillSelection(row.skills, group.name),
     provider: row.provider ?? undefined,
     groupName: group.name,
@@ -370,7 +447,8 @@ export function configFromDb(row: ContainerConfigRow, group: AgentGroup): Contai
     maxMessagesPerPrompt: row.max_messages_per_prompt ?? undefined,
     model: row.model ?? undefined,
     effort: row.effort ?? undefined,
-    timezone: row.timezone && isValidTimezone(row.timezone) ? row.timezone : undefined,
+    timezone:
+      row.timezone && isValidTimezone(row.timezone) ? row.timezone : undefined,
     runtimeTier: parseRuntimeTier(row.runtime_tier, group.name),
   };
 }
@@ -380,12 +458,17 @@ export function configFromDb(row: ContainerConfigRow, group: AgentGroup): Contai
  * container always sees fresh config. Returns the `ContainerConfig` for
  * use by the caller (buildMounts, composeSessionSpec, etc.).
  */
-export async function materializeContainerJson(agentGroupId: string): Promise<ContainerConfig> {
+export async function materializeContainerJson(
+  agentGroupId: string,
+): Promise<ContainerConfig> {
   const group = await getAgentGroup(agentGroupId);
   if (!group) throw new Error(`Agent group not found: ${agentGroupId}`);
 
   const row = await getContainerConfig(agentGroupId);
-  if (!row) throw new Error(`Container config not found for agent group: ${agentGroupId}`);
+  if (!row)
+    throw new Error(
+      `Container config not found for agent group: ${agentGroupId}`,
+    );
 
   const config = configFromDb(row, group);
 

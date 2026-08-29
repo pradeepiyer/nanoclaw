@@ -23,16 +23,29 @@ import type { Adapter, AdapterPostableMessage, RawMessage } from 'chat';
 import { createChatSdkBridge } from '../../channels/chat-sdk-bridge.js';
 import { initTestDb, closeDb, runMigrations } from '../../db/index.js';
 import { createAgentGroup } from '../../db/agent-groups.js';
-import { ensureContainerConfig, updateContainerConfigJson } from '../../db/container-configs.js';
+import {
+  ensureContainerConfig,
+  updateContainerConfigJson,
+} from '../../db/container-configs.js';
 import { createMessagingGroup } from '../../db/messaging-groups.js';
-import { createSession, getPendingApprovalsByAction } from '../../db/sessions.js';
-import { setDeliveryAdapter, type ChannelDeliveryAdapter } from '../../delivery.js';
+import {
+  createSession,
+  getPendingApprovalsByAction,
+} from '../../db/sessions.js';
+import {
+  setDeliveryAdapter,
+  type ChannelDeliveryAdapter,
+} from '../../delivery.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import { upsertUser } from '../permissions/db/users.js';
 import { upsertUserDm } from '../permissions/db/user-dms.js';
 import { grantRole } from '../permissions/db/user-roles.js';
 import type { Session } from '../../types.js';
-import { escapeInvisibles, requestAddMcpServerHold, validateAddMcpServer } from './request.js';
+import {
+  escapeInvisibles,
+  requestAddMcpServerHold,
+  validateAddMcpServer,
+} from './request.js';
 
 vi.mock('../../container-runner.js', () => ({
   wakeContainer: vi.fn().mockResolvedValue(undefined),
@@ -44,7 +57,9 @@ vi.mock('../../config.js', async () => {
 });
 
 vi.mock('../../session-manager.js', async () => {
-  const actual = await vi.importActual<typeof import('../../session-manager.js')>('../../session-manager.js');
+  const actual = await vi.importActual<
+    typeof import('../../session-manager.js')
+  >('../../session-manager.js');
   return { ...actual, writeSessionMessage: vi.fn() };
 });
 
@@ -60,7 +75,11 @@ function now(): string {
   return new Date().toISOString();
 }
 
-let delivered: Array<{ channelType: string; platformId: string; content: string }>;
+let delivered: Array<{
+  channelType: string;
+  platformId: string;
+  content: string;
+}>;
 
 const fakeAdapter: ChannelDeliveryAdapter = {
   async deliver(channelType, platformId, _threadId, _kind, content) {
@@ -73,13 +92,20 @@ let session: Session;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
   delivered = [];
 
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: now(),
+  });
   session = {
     id: 'sess-1',
     agent_group_id: 'ag-1',
@@ -95,7 +121,12 @@ beforeEach(async () => {
 
   // Authorized approver + a cached DM so ensureUserDm resolves without a
   // platform openDM call.
-  await upsertUser({ id: 'slack:admin-1', kind: 'slack', display_name: 'Admin', created_at: now() });
+  await upsertUser({
+    id: 'slack:admin-1',
+    kind: 'slack',
+    display_name: 'Admin',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'slack:admin-1',
     role: 'owner',
@@ -124,13 +155,16 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 /** The `question` text of the most recently delivered approval card. */
 function lastQuestion(): string {
   expect(delivered.length).toBeGreaterThan(0);
-  return (JSON.parse(delivered[delivered.length - 1].content) as { question: string }).question;
+  return (
+    JSON.parse(delivered[delivered.length - 1].content) as { question: string }
+  ).question;
 }
 
 /** The text of the most recent agent-facing note written via writeSessionMessage. */
@@ -146,7 +180,10 @@ function lastNotifyText(): string {
  * consult in between is unconditional-hold from the container path, so this
  * is the production path for every case these tests cover.
  */
-async function submitAddMcpServer(content: Record<string, unknown>, s: Session): Promise<void> {
+async function submitAddMcpServer(
+  content: Record<string, unknown>,
+  s: Session,
+): Promise<void> {
   if (!(await validateAddMcpServer(content, s))) return;
   await requestAddMcpServerHold(content, s);
 }
@@ -194,7 +231,10 @@ describe('add_mcp_server approval card', () => {
   });
 
   it('shows an HTTPS server URL and preserves its normalized payload', async () => {
-    await submitAddMcpServer({ name: 'docs', url: 'https://mcp.example.com/mcp' }, session);
+    await submitAddMcpServer(
+      { name: 'docs', url: 'https://mcp.example.com/mcp' },
+      session,
+    );
 
     const question = lastQuestion();
     expect(question).toContain('type: "http"');
@@ -273,7 +313,10 @@ describe('add_mcp_server approval card', () => {
 
 describe('add_mcp_server validation', () => {
   it('rejects a server name carrying config syntax before creating an approval', async () => {
-    await submitAddMcpServer({ name: 'docs]\n[mcp_servers.evil]', url: 'https://mcp.example.com/mcp' }, session);
+    await submitAddMcpServer(
+      { name: 'docs]\n[mcp_servers.evil]', url: 'https://mcp.example.com/mcp' },
+      session,
+    );
 
     expect(await expectRejected()).toMatch(/1-64 characters/);
   });
@@ -284,13 +327,19 @@ describe('add_mcp_server validation', () => {
       docs: { type: 'http', url: 'https://mcp.example.com/mcp', plugin: 'sdr' },
     });
 
-    await submitAddMcpServer({ name: 'docs', url: 'https://evil.example.com/mcp' }, session);
+    await submitAddMcpServer(
+      { name: 'docs', url: 'https://evil.example.com/mcp' },
+      session,
+    );
 
     expect(await expectRejected()).toMatch(/owned by plugin "sdr"/);
   });
 
   it('rejects an env key that is not a valid environment variable name', async () => {
-    await submitAddMcpServer({ name: 'ok', command: 'node', env: { 'BAD KEY': 'v' } }, session);
+    await submitAddMcpServer(
+      { name: 'ok', command: 'node', env: { 'BAD KEY': 'v' } },
+      session,
+    );
 
     expect(await expectRejected()).toMatch(/valid environment variable name/);
   });
@@ -298,43 +347,70 @@ describe('add_mcp_server validation', () => {
   it('rejects a cwd on a raw payload before creating an approval', async () => {
     // cwd would be silently dropped at runtime (no pluginRoot to resolve
     // against), so an approver must never be asked to sign it.
-    await submitAddMcpServer({ name: 'ok', command: 'node', cwd: '${PLUGIN_DATA}/work' }, session);
+    await submitAddMcpServer(
+      { name: 'ok', command: 'node', cwd: '${PLUGIN_DATA}/work' },
+      session,
+    );
 
     expect(await expectRejected()).toMatch(/only supported for plugin-shipped/);
   });
 
   it('rejects a credential-bearing URL before creating an approval', async () => {
-    await submitAddMcpServer({ name: 'bad', url: 'https://mcp.example.com/mcp?api_key=secret' }, session);
+    await submitAddMcpServer(
+      { name: 'bad', url: 'https://mcp.example.com/mcp?api_key=secret' },
+      session,
+    );
 
     expect(await expectRejected()).toMatch(/looks like a credential/);
   });
 
   it('rejects args and env for an HTTPS server before creating an approval', async () => {
-    await submitAddMcpServer({ name: 'bad', url: 'https://mcp.example.com/mcp', env: { TOKEN: 'secret' } }, session);
+    await submitAddMcpServer(
+      {
+        name: 'bad',
+        url: 'https://mcp.example.com/mcp',
+        env: { TOKEN: 'secret' },
+      },
+      session,
+    );
 
     expect(await expectRejected()).toMatch(/only valid with command/);
   });
 
   it('rejects a non-string element in args before creating an approval', async () => {
-    await submitAddMcpServer({ name: 'bad', command: 'node', args: ['ok', 123] }, session);
+    await submitAddMcpServer(
+      { name: 'bad', command: 'node', args: ['ok', 123] },
+      session,
+    );
     await expectRejected();
   });
 
   it('rejects a non-record env before creating an approval', async () => {
-    await submitAddMcpServer({ name: 'bad', command: 'node', env: ['not', 'a', 'record'] }, session);
+    await submitAddMcpServer(
+      { name: 'bad', command: 'node', env: ['not', 'a', 'record'] },
+      session,
+    );
     await expectRejected();
   });
 
   it('accepts 32 args and rejects 33', async () => {
     await submitAddMcpServer(
-      { name: 'ok', command: 'node', args: Array.from({ length: 32 }, (_, i) => `a${i}`) },
+      {
+        name: 'ok',
+        command: 'node',
+        args: Array.from({ length: 32 }, (_, i) => `a${i}`),
+      },
       session,
     );
     expect(delivered).toHaveLength(1);
 
     delivered = [];
     await submitAddMcpServer(
-      { name: 'bad', command: 'node', args: Array.from({ length: 33 }, (_, i) => `a${i}`) },
+      {
+        name: 'bad',
+        command: 'node',
+        args: Array.from({ length: 33 }, (_, i) => `a${i}`),
+      },
       session,
     );
     expect(delivered).toHaveLength(0);
@@ -345,11 +421,17 @@ describe('add_mcp_server validation', () => {
     const envOf = (n: number): Record<string, string> =>
       Object.fromEntries(Array.from({ length: n }, (_, i) => [`K${i}`, 'v']));
 
-    await submitAddMcpServer({ name: 'ok', command: 'node', env: envOf(32) }, session);
+    await submitAddMcpServer(
+      { name: 'ok', command: 'node', env: envOf(32) },
+      session,
+    );
     expect(delivered).toHaveLength(1);
 
     delivered = [];
-    await submitAddMcpServer({ name: 'bad', command: 'node', env: envOf(33) }, session);
+    await submitAddMcpServer(
+      { name: 'bad', command: 'node', env: envOf(33) },
+      session,
+    );
     expect(delivered).toHaveLength(0);
     expect(lastNotifyText()).toMatch(/max 32 env vars/);
   });
@@ -363,12 +445,18 @@ describe('add_mcp_server validation', () => {
     const filler = 'a'.repeat(1500 - base);
 
     delivered = [];
-    await submitAddMcpServer({ name: 'n', command: 'c', args: [filler] }, session);
+    await submitAddMcpServer(
+      { name: 'n', command: 'c', args: [filler] },
+      session,
+    );
     expect(delivered).toHaveLength(1);
     expect(Buffer.byteLength(lastQuestion(), 'utf8')).toBe(1500);
 
     delivered = [];
-    await submitAddMcpServer({ name: 'n', command: 'c', args: [`${filler}a`] }, session);
+    await submitAddMcpServer(
+      { name: 'n', command: 'c', args: [`${filler}a`] },
+      session,
+    );
     expect(delivered).toHaveLength(0);
     expect(lastNotifyText()).toMatch(/1500 bytes/);
   });
@@ -378,16 +466,28 @@ describe('add_mcp_server validation', () => {
     // raw payload can hit its cap without tripping the 1500-byte card cap.
     // Measure the fixed overhead with the bare prefix, then pad (ASCII:
     // 1 char = 1 byte in the JSON encoding).
-    await submitAddMcpServer({ name: 'n', command: 'c', args: ['sk-'] }, session);
-    const base = Buffer.byteLength(JSON.stringify({ name: 'n', command: 'c', args: ['sk-'], env: {} }), 'utf8');
+    await submitAddMcpServer(
+      { name: 'n', command: 'c', args: ['sk-'] },
+      session,
+    );
+    const base = Buffer.byteLength(
+      JSON.stringify({ name: 'n', command: 'c', args: ['sk-'], env: {} }),
+      'utf8',
+    );
     const filler = `sk-${'a'.repeat(16384 - base)}`;
 
     delivered = [];
-    await submitAddMcpServer({ name: 'n', command: 'c', args: [filler] }, session);
+    await submitAddMcpServer(
+      { name: 'n', command: 'c', args: [filler] },
+      session,
+    );
     expect(delivered).toHaveLength(1);
 
     delivered = [];
-    await submitAddMcpServer({ name: 'n', command: 'c', args: [`${filler}a`] }, session);
+    await submitAddMcpServer(
+      { name: 'n', command: 'c', args: [`${filler}a`] },
+      session,
+    );
     expect(delivered).toHaveLength(0);
     expect(lastNotifyText()).toMatch(/16384 bytes/);
   });
@@ -408,7 +508,11 @@ describe('add_mcp_server secret redaction', () => {
         name: 'safe',
         command: 'node',
         args: ['--token', argSecret],
-        env: { GITHUB_TOKEN: keyMatched, HARMLESS: valueMatched, NODE_OPTIONS: '--require /x.js' },
+        env: {
+          GITHUB_TOKEN: keyMatched,
+          HARMLESS: valueMatched,
+          NODE_OPTIONS: '--require /x.js',
+        },
       },
       session,
     );
@@ -444,7 +548,11 @@ describe('add_mcp_server secret redaction', () => {
     expect(question).toContain(redactedForm(token));
 
     const rows = await getPendingApprovalsByAction('add_mcp_server');
-    expect(JSON.parse(rows[0].payload)).toEqual({ name: 'zap', type: 'http', url });
+    expect(JSON.parse(rows[0].payload)).toEqual({
+      name: 'zap',
+      type: 'http',
+      url,
+    });
   });
 
   it('never redacts the origin and redacts secret-shaped query values', async () => {
@@ -471,7 +579,8 @@ describe('add_mcp_server secret redaction', () => {
 
 describe('escapeInvisibles', () => {
   it('escapes every bidi, zero-width, and separator character as \\uXXXX', () => {
-    const invisibles = '\u202a\u202e\u2066\u2069\u200e\u200f\u061c\u200b\u200c\u200d\u2060\ufeff\u2028\u2029`';
+    const invisibles =
+      '\u202a\u202e\u2066\u2069\u200e\u200f\u061c\u200b\u200c\u200d\u2060\ufeff\u2028\u2029`';
     const out = escapeInvisibles(invisibles);
     for (const c of invisibles) expect(out).not.toContain(c);
     expect(out).toBe(
@@ -480,7 +589,9 @@ describe('escapeInvisibles', () => {
   });
 
   it('leaves ordinary text untouched', () => {
-    expect(escapeInvisibles('hello world -y evil [link](https://x)')).toBe('hello world -y evil [link](https://x)');
+    expect(escapeInvisibles('hello world -y evil [link](https://x)')).toBe(
+      'hello world -y evil [link](https://x)',
+    );
   });
 });
 
@@ -495,24 +606,37 @@ describe('add_mcp_server card through the chat-sdk bridge', () => {
       },
       session,
     );
-    const cardContent = JSON.parse(delivered[0].content) as Record<string, unknown>;
+    const cardContent = JSON.parse(delivered[0].content) as Record<
+      string,
+      unknown
+    >;
 
-    const posts: Array<{ threadId: string; message: AdapterPostableMessage }> = [];
+    const posts: Array<{ threadId: string; message: AdapterPostableMessage }> =
+      [];
     const bridge = createChatSdkBridge({
       adapter: {
         name: 'stub',
-        postMessage: async (threadId: string, message: AdapterPostableMessage): Promise<RawMessage<unknown>> => {
+        postMessage: async (
+          threadId: string,
+          message: AdapterPostableMessage,
+        ): Promise<RawMessage<unknown>> => {
           posts.push({ threadId, message });
           return { id: 'msg-stub', threadId, raw: {} };
         },
       } as unknown as Adapter,
       supportsThreads: false,
     });
-    await bridge.deliver('slack:C1', null, { kind: 'chat-sdk', content: cardContent });
+    await bridge.deliver('slack:C1', null, {
+      kind: 'chat-sdk',
+      content: cardContent,
+    });
 
     expect(posts).toHaveLength(1);
-    const msg = posts[0].message as { card?: { children?: Array<{ type?: string; content?: string }> } };
-    const text = msg.card?.children?.find((c) => c.type === 'text')?.content ?? '';
+    const msg = posts[0].message as {
+      card?: { children?: Array<{ type?: string; content?: string }> };
+    };
+    const text =
+      msg.card?.children?.find((c) => c.type === 'text')?.content ?? '';
     expect(text.split('```')).toHaveLength(3);
     expect(text).toContain('\\u0060');
     expect(text).not.toContain('\u202e');

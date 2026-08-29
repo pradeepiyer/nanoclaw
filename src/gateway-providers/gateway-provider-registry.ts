@@ -16,7 +16,12 @@
  * "Gateway provider" is spelled out everywhere on this surface: "provider"
  * alone already means model provider in this tree (`src/providers/`).
  */
-import type { ContainerSpec, DriverCapabilities, MountSpec, SessionKey } from '../drivers/types.js';
+import type {
+  ContainerSpec,
+  DriverCapabilities,
+  MountSpec,
+  SessionKey,
+} from '../drivers/types.js';
 
 /**
  * What a gateway contributes to one session, in spec vocabulary.
@@ -91,10 +96,15 @@ export interface GatewayApprovalSubscription {
  */
 export interface GatewayApprovalSource {
   subscribe(
-    handler: (request: GatewayApprovalRequest) => Promise<GatewayApprovalDecision>,
+    handler: (
+      request: GatewayApprovalRequest,
+    ) => Promise<GatewayApprovalDecision>,
   ): GatewayApprovalSubscription;
   listPending?(): Promise<GatewayApprovalRequest[]>;
-  decide?(requestId: string, decision: GatewayApprovalDecision): Promise<boolean>;
+  decide?(
+    requestId: string,
+    decision: GatewayApprovalDecision,
+  ): Promise<boolean>;
 }
 
 export interface GatewayProvider {
@@ -127,14 +137,19 @@ const registry = new Map<GatewayProviderKind, GatewayProviderFactory>();
  * from a file reached via `installed.ts`; a duplicate registration is a wiring
  * bug and throws rather than letting the last import silently win.
  */
-export function registerGatewayProvider(kind: GatewayProviderKind, factory: GatewayProviderFactory): void {
+export function registerGatewayProvider(
+  kind: GatewayProviderKind,
+  factory: GatewayProviderFactory,
+): void {
   if (registry.has(kind)) {
     throw new Error(`Gateway provider already registered: ${kind}`);
   }
   registry.set(kind, factory);
 }
 
-export function getGatewayProviderFactory(kind: GatewayProviderKind): GatewayProviderFactory | undefined {
+export function getGatewayProviderFactory(
+  kind: GatewayProviderKind,
+): GatewayProviderFactory | undefined {
   return registry.get(kind);
 }
 

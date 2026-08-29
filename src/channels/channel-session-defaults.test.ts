@@ -14,8 +14,17 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import type { ChannelAdapter, ChannelContextDefaults, ChannelDefaults, ChannelSetup } from './adapter.js';
-import type { AgentGroup, MessagingGroup, MessagingGroupAgent } from '../types.js';
+import type {
+  ChannelAdapter,
+  ChannelContextDefaults,
+  ChannelDefaults,
+  ChannelSetup,
+} from './adapter.js';
+import type {
+  AgentGroup,
+  MessagingGroup,
+  MessagingGroupAgent,
+} from '../types.js';
 
 /** A declaration whose `context` roots each conversation in its own thread
  *  (what a platform with thread-rooted conversations would declare): plain
@@ -38,8 +47,17 @@ function perThreadDefaults(
   };
   const plain: ChannelContextDefaults =
     context === 'dm'
-      ? { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'request_approval' }
-      : { engageMode: 'pattern', engagePattern: '.', threads: true, unknownSenderPolicy: 'request_approval' };
+      ? {
+          engageMode: 'mention-sticky',
+          threads: true,
+          unknownSenderPolicy: 'request_approval',
+        }
+      : {
+          engageMode: 'pattern',
+          engagePattern: '.',
+          threads: true,
+          unknownSenderPolicy: 'request_approval',
+        };
   return {
     dm: context === 'dm' ? perThread : plain,
     group: context === 'group' ? perThread : plain,
@@ -76,7 +94,9 @@ const mockSetup = () => ({
  *  fresh module graph (the registry maps are module-level state). */
 async function registerFixture(defaults?: ChannelDefaults) {
   const reg = await import('./channel-registry.js');
-  reg.registerChannelAdapter('fixture', { factory: () => makeAdapter('fixture', { defaults }) });
+  reg.registerChannelAdapter('fixture', {
+    factory: () => makeAdapter('fixture', { defaults }),
+  });
   await reg.initChannelAdapters(mockSetup);
   return import('./channel-defaults.js');
 }
@@ -101,7 +121,9 @@ afterEach(async () => {
 
 describe('resolveWiringDefaults — declared session mode and its derived threads stamp', () => {
   it('a per-thread DM declaration resolves into session_mode + the derived threads=1 stamp', async () => {
-    const { resolveWiringDefaults } = await registerFixture(perThreadDefaults('dm'));
+    const { resolveWiringDefaults } = await registerFixture(
+      perThreadDefaults('dm'),
+    );
 
     expect(resolveWiringDefaults('fixture', false, 'Nano')).toEqual({
       engage_mode: 'pattern',
@@ -112,7 +134,9 @@ describe('resolveWiringDefaults — declared session mode and its derived thread
   });
 
   it('a per-thread group declaration resolves the same way — the field is per-context, not DM-only', async () => {
-    const { resolveWiringDefaults } = await registerFixture(perThreadDefaults('group'));
+    const { resolveWiringDefaults } = await registerFixture(
+      perThreadDefaults('group'),
+    );
 
     expect(resolveWiringDefaults('fixture', true, 'Nano')).toEqual({
       engage_mode: 'mention',
@@ -124,14 +148,18 @@ describe('resolveWiringDefaults — declared session mode and its derived thread
 
   it('the context without the declaration is untouched by it', async () => {
     const dmDeclared = await registerFixture(perThreadDefaults('dm'));
-    expect(dmDeclared.resolveWiringDefaults('fixture', true, 'Nano')).toMatchObject({
+    expect(
+      dmDeclared.resolveWiringDefaults('fixture', true, 'Nano'),
+    ).toMatchObject({
       session_mode: 'shared',
       threads: null,
     });
 
     vi.resetModules();
     const groupDeclared = await registerFixture(perThreadDefaults('group'));
-    expect(groupDeclared.resolveWiringDefaults('fixture', false, 'Nano')).toMatchObject({
+    expect(
+      groupDeclared.resolveWiringDefaults('fixture', false, 'Nano'),
+    ).toMatchObject({
       session_mode: 'shared',
       threads: null,
     });
@@ -152,7 +180,10 @@ describe('resolveWiringDefaults — declared session mode and its derived thread
 
   it('the derived threads stamp keeps mention-sticky from downgrading when the inherit value is false', async () => {
     const { resolveWiringDefaults } = await registerFixture(
-      perThreadDefaults('dm', { engageMode: 'mention-sticky', engagePattern: undefined }),
+      perThreadDefaults('dm', {
+        engageMode: 'mention-sticky',
+        engagePattern: undefined,
+      }),
     );
 
     // dm.threads is false, but sessionMode 'per-thread' derives a threads=1
@@ -194,7 +225,13 @@ describe('wiring creation — resolved defaults persist onto the row', () => {
     const { createAgentGroup } = await import('../db/agent-groups.js');
     const { createMessagingGroup } = await import('../db/messaging-groups.js');
     const now = new Date().toISOString();
-    const ag: AgentGroup = { id: 'ag-1', name: 'Nano', folder: 'nano', agent_provider: null, created_at: now };
+    const ag: AgentGroup = {
+      id: 'ag-1',
+      name: 'Nano',
+      folder: 'nano',
+      agent_provider: null,
+      created_at: now,
+    };
     await createAgentGroup(ag);
     const mg: MessagingGroup = {
       id: 'mg-1',
@@ -223,7 +260,8 @@ describe('wiring creation — resolved defaults persist onto the row', () => {
       threads: number | null;
     },
   ): Promise<MessagingGroupAgent> {
-    const { createMessagingGroupAgent, getMessagingGroupAgent } = await import('../db/messaging-groups.js');
+    const { createMessagingGroupAgent, getMessagingGroupAgent } =
+      await import('../db/messaging-groups.js');
     await createMessagingGroupAgent({
       id: 'mga-1',
       messaging_group_id: mg.id,
@@ -241,10 +279,17 @@ describe('wiring creation — resolved defaults persist onto the row', () => {
   }
 
   it('declared per-thread DM defaults flow into the created wiring', async () => {
-    const { resolveWiringDefaults } = await registerFixture(perThreadDefaults('dm'));
+    const { resolveWiringDefaults } = await registerFixture(
+      perThreadDefaults('dm'),
+    );
     const { ag, mg, now } = await seedDb('fixture');
 
-    const resolved = resolveWiringDefaults(mg.instance ?? mg.channel_type, mg.is_group === 1, ag.name, mg.channel_type);
+    const resolved = resolveWiringDefaults(
+      mg.instance ?? mg.channel_type,
+      mg.is_group === 1,
+      ag.name,
+      mg.channel_type,
+    );
     const row = await wire(mg, ag, now, resolved);
 
     expect(row.session_mode).toBe('per-thread');
@@ -254,10 +299,17 @@ describe('wiring creation — resolved defaults persist onto the row', () => {
   });
 
   it('declared per-thread group defaults flow into the created wiring the same way', async () => {
-    const { resolveWiringDefaults } = await registerFixture(perThreadDefaults('group'));
+    const { resolveWiringDefaults } = await registerFixture(
+      perThreadDefaults('group'),
+    );
     const { ag, mg, now } = await seedDb('fixture', true);
 
-    const resolved = resolveWiringDefaults(mg.instance ?? mg.channel_type, mg.is_group === 1, ag.name, mg.channel_type);
+    const resolved = resolveWiringDefaults(
+      mg.instance ?? mg.channel_type,
+      mg.is_group === 1,
+      ag.name,
+      mg.channel_type,
+    );
     const row = await wire(mg, ag, now, resolved);
 
     expect(row.session_mode).toBe('per-thread');
@@ -269,7 +321,12 @@ describe('wiring creation — resolved defaults persist onto the row', () => {
     const { resolveWiringDefaults } = await registerFixture(undefined);
     const { ag, mg, now } = await seedDb('fixture');
 
-    const resolved = resolveWiringDefaults(mg.instance ?? mg.channel_type, mg.is_group === 1, ag.name, mg.channel_type);
+    const resolved = resolveWiringDefaults(
+      mg.instance ?? mg.channel_type,
+      mg.is_group === 1,
+      ag.name,
+      mg.channel_type,
+    );
     const row = await wire(mg, ag, now, resolved);
 
     expect(row.session_mode).toBe('shared');
@@ -277,12 +334,20 @@ describe('wiring creation — resolved defaults persist onto the row', () => {
   });
 
   it('updateMessagingGroupAgent accepts a threads override (key widening)', async () => {
-    const { resolveWiringDefaults } = await registerFixture(perThreadDefaults('dm'));
+    const { resolveWiringDefaults } = await registerFixture(
+      perThreadDefaults('dm'),
+    );
     const { ag, mg, now } = await seedDb('fixture');
-    const resolved = resolveWiringDefaults(mg.instance ?? mg.channel_type, mg.is_group === 1, ag.name, mg.channel_type);
+    const resolved = resolveWiringDefaults(
+      mg.instance ?? mg.channel_type,
+      mg.is_group === 1,
+      ag.name,
+      mg.channel_type,
+    );
     await wire(mg, ag, now, resolved);
 
-    const { updateMessagingGroupAgent, getMessagingGroupAgent } = await import('../db/messaging-groups.js');
+    const { updateMessagingGroupAgent, getMessagingGroupAgent } =
+      await import('../db/messaging-groups.js');
     await updateMessagingGroupAgent('mga-1', { threads: 0 });
     expect((await getMessagingGroupAgent('mga-1'))!.threads).toBe(0);
   });

@@ -36,7 +36,11 @@ export interface ContainerConfigRow {
   updated_at: string;
 }
 
-export type UnknownSenderPolicy = 'strict' | 'request_approval' | 'decline_notify' | 'public';
+export type UnknownSenderPolicy =
+  | 'strict'
+  | 'request_approval'
+  | 'decline_notify'
+  | 'public';
 
 export interface MessagingGroup {
   id: string;
@@ -166,7 +170,12 @@ export interface Session {
 // ── Session DB entities ──
 
 export type MessageInKind = 'chat' | 'chat-sdk' | 'task' | 'webhook' | 'system';
-export type MessageInStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type MessageInStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
 export interface MessageIn {
   id: string;

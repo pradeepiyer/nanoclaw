@@ -58,13 +58,15 @@ registerResource({
     {
       name: 'messaging_group_id',
       type: 'string',
-      description: 'The chat/channel to route from. References messaging_groups.id.',
+      description:
+        'The chat/channel to route from. References messaging_groups.id.',
       required: true,
     },
     {
       name: 'agent_group_id',
       type: 'string',
-      description: 'The agent that handles messages. References agent_groups.id.',
+      description:
+        'The agent that handles messages. References agent_groups.id.',
       required: true,
     },
     {
@@ -120,11 +122,17 @@ registerResource({
     {
       name: 'priority',
       type: 'number',
-      description: 'Fanout order when multiple agents are wired to the same messaging group — higher priority first.',
+      description:
+        'Fanout order when multiple agents are wired to the same messaging group — higher priority first.',
       default: 0,
       updatable: true,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
   // Generic create is replaced by the custom `create` below — it resolves
   // natural keys (so a skill can wire by channel/platform + agent-group folder
@@ -133,10 +141,16 @@ registerResource({
   // fire without generic create, so their bodies live inline in the custom
   // handler (declaration-aware defaults, companion destination row, live
   // session projection) — keep them in sync with genericCreate's semantics.
-  operations: { list: 'open', get: 'open', update: 'approval', delete: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    update: 'approval',
+    delete: 'approval',
+  },
   preUpdate: async (updates, current) => {
     const mg = await requireMessagingGroup(current.messaging_group_id);
-    if (updates.threads !== undefined) updates.threads = normalizeThreads(updates.threads);
+    if (updates.threads !== undefined)
+      updates.threads = normalizeThreads(updates.threads);
 
     const merged: EngageValues = { ...current, ...updates };
     // Legacy rows can be engage_mode='pattern' with a NULL pattern (the
@@ -175,14 +189,19 @@ registerResource({
           const channelType = args.channel_type as string;
           const platformId = args.platform_id as string;
           if (!channelType || !platformId) {
-            throw new Error('provide --messaging-group-id, or --channel-type and --platform-id to resolve it');
+            throw new Error(
+              'provide --messaging-group-id, or --channel-type and --platform-id to resolve it',
+            );
           }
           const mg = await getMessagingGroupByPlatform(
             channelType,
             platformId,
             (args.instance as string) ?? channelType,
           );
-          if (!mg) throw new Error(`no messaging group for ${channelType} ${platformId} — create it first`);
+          if (!mg)
+            throw new Error(
+              `no messaging group for ${channelType} ${platformId} — create it first`,
+            );
           mgId = mg.id;
         }
 
@@ -190,8 +209,12 @@ registerResource({
         let agId = args.agent_group_id as string | undefined;
         if (!agId) {
           const ref = args.agent_group as string;
-          if (!ref) throw new Error('provide --agent-group-id or --agent-group <folder>');
-          const ag = (await getAgentGroup(ref)) ?? (await getAgentGroupByFolder(ref));
+          if (!ref)
+            throw new Error(
+              'provide --agent-group-id or --agent-group <folder>',
+            );
+          const ag =
+            (await getAgentGroup(ref)) ?? (await getAgentGroupByFolder(ref));
           if (!ag) throw new Error(`no agent group "${ref}" (by id or folder)`);
           agId = ag.id;
         }
@@ -217,13 +240,16 @@ registerResource({
           }
           values[name] = v;
         }
-        if (args.engage_pattern !== undefined) values.engage_pattern = args.engage_pattern;
+        if (args.engage_pattern !== undefined)
+          values.engage_pattern = args.engage_pattern;
         if (args.threads !== undefined) values.threads = args.threads;
-        if (args.priority !== undefined) values.priority = Number(args.priority);
+        if (args.priority !== undefined)
+          values.priority = Number(args.priority);
 
         // Pass-2 parity: context-aware defaults + cross-column validation.
         const mg = await requireMessagingGroup(values.messaging_group_id);
-        if (values.threads !== undefined) values.threads = normalizeThreads(values.threads);
+        if (values.threads !== undefined)
+          values.threads = normalizeThreads(values.threads);
 
         const channelKey = mg.instance ?? mg.channel_type;
         // Undeclared (stale) channels: leave engage_mode unset so the static
@@ -232,10 +258,21 @@ registerResource({
         if (values.engage_mode === undefined) {
           if (hasDeclaredChannelDefaults(channelKey, mg.channel_type)) {
             const ag = await getAgentGroup(String(values.agent_group_id));
-            if (!ag) throw new Error(`agent group not found: ${values.agent_group_id}`);
-            const resolved = resolveWiringDefaults(channelKey, mg.is_group === 1, ag.name, mg.channel_type);
+            if (!ag)
+              throw new Error(
+                `agent group not found: ${values.agent_group_id}`,
+              );
+            const resolved = resolveWiringDefaults(
+              channelKey,
+              mg.is_group === 1,
+              ag.name,
+              mg.channel_type,
+            );
             values.engage_mode = resolved.engage_mode;
-            if (values.engage_pattern === undefined && resolved.engage_pattern !== null) {
+            if (
+              values.engage_pattern === undefined &&
+              resolved.engage_pattern !== null
+            ) {
               values.engage_pattern = resolved.engage_pattern;
             }
           } else {
@@ -253,7 +290,8 @@ registerResource({
         // the channel declaration.
         if (values.engage_mode === undefined) values.engage_mode = 'mention';
         if (values.sender_scope === undefined) values.sender_scope = 'all';
-        if (values.ignored_message_policy === undefined) values.ignored_message_policy = 'drop';
+        if (values.ignored_message_policy === undefined)
+          values.ignored_message_policy = 'drop';
         if (values.session_mode === undefined) values.session_mode = 'shared';
         if (values.priority === undefined) values.priority = 0;
 
@@ -273,7 +311,9 @@ registerResource({
             `INSERT INTO messaging_group_agents (${colNames.join(', ')}) VALUES (${placeholders.join(', ')})`,
             values,
           );
-          await ensureAgentDestinationForWiring(values as unknown as MessagingGroupAgent);
+          await ensureAgentDestinationForWiring(
+            values as unknown as MessagingGroupAgent,
+          );
         });
 
         // postCommit parity — live-refresh with `ncl destinations add`: the

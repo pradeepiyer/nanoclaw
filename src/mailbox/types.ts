@@ -97,7 +97,10 @@ export interface InboundMailbox {
   countDueMessages(): number;
   markMessageFailed(messageId: string): void;
   retryWithBackoff(messageId: string, backoffSec: number): void;
-  getMessageForRetry(messageId: string, status: 'pending' | 'processing'): MessageRetry | undefined;
+  getMessageForRetry(
+    messageId: string,
+    status: 'pending' | 'processing',
+  ): MessageRetry | undefined;
   applyProcessingAcks(acks: ProcessingAck[]): void;
   getDeliveredIds(): Set<string>;
   markDelivered(messageOutId: string, platformMessageId: string | null): void;
@@ -126,7 +129,11 @@ export interface InboundMailbox {
    */
   armNextTask(originalId: string, task: Task): Promise<void>;
   countLiveTasks(): number;
-  prunePendingMessages(channelType: string, before: string, keep: number): number;
+  prunePendingMessages(
+    channelType: string,
+    before: string,
+    keep: number,
+  ): number;
   getInboundHistory(limit: number): MailboxHistoryMessage[];
   getConversationRoot(): MailboxTimelineMessage | undefined;
   findTaskBySeriesSlug(slug: string): TaskRecord | undefined;
@@ -172,7 +179,10 @@ export interface AgentMailbox {
    *   must be durable when their own promise resolves — callers wake
    *   containers on the strength of them.
    */
-  session<T>(key: MailboxSessionKey, action: (mailbox: MailboxSession) => T | Promise<T>): Promise<T>;
+  session<T>(
+    key: MailboxSessionKey,
+    action: (mailbox: MailboxSession) => T | Promise<T>,
+  ): Promise<T>;
 }
 
 export type AgentMailboxFactory = () => AgentMailbox;

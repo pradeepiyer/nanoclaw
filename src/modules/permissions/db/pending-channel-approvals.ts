@@ -25,7 +25,9 @@ export interface PendingChannelApproval {
   options_json: string;
 }
 
-export async function createPendingChannelApproval(row: PendingChannelApproval): Promise<void> {
+export async function createPendingChannelApproval(
+  row: PendingChannelApproval,
+): Promise<void> {
   await getDb().run(
     `INSERT INTO pending_channel_approvals (
          messaging_group_id, agent_group_id, original_message,
@@ -39,14 +41,18 @@ export async function createPendingChannelApproval(row: PendingChannelApproval):
   );
 }
 
-export async function getPendingChannelApproval(messagingGroupId: string): Promise<PendingChannelApproval | undefined> {
+export async function getPendingChannelApproval(
+  messagingGroupId: string,
+): Promise<PendingChannelApproval | undefined> {
   return getDb().get<PendingChannelApproval>(
     'SELECT * FROM pending_channel_approvals WHERE messaging_group_id = ?',
     messagingGroupId,
   );
 }
 
-export async function hasInFlightChannelApproval(messagingGroupId: string): Promise<boolean> {
+export async function hasInFlightChannelApproval(
+  messagingGroupId: string,
+): Promise<boolean> {
   const row = await getDb().get<{ x: number }>(
     'SELECT 1 AS x FROM pending_channel_approvals WHERE messaging_group_id = ?',
     messagingGroupId,
@@ -69,6 +75,11 @@ export async function updatePendingChannelApprovalCard(
   );
 }
 
-export async function deletePendingChannelApproval(messagingGroupId: string): Promise<void> {
-  await getDb().run('DELETE FROM pending_channel_approvals WHERE messaging_group_id = ?', messagingGroupId);
+export async function deletePendingChannelApproval(
+  messagingGroupId: string,
+): Promise<void> {
+  await getDb().run(
+    'DELETE FROM pending_channel_approvals WHERE messaging_group_id = ?',
+    messagingGroupId,
+  );
 }

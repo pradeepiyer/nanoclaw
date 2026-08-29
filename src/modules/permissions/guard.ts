@@ -47,13 +47,21 @@ export const sendersAdmit = defineGuardedAction({
 export const channelsRegister = defineGuardedAction({
   action: 'channels.register',
   decide: async (input) => {
-    if (input.actor.kind !== 'human') return DENY('channel registration resolves via human clicks/replies');
-    const questionId = typeof input.payload.questionId === 'string' ? input.payload.questionId : '';
+    if (input.actor.kind !== 'human')
+      return DENY('channel registration resolves via human clicks/replies');
+    const questionId =
+      typeof input.payload.questionId === 'string'
+        ? input.payload.questionId
+        : '';
     const row = await getPendingChannelApproval(questionId);
-    if (!row) return DENY(`no pending channel registration for ${questionId || '(missing questionId)'}`);
+    if (!row)
+      return DENY(
+        `no pending channel registration for ${questionId || '(missing questionId)'}`,
+      );
     if (
       input.actor.userId &&
-      (input.actor.userId === row.approver_user_id || (await hasAdminPrivilege(input.actor.userId, row.agent_group_id)))
+      (input.actor.userId === row.approver_user_id ||
+        (await hasAdminPrivilege(input.actor.userId, row.agent_group_id)))
     ) {
       return ALLOW('delivered approver or anchor-group admin');
     }

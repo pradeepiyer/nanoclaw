@@ -18,14 +18,28 @@ import {
   getMessagingGroupByPlatform,
   getMessagingGroupForOwnDestination,
 } from './db/messaging-groups.js';
-import { clearDeliveryAttempt, recordDeliveryAttempt } from './db/coordination.js';
-import { runGuarded, type DeliveryGuardSpec, type GuardedDeliveryHandler } from './delivery-guard.js';
+import {
+  clearDeliveryAttempt,
+  recordDeliveryAttempt,
+} from './db/coordination.js';
+import {
+  runGuarded,
+  type DeliveryGuardSpec,
+  type GuardedDeliveryHandler,
+} from './delivery-guard.js';
 import { isUnguarded, type Unguarded } from './guard/index.js';
 import { fanOutboundMessage } from './modules/cross-session-context/index.js';
 import { log } from './log.js';
 import { normalizeOptions } from './channels/ask-question.js';
-import { clearOutbox, readOutboxFiles, withExistingMailboxSession } from './session-manager.js';
-import { pauseTypingRefreshAfterDelivery, setTypingAdapter } from './modules/typing/index.js';
+import {
+  clearOutbox,
+  readOutboxFiles,
+  withExistingMailboxSession,
+} from './session-manager.js';
+import {
+  pauseTypingRefreshAfterDelivery,
+  setTypingAdapter,
+} from './modules/typing/index.js';
 import type { OutboundFile } from './channels/adapter.js';
 import type { PendingApproval, Session } from './types.js';
 import type { OutboundMessage } from './mailbox/index.js';
@@ -43,7 +57,11 @@ const MAX_DELIVERY_ATTEMPTS = 3;
  * give-up decision for this tick (the message just retries next poll), and a
  * failed clear leaves a stale row the next lifecycle of the same id clears.
  */
-async function recordAttemptRow(messageId: string, sessionId: string, err: unknown): Promise<number | null> {
+async function recordAttemptRow(
+  messageId: string,
+  sessionId: string,
+  err: unknown,
+): Promise<number | null> {
   /* eslint-disable no-catch-all/no-catch-all -- attempt bookkeeping must never break delivery */
   try {
     return await recordDeliveryAttempt({
@@ -54,11 +72,14 @@ async function recordAttemptRow(messageId: string, sessionId: string, err: unkno
       error: err instanceof Error ? err.message : String(err),
     });
   } catch (recordErr) {
-    log.error('Failed to record delivery attempt — retrying next poll without a count', {
-      messageId,
-      sessionId,
-      err: recordErr,
-    });
+    log.error(
+      'Failed to record delivery attempt — retrying next poll without a count',
+      {
+        messageId,
+        sessionId,
+        err: recordErr,
+      },
+    );
     return null;
   }
   /* eslint-enable no-catch-all/no-catch-all */
@@ -122,7 +143,9 @@ let sweepPolling = false;
  *
  * Not a general-purpose registry — narrow lifecycle hook only.
  */
-type AdapterReadyCallback = (adapter: ChannelDeliveryAdapter) => void | Promise<void>;
+type AdapterReadyCallback = (
+  adapter: ChannelDeliveryAdapter,
+) => void | Promise<void>;
 const adapterReadyCallbacks: AdapterReadyCallback[] = [];
 
 /** Current delivery adapter or null if not yet set. Modules use this in live
@@ -138,7 +161,9 @@ export function onDeliveryAdapterReady(cb: AdapterReadyCallback): void {
     // Already set — fire immediately so late registrations still run.
     void Promise.resolve()
       .then(() => cb(deliveryAdapter as ChannelDeliveryAdapter))
-      .catch((err) => log.error('onDeliveryAdapterReady callback threw', { err }));
+      .catch((err) =>
+        log.error('onDeliveryAdapterReady callback threw', { err }),
+      );
   }
 }
 
@@ -150,7 +175,9 @@ export function setDeliveryAdapter(adapter: ChannelDeliveryAdapter): void {
   for (const cb of adapterReadyCallbacks) {
     void Promise.resolve()
       .then(() => cb(adapter))
-      .catch((err) => log.error('onDeliveryAdapterReady callback threw', { err }));
+      .catch((err) =>
+        log.error('onDeliveryAdapterReady callback threw', { err }),
+      );
   }
 }
 
@@ -224,13 +251,19 @@ async function drainSession(session: Session): Promise<void> {
   let delivered: Set<string>;
   let pending: OutboundMessage[];
   try {
-    const existing = await withExistingMailboxSession(agentGroup.id, session.id, (mailbox) => {
-      const delivered = mailbox.getDeliveredIds();
-      return {
-        delivered,
-        pending: mailbox.getDueMessages(delivered).filter((candidate) => !delivered.has(candidate.id)),
-      };
-    });
+    const existing = await withExistingMailboxSession(
+      agentGroup.id,
+      session.id,
+      (mailbox) => {
+        const delivered = mailbox.getDeliveredIds();
+        return {
+          delivered,
+          pending: mailbox
+            .getDueMessages(delivered)
+            .filter((candidate) => !delivered.has(candidate.id)),
+        };
+      },
+    );
     if (!existing) return;
     ({ delivered, pending } = existing);
   } catch (err) {
@@ -249,7 +282,10 @@ async function drainSession(session: Session): Promise<void> {
         session,
       );
     } catch (err) {
-      log.warn('Delivery batch-preview hook failed', { sessionId: session.id, err });
+      log.warn('Delivery batch-preview hook failed', {
+        sessionId: session.id,
+        err,
+      });
     }
   }
 
@@ -280,7 +316,11 @@ async function drainSession(session: Session): Promise<void> {
             try {
               await hook(msg, session, { firstDelivery });
             } catch (err) {
-              log.warn('Post-delivery hook failed', { messageId: msg.id, sessionId: session.id, err });
+              log.warn('Post-delivery hook failed', {
+                messageId: msg.id,
+                sessionId: session.id,
+                err,
+              });
             }
           }
         }
@@ -295,7 +335,11 @@ async function drainSession(session: Session): Promise<void> {
           err,
         });
         try {
-          await withExistingMailboxSession(agentGroup.id, session.id, (mailbox) => mailbox.markDeliveryFailed(msg.id));
+          await withExistingMailboxSession(
+            agentGroup.id,
+            session.id,
+            (mailbox) => mailbox.markDeliveryFailed(msg.id),
+          );
           await clearAttemptRow(msg.id);
         } catch (markErr) {
           log.error('Failed to record permanent delivery failure', {
@@ -331,7 +375,9 @@ async function deliverMessage(
   session: Session,
 ): Promise<string | undefined> {
   if (!deliveryAdapter) {
-    log.warn('No delivery adapter configured, dropping message', { id: msg.id });
+    log.warn('No delivery adapter configured, dropping message', {
+      id: msg.id,
+    });
     return;
   }
 
@@ -348,15 +394,32 @@ async function deliverMessage(
   // the only delivery path from a task session). Append to the series log,
   // never deliver. The caller marks it delivered so it isn't retried.
   if (msg.kind === 'task_log') {
-    if (session.messaging_group_id === null && isTaskThread(session.thread_id) && session.thread_id) {
-      const series = session.thread_id.slice(`${TASKS_SYSTEM_THREAD_ID}:`.length);
+    if (
+      session.messaging_group_id === null &&
+      isTaskThread(session.thread_id) &&
+      session.thread_id
+    ) {
+      const series = session.thread_id.slice(
+        `${TASKS_SYSTEM_THREAD_ID}:`.length,
+      );
       try {
-        await appendRunLog(session.agent_group_id, series, typeof content.text === 'string' ? content.text : '');
+        await appendRunLog(
+          session.agent_group_id,
+          series,
+          typeof content.text === 'string' ? content.text : '',
+        );
       } catch (err) {
-        log.warn('Failed to append task run log', { id: msg.id, sessionId: session.id, err });
+        log.warn('Failed to append task run log', {
+          id: msg.id,
+          sessionId: session.id,
+          err,
+        });
       }
     } else {
-      log.warn('task_log row outside a task session — ignoring', { id: msg.id, sessionId: session.id });
+      log.warn('task_log row outside a task session — ignoring', {
+        id: msg.id,
+        sessionId: session.id,
+      });
     }
     return;
   }
@@ -367,9 +430,12 @@ async function deliverMessage(
   // check will throw, which falls into the normal retry → mark-failed path.
   if (msg.channelType === 'agent') {
     if (!(await hasTable(getDb(), 'agent_destinations'))) {
-      throw new Error(`agent-to-agent module not installed — cannot route message ${msg.id}`);
+      throw new Error(
+        `agent-to-agent module not installed — cannot route message ${msg.id}`,
+      );
     }
-    const { routeAgentMessage } = await import('./modules/agent-to-agent/agent-route.js');
+    const { routeAgentMessage } =
+      await import('./modules/agent-to-agent/agent-route.js');
     await routeAgentMessage(
       {
         id: msg.id,
@@ -408,14 +474,24 @@ async function deliverMessage(
     // sibling instances share the same channel address), falling back to the
     // by-platform lookup (default-instance-first) when the sender has no
     // matching destination.
-    const originMg = session.messaging_group_id ? await getMessagingGroup(session.messaging_group_id) : undefined;
+    const originMg = session.messaging_group_id
+      ? await getMessagingGroup(session.messaging_group_id)
+      : undefined;
     const mg =
-      originMg && originMg.channel_type === msg.channelType && originMg.platform_id === msg.platformId
+      originMg &&
+      originMg.channel_type === msg.channelType &&
+      originMg.platform_id === msg.platformId
         ? originMg
-        : ((await getMessagingGroupForOwnDestination(session.agent_group_id, msg.channelType, msg.platformId)) ??
+        : ((await getMessagingGroupForOwnDestination(
+            session.agent_group_id,
+            msg.channelType,
+            msg.platformId,
+          )) ??
           (await getMessagingGroupByPlatform(msg.channelType, msg.platformId)));
     if (!mg) {
-      throw new Error(`unknown messaging group for ${msg.channelType}/${msg.platformId} (message ${msg.id})`);
+      throw new Error(
+        `unknown messaging group for ${msg.channelType}/${msg.platformId} (message ${msg.id})`,
+      );
     }
     if (mg.detached_at) {
       // The bot was removed from this conversation (a channel membership
@@ -451,13 +527,20 @@ async function deliverMessage(
   // Guarded: without the interactive module, `pending_questions` doesn't
   // exist and we skip persistence — the card still delivers to the user,
   // but the response path has nowhere to land and will log unclaimed.
-  if (content.type === 'ask_question' && content.questionId && (await hasTable(getDb(), 'pending_questions'))) {
+  if (
+    content.type === 'ask_question' &&
+    content.questionId &&
+    (await hasTable(getDb(), 'pending_questions'))
+  ) {
     const title = content.title as string | undefined;
     const rawOptions = content.options as unknown;
     if (!title || !Array.isArray(rawOptions)) {
-      log.error('ask_question missing required title/options — not persisting', {
-        questionId: content.questionId,
-      });
+      log.error(
+        'ask_question missing required title/options — not persisting',
+        {
+          questionId: content.questionId,
+        },
+      );
     } else {
       const inserted = await createPendingQuestion({
         question_id: content.questionId,
@@ -471,7 +554,10 @@ async function deliverMessage(
         created_at: new Date().toISOString(),
       });
       if (inserted) {
-        log.info('Pending question created', { questionId: content.questionId, sessionId: session.id });
+        log.info('Pending question created', {
+          questionId: content.questionId,
+          sessionId: session.id,
+        });
       }
     }
   }
@@ -487,7 +573,12 @@ async function deliverMessage(
   // extractAttachmentFiles) — delivery just hands buffers to the adapter.
   const files =
     Array.isArray(content.files) && content.files.length > 0
-      ? readOutboxFiles(session.agent_group_id, session.id, msg.id, content.files as string[])
+      ? readOutboxFiles(
+          session.agent_group_id,
+          session.id,
+          msg.id,
+          content.files as string[],
+        )
       : undefined;
 
   const platformMsgId = await deliveryAdapter.deliver(
@@ -535,7 +626,11 @@ export interface PostDeliveryInfo {
   firstDelivery: boolean;
 }
 
-export type PostDeliveryHook = (msg: OutboundMessage, session: Session, info: PostDeliveryInfo) => void | Promise<void>;
+export type PostDeliveryHook = (
+  msg: OutboundMessage,
+  session: Session,
+  info: PostDeliveryInfo,
+) => void | Promise<void>;
 
 const postDeliveryHooks: PostDeliveryHook[] = [];
 
@@ -567,7 +662,10 @@ export function registerPostDeliveryHook(hook: PostDeliveryHook): void {
  * accept or capture an open MailboxSession here: implementations may
  * serialize session() per key, and a held session would deadlock them.
  */
-export type DeliveryActionHandler = (content: Record<string, unknown>, session: Session) => Promise<void>;
+export type DeliveryActionHandler = (
+  content: Record<string, unknown>,
+  session: Session,
+) => Promise<void>;
 
 type DeliveryEntry =
   | { guard: Unguarded; handler: DeliveryActionHandler }
@@ -575,7 +673,9 @@ type DeliveryEntry =
 
 const deliveryActions = new Map<string, DeliveryEntry>();
 
-function isUnguardedEntry(entry: DeliveryEntry): entry is Extract<DeliveryEntry, { guard: Unguarded }> {
+function isUnguardedEntry(
+  entry: DeliveryEntry,
+): entry is Extract<DeliveryEntry, { guard: Unguarded }> {
   return isUnguarded(entry.guard);
 }
 
@@ -585,12 +685,22 @@ type DeliveryBatchPreviewHook = (
   session: Session,
 ) => void | Promise<void>;
 const batchPreviewHooks: DeliveryBatchPreviewHook[] = [];
-export function registerDeliveryBatchPreview(hook: DeliveryBatchPreviewHook): void {
+export function registerDeliveryBatchPreview(
+  hook: DeliveryBatchPreviewHook,
+): void {
   batchPreviewHooks.push(hook);
 }
 
-export function registerDeliveryAction(action: string, handler: DeliveryActionHandler, unguardedDecl: Unguarded): void;
-export function registerDeliveryAction(action: string, handler: GuardedDeliveryHandler, spec: DeliveryGuardSpec): void;
+export function registerDeliveryAction(
+  action: string,
+  handler: DeliveryActionHandler,
+  unguardedDecl: Unguarded,
+): void;
+export function registerDeliveryAction(
+  action: string,
+  handler: GuardedDeliveryHandler,
+  spec: DeliveryGuardSpec,
+): void;
 export function registerDeliveryAction(
   action: string,
   handler: DeliveryActionHandler | GuardedDeliveryHandler,
@@ -623,13 +733,27 @@ export function registerDeliveryAction(
  * same line that registers the action.
  */
 export function reenterGuardedDeliveryAction(action: string) {
-  return async (ctx: { session: Session; payload: Record<string, unknown>; approval: PendingApproval }) => {
+  return async (ctx: {
+    session: Session;
+    payload: Record<string, unknown>;
+    approval: PendingApproval;
+  }) => {
     const entry = deliveryActions.get(action);
     if (!entry || isUnguardedEntry(entry)) {
-      log.warn('Approved replay for an action that is not guard-wrapped — dropping', { action });
+      log.warn(
+        'Approved replay for an action that is not guard-wrapped — dropping',
+        { action },
+      );
       return;
     }
-    await runGuarded(action, entry.guard, entry.handler, ctx.payload, ctx.session, ctx.approval);
+    await runGuarded(
+      action,
+      entry.guard,
+      entry.handler,
+      ctx.payload,
+      ctx.session,
+      ctx.approval,
+    );
   };
 }
 
@@ -638,11 +762,14 @@ export function reenterGuardedDeliveryAction(action: string) {
  * entries, the guard-consulting path for guarded ones. Dispatch and tests
  * both come through here; there is no route around the guard.
  */
-export function getDeliveryAction(action: string): DeliveryActionHandler | undefined {
+export function getDeliveryAction(
+  action: string,
+): DeliveryActionHandler | undefined {
   const entry = deliveryActions.get(action);
   if (!entry) return undefined;
   if (isUnguardedEntry(entry)) return entry.handler;
-  return (content, session) => runGuarded(action, entry.guard, entry.handler, content, session, null);
+  return (content, session) =>
+    runGuarded(action, entry.guard, entry.handler, content, session, null);
 }
 
 /**
@@ -650,7 +777,10 @@ export function getDeliveryAction(action: string): DeliveryActionHandler | undef
  * These are written to messages_out because the container can't write to inbound.db.
  * The host applies them to inbound.db here.
  */
-async function handleSystemAction(content: Record<string, unknown>, session: Session): Promise<void> {
+async function handleSystemAction(
+  content: Record<string, unknown>,
+  session: Session,
+): Promise<void> {
   const action = content.action as string;
   log.info('System action from agent', { sessionId: session.id, action });
 

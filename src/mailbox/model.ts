@@ -12,18 +12,37 @@ declare const isoTimestampBrand: unique symbol;
 export type IsoTimestamp = string & { readonly [isoTimestampBrand]: true };
 
 export function parseIsoTimestamp(value: unknown): IsoTimestamp {
-  if (typeof value !== 'string') throw new Error('invalid ISO-8601 UTC timestamp');
+  if (typeof value !== 'string')
+    throw new Error('invalid ISO-8601 UTC timestamp');
   const milliseconds = Date.parse(value);
-  if (!Number.isFinite(milliseconds) || new Date(milliseconds).toISOString() !== value)
+  if (
+    !Number.isFinite(milliseconds) ||
+    new Date(milliseconds).toISOString() !== value
+  )
     throw new Error('invalid ISO-8601 UTC timestamp');
   return value as IsoTimestamp;
 }
 
-export type ProcessingStatus = 'processing' | 'completed' | 'failed' | 'script-skip:error';
-export type TaskStatus = 'pending' | 'paused' | 'completed' | 'failed' | 'cancelled';
+export type ProcessingStatus =
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'script-skip:error';
+export type TaskStatus =
+  | 'pending'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 export type InboundStatus = TaskStatus | 'processing';
 
-const INBOUND_KINDS = ['chat', 'chat-sdk', 'task', 'webhook', 'system'] as const;
+const INBOUND_KINDS = [
+  'chat',
+  'chat-sdk',
+  'task',
+  'webhook',
+  'system',
+] as const;
 
 export type InboundKind = (typeof INBOUND_KINDS)[number];
 
@@ -201,19 +220,28 @@ export interface MailboxRecordByKind {
 
 type UnknownRecord = Record<string, unknown>;
 
-function strictRecord(value: unknown, name: string, keys: readonly string[]): UnknownRecord {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`invalid ${name}: expected object`);
+function strictRecord(
+  value: unknown,
+  name: string,
+  keys: readonly string[],
+): UnknownRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error(`invalid ${name}: expected object`);
   const record = value as UnknownRecord;
   const unknown = Object.keys(record).filter((key) => !keys.includes(key));
-  if (unknown.length > 0) throw new Error(`invalid ${name}: unknown field ${unknown[0]}`);
-  const nested = Object.entries(record).find(([, field]) => field !== null && typeof field === 'object');
+  if (unknown.length > 0)
+    throw new Error(`invalid ${name}: unknown field ${unknown[0]}`);
+  const nested = Object.entries(record).find(
+    ([, field]) => field !== null && typeof field === 'object',
+  );
   if (nested) throw new Error(`invalid ${name}: nested field ${nested[0]}`);
   return record;
 }
 
 function text(record: UnknownRecord, key: string): string {
   const value = record[key];
-  if (typeof value !== 'string') throw new Error(`invalid mailbox field ${key}: expected string`);
+  if (typeof value !== 'string')
+    throw new Error(`invalid mailbox field ${key}: expected string`);
   return value;
 }
 
@@ -224,7 +252,10 @@ function nullableText(record: UnknownRecord, key: string): string | null {
   return value;
 }
 
-function optionalNullableText(record: UnknownRecord, key: string): string | null | undefined {
+function optionalNullableText(
+  record: UnknownRecord,
+  key: string,
+): string | null | undefined {
   if (!(key in record)) return undefined;
   if (record[key] === undefined) return undefined;
   return nullableText(record, key);
@@ -235,16 +266,25 @@ function timestamp(record: UnknownRecord, key: string): IsoTimestamp {
   try {
     return parseIsoTimestamp(value);
   } catch (err) {
-    throw new Error(`invalid mailbox field ${key}: expected ISO-8601 UTC timestamp`, { cause: err });
+    throw new Error(
+      `invalid mailbox field ${key}: expected ISO-8601 UTC timestamp`,
+      { cause: err },
+    );
   }
 }
 
-function nullableTimestamp(record: UnknownRecord, key: string): IsoTimestamp | null {
+function nullableTimestamp(
+  record: UnknownRecord,
+  key: string,
+): IsoTimestamp | null {
   if (record[key] === null) return null;
   return timestamp(record, key);
 }
 
-function optionalNullableTimestamp(record: UnknownRecord, key: string): IsoTimestamp | null | undefined {
+function optionalNullableTimestamp(
+  record: UnknownRecord,
+  key: string,
+): IsoTimestamp | null | undefined {
   if (!(key in record) || record[key] === undefined) return undefined;
   return nullableTimestamp(record, key);
 }
@@ -252,32 +292,48 @@ function optionalNullableTimestamp(record: UnknownRecord, key: string): IsoTimes
 function nonNegativeInteger(record: UnknownRecord, key: string): number {
   const value = record[key];
   if (!Number.isSafeInteger(value) || (value as number) < 0)
-    throw new Error(`invalid mailbox field ${key}: expected nonnegative integer`);
+    throw new Error(
+      `invalid mailbox field ${key}: expected nonnegative integer`,
+    );
   return value as number;
 }
 
-function nullableNonNegativeInteger(record: UnknownRecord, key: string): number | null {
+function nullableNonNegativeInteger(
+  record: UnknownRecord,
+  key: string,
+): number | null {
   const value = record[key];
   if (value !== null && (!Number.isSafeInteger(value) || (value as number) < 0))
-    throw new Error(`invalid mailbox field ${key}: expected nonnegative integer or null`);
+    throw new Error(
+      `invalid mailbox field ${key}: expected nonnegative integer or null`,
+    );
   return value as number | null;
 }
 
 function booleanValue(record: UnknownRecord, key: string): boolean {
   const value = record[key];
-  if (typeof value !== 'boolean') throw new Error(`invalid mailbox field ${key}: expected boolean`);
+  if (typeof value !== 'boolean')
+    throw new Error(`invalid mailbox field ${key}: expected boolean`);
   return value;
 }
 
-function optionalBoolean(record: UnknownRecord, key: string): boolean | undefined {
+function optionalBoolean(
+  record: UnknownRecord,
+  key: string,
+): boolean | undefined {
   if (!(key in record)) return undefined;
   const value = record[key];
   if (value === undefined) return undefined;
-  if (typeof value !== 'boolean') throw new Error(`invalid mailbox field ${key}: expected boolean`);
+  if (typeof value !== 'boolean')
+    throw new Error(`invalid mailbox field ${key}: expected boolean`);
   return value;
 }
 
-function oneOf<const T extends readonly string[]>(record: UnknownRecord, key: string, values: T): T[number] {
+function oneOf<const T extends readonly string[]>(
+  record: UnknownRecord,
+  key: string,
+  values: T,
+): T[number] {
   const value = record[key];
   if (typeof value !== 'string' || !values.includes(value))
     throw new Error(`invalid mailbox field ${key}: unexpected value`);
@@ -309,9 +365,15 @@ export function parseInboundWrite(value: unknown): InboundWrite {
     content: text(record, 'content'),
     processAfter: nullableTimestamp(record, 'processAfter'),
     recurrence: nullableText(record, 'recurrence'),
-    ...('trigger' in record ? { trigger: optionalBoolean(record, 'trigger') } : {}),
-    ...('sourceSessionId' in record ? { sourceSessionId: optionalNullableText(record, 'sourceSessionId') } : {}),
-    ...('onWake' in record ? { onWake: optionalBoolean(record, 'onWake') } : {}),
+    ...('trigger' in record
+      ? { trigger: optionalBoolean(record, 'trigger') }
+      : {}),
+    ...('sourceSessionId' in record
+      ? { sourceSessionId: optionalNullableText(record, 'sourceSessionId') }
+      : {}),
+    ...('onWake' in record
+      ? { onWake: optionalBoolean(record, 'onWake') }
+      : {}),
   };
 }
 
@@ -339,7 +401,14 @@ export function parseInboundRecord(value: unknown): InboundRecord {
     sequence: nullableNonNegativeInteger(record, 'sequence'),
     kind: oneOf(record, 'kind', INBOUND_KINDS),
     timestamp: timestamp(record, 'timestamp'),
-    status: oneOf(record, 'status', ['pending', 'paused', 'processing', 'completed', 'failed', 'cancelled'] as const),
+    status: oneOf(record, 'status', [
+      'pending',
+      'paused',
+      'processing',
+      'completed',
+      'failed',
+      'cancelled',
+    ] as const),
     processAfter: nullableTimestamp(record, 'processAfter'),
     recurrence: nullableText(record, 'recurrence'),
     seriesId: nullableText(record, 'seriesId'),
@@ -368,13 +437,25 @@ export function parseOutboundWrite(value: unknown): OutboundWrite {
   ]);
   return {
     id: text(record, 'id'),
-    ...('inReplyTo' in record ? { inReplyTo: optionalNullableText(record, 'inReplyTo') } : {}),
-    ...('deliverAfter' in record ? { deliverAfter: optionalNullableTimestamp(record, 'deliverAfter') } : {}),
-    ...('recurrence' in record ? { recurrence: optionalNullableText(record, 'recurrence') } : {}),
+    ...('inReplyTo' in record
+      ? { inReplyTo: optionalNullableText(record, 'inReplyTo') }
+      : {}),
+    ...('deliverAfter' in record
+      ? { deliverAfter: optionalNullableTimestamp(record, 'deliverAfter') }
+      : {}),
+    ...('recurrence' in record
+      ? { recurrence: optionalNullableText(record, 'recurrence') }
+      : {}),
     kind: text(record, 'kind'),
-    ...('platformId' in record ? { platformId: optionalNullableText(record, 'platformId') } : {}),
-    ...('channelType' in record ? { channelType: optionalNullableText(record, 'channelType') } : {}),
-    ...('threadId' in record ? { threadId: optionalNullableText(record, 'threadId') } : {}),
+    ...('platformId' in record
+      ? { platformId: optionalNullableText(record, 'platformId') }
+      : {}),
+    ...('channelType' in record
+      ? { channelType: optionalNullableText(record, 'channelType') }
+      : {}),
+    ...('threadId' in record
+      ? { threadId: optionalNullableText(record, 'threadId') }
+      : {}),
     content: text(record, 'content'),
   };
 }
@@ -449,16 +530,30 @@ export function parseOutboundDelivery(value: unknown): OutboundDelivery {
 }
 
 export function parseProcessingAckRecord(value: unknown): ProcessingAckRecord {
-  const record = strictRecord(value, 'ProcessingAckRecord', ['messageId', 'status', 'statusChanged']);
+  const record = strictRecord(value, 'ProcessingAckRecord', [
+    'messageId',
+    'status',
+    'statusChanged',
+  ]);
   return {
     messageId: text(record, 'messageId'),
-    status: oneOf(record, 'status', ['processing', 'completed', 'failed', 'script-skip:error'] as const),
+    status: oneOf(record, 'status', [
+      'processing',
+      'completed',
+      'failed',
+      'script-skip:error',
+    ] as const),
     statusChanged: timestamp(record, 'statusChanged'),
   };
 }
 
 export function parseDeliveryRecord(value: unknown): DeliveryRecord {
-  const record = strictRecord(value, 'DeliveryRecord', ['messageOutId', 'platformMessageId', 'status', 'deliveredAt']);
+  const record = strictRecord(value, 'DeliveryRecord', [
+    'messageOutId',
+    'platformMessageId',
+    'status',
+    'deliveredAt',
+  ]);
   return {
     messageOutId: text(record, 'messageOutId'),
     platformMessageId: nullableText(record, 'platformMessageId'),
@@ -496,8 +591,14 @@ export function parseDestinationRecord(value: unknown): DestinationRecord {
   return { ...common, type, channelType: null, platformId: null, agentGroupId };
 }
 
-export function parseSessionRoutingRecord(value: unknown): SessionRoutingRecord {
-  const record = strictRecord(value, 'SessionRoutingRecord', ['channelType', 'platformId', 'threadId']);
+export function parseSessionRoutingRecord(
+  value: unknown,
+): SessionRoutingRecord {
+  const record = strictRecord(value, 'SessionRoutingRecord', [
+    'channelType',
+    'platformId',
+    'threadId',
+  ]);
   return {
     channelType: nullableText(record, 'channelType'),
     platformId: nullableText(record, 'platformId'),
@@ -506,8 +607,16 @@ export function parseSessionRoutingRecord(value: unknown): SessionRoutingRecord 
 }
 
 export function parseStateRecord(value: unknown): StateRecord {
-  const record = strictRecord(value, 'StateRecord', ['key', 'value', 'updatedAt']);
-  return { key: text(record, 'key'), value: text(record, 'value'), updatedAt: timestamp(record, 'updatedAt') };
+  const record = strictRecord(value, 'StateRecord', [
+    'key',
+    'value',
+    'updatedAt',
+  ]);
+  return {
+    key: text(record, 'key'),
+    value: text(record, 'value'),
+    updatedAt: timestamp(record, 'updatedAt'),
+  };
 }
 
 export function parseContainerRecord(value: unknown): ContainerRecord {
@@ -519,7 +628,10 @@ export function parseContainerRecord(value: unknown): ContainerRecord {
   ]);
   return {
     currentTool: nullableText(record, 'currentTool'),
-    toolDeclaredTimeoutMs: nullableNonNegativeInteger(record, 'toolDeclaredTimeoutMs'),
+    toolDeclaredTimeoutMs: nullableNonNegativeInteger(
+      record,
+      'toolDeclaredTimeoutMs',
+    ),
     toolStartedAt: nullableTimestamp(record, 'toolStartedAt'),
     updatedAt: timestamp(record, 'updatedAt'),
   };
@@ -540,7 +652,13 @@ export function parseTaskRecord(value: unknown): TaskRecord {
   return {
     id: text(record, 'id'),
     seriesId: nullableText(record, 'seriesId'),
-    status: oneOf(record, 'status', ['pending', 'paused', 'completed', 'failed', 'cancelled'] as const),
+    status: oneOf(record, 'status', [
+      'pending',
+      'paused',
+      'completed',
+      'failed',
+      'cancelled',
+    ] as const),
     processAfter: nullableTimestamp(record, 'processAfter'),
     recurrence: nullableText(record, 'recurrence'),
     content: text(record, 'content'),
@@ -565,11 +683,16 @@ export function parseTaskWrite(value: unknown): TaskWrite {
     processAfter: nullableTimestamp(record, 'processAfter'),
     recurrence: nullableText(record, 'recurrence'),
     content: text(record, 'content'),
-    ...('status' in record ? { status: oneOf(record, 'status', ['pending', 'paused'] as const) } : {}),
+    ...('status' in record
+      ? { status: oneOf(record, 'status', ['pending', 'paused'] as const) }
+      : {}),
   };
 }
 
-export function createInboundRecord(message: InboundWrite, sequence: number): InboundRecord {
+export function createInboundRecord(
+  message: InboundWrite,
+  sequence: number,
+): InboundRecord {
   const input = parseInboundWrite(message);
   return parseInboundRecord({
     ...input,
@@ -583,7 +706,11 @@ export function createInboundRecord(message: InboundWrite, sequence: number): In
   });
 }
 
-export function createTaskInboundRecord(task: TaskWrite, sequence: number, timestamp: string): InboundRecord {
+export function createTaskInboundRecord(
+  task: TaskWrite,
+  sequence: number,
+  timestamp: string,
+): InboundRecord {
   const input = parseTaskWrite(task);
   return parseInboundRecord({
     id: input.id,
@@ -605,7 +732,11 @@ export function createTaskInboundRecord(task: TaskWrite, sequence: number, times
   });
 }
 
-export function createOutboundRecord(message: OutboundWrite, sequence: number, timestamp: string): OutboundRecord {
+export function createOutboundRecord(
+  message: OutboundWrite,
+  sequence: number,
+  timestamp: string,
+): OutboundRecord {
   const input = parseOutboundWrite(message);
   return parseOutboundRecord({
     id: input.id,
@@ -627,7 +758,11 @@ export function createDirectOutboundRecord(
   sequence: number,
   timestamp: string,
 ): OutboundRecord {
-  return createOutboundRecord(parseDirectOutboundWrite(message), sequence, timestamp);
+  return createOutboundRecord(
+    parseDirectOutboundWrite(message),
+    sequence,
+    timestamp,
+  );
 }
 
 export function outboundDelivery(record: OutboundRecord): OutboundDelivery {
@@ -643,7 +778,10 @@ export function outboundDelivery(record: OutboundRecord): OutboundDelivery {
   });
 }
 
-export function parseMailboxRecord<K extends MailboxRecordKind>(kind: K, value: unknown): MailboxRecordByKind[K] {
+export function parseMailboxRecord<K extends MailboxRecordKind>(
+  kind: K,
+  value: unknown,
+): MailboxRecordByKind[K] {
   switch (kind) {
     case 'inbound':
       return parseInboundRecord(value) as MailboxRecordByKind[K];

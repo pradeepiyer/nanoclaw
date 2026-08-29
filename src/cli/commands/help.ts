@@ -31,7 +31,9 @@ register({
     const lines: string[] = [];
 
     if (cliScope === 'group') {
-      lines.push('CLI scope: group (--id and group args are auto-filled to your agent group)');
+      lines.push(
+        'CLI scope: group (--id and group args are auto-filled to your agent group)',
+      );
       lines.push('');
     }
 
@@ -89,11 +91,16 @@ export function registerResourceHelpCommands(): void {
           // flags, examples. No new routing. Group-scope auto-fill also puts
           // the caller's agent group ID into `id` on groups/destinations —
           // that's not a verb request, so ignore it.
-          const autoFilled = ctx.caller === 'agent' && args.id === ctx.agentGroupId;
-          const verbArg = !autoFilled && typeof args.id === 'string' ? args.id : null;
+          const autoFilled =
+            ctx.caller === 'agent' && args.id === ctx.agentGroupId;
+          const verbArg =
+            !autoFilled && typeof args.id === 'string' ? args.id : null;
           if (verbArg) {
             const deep = renderVerbHelp(res, verbArg);
-            if (!deep) throw new Error(`no verb "${verbArg}" on ${res.plural} — run \`ncl ${res.plural} help\``);
+            if (!deep)
+              throw new Error(
+                `no verb "${verbArg}" on ${res.plural} — run \`ncl ${res.plural} help\``,
+              );
             return deep;
           }
 
@@ -101,36 +108,52 @@ export function registerResourceHelpCommands(): void {
 
           if (cliScope === 'group' && GROUP_SCOPE_RESOURCES.has(res.plural)) {
             lines.push('');
-            lines.push('Note: --id and group args are auto-filled to your agent group. You do not need to pass them.');
+            lines.push(
+              'Note: --id and group args are auto-filled to your agent group. You do not need to pass them.',
+            );
           }
 
           lines.push('');
 
           // Verbs — one summary line each; deep help is a verb away. Only the
           // exceptional access levels are tagged: `open` is the unmarked default.
-          const idAutoFilled = cliScope === 'group' && (res.plural === 'groups' || res.plural === 'destinations');
+          const idAutoFilled =
+            cliScope === 'group' &&
+            (res.plural === 'groups' || res.plural === 'destinations');
           const idHint = idAutoFilled ? '' : ' <id>';
-          const tag = (access: string | undefined) => (!access || access === 'open' ? '' : ` [${access}]`);
+          const tag = (access: string | undefined) =>
+            !access || access === 'open' ? '' : ` [${access}]`;
           const verbs: string[] = [];
-          if (res.operations.list) verbs.push(`list${tag(res.operations.list)}`);
-          if (res.operations.get) verbs.push(`get${idHint}${tag(res.operations.get)}`);
-          if (res.operations.create) verbs.push(`create${tag(res.operations.create)}`);
-          if (res.operations.update) verbs.push(`update${idHint}${tag(res.operations.update)}`);
-          if (res.operations.delete) verbs.push(`delete${idHint}${tag(res.operations.delete)}`);
+          if (res.operations.list)
+            verbs.push(`list${tag(res.operations.list)}`);
+          if (res.operations.get)
+            verbs.push(`get${idHint}${tag(res.operations.get)}`);
+          if (res.operations.create)
+            verbs.push(`create${tag(res.operations.create)}`);
+          if (res.operations.update)
+            verbs.push(`update${idHint}${tag(res.operations.update)}`);
+          if (res.operations.delete)
+            verbs.push(`delete${idHint}${tag(res.operations.delete)}`);
           if (res.customOperations) {
             for (const [verb, op] of Object.entries(res.customOperations)) {
-              verbs.push(`${verb}${tag(op.access)} — ${summaryLine(op.description)}`);
+              verbs.push(
+                `${verb}${tag(op.access)} — ${summaryLine(op.description)}`,
+              );
             }
           }
           lines.push('Verbs:');
           for (const v of verbs) lines.push(`  ${v}`);
           lines.push('');
-          lines.push(`Run \`ncl ${res.plural} help <verb>\` (or add --help to any command) for flags and examples.`);
+          lines.push(
+            `Run \`ncl ${res.plural} help <verb>\` (or add --help to any command) for flags and examples.`,
+          );
           lines.push('');
 
           // Columns
           const autoFilledFields =
-            cliScope === 'group' ? new Set(['id', 'agent_group_id', 'group']) : new Set<string>();
+            cliScope === 'group'
+              ? new Set(['id', 'agent_group_id', 'group'])
+              : new Set<string>();
           lines.push('Fields:');
           for (const col of res.columns) {
             const tags: string[] = [];
@@ -138,7 +161,8 @@ export function registerResourceHelpCommands(): void {
             if (col.generated) tags.push('auto');
             if (col.required) tags.push('required');
             if (col.updatable) tags.push('updatable');
-            if (col.default !== undefined && col.default !== null) tags.push(`default: ${col.default}`);
+            if (col.default !== undefined && col.default !== null)
+              tags.push(`default: ${col.default}`);
             if (col.enum) tags.push(`values: ${col.enum.join(' | ')}`);
 
             const flag = `--${col.name.replace(/_/g, '-')}`;

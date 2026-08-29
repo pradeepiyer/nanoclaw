@@ -40,7 +40,9 @@ describe('SQLite mailbox canonical serialization', () => {
       sourceSessionId: 'source-session',
       onWake: true,
     });
-    expect(inboundDb.prepare('SELECT * FROM messages_in WHERE id = ?').get('in-1')).toMatchObject({
+    expect(
+      inboundDb.prepare('SELECT * FROM messages_in WHERE id = ?').get('in-1'),
+    ).toMatchObject({
       id: 'in-1',
       seq: 2,
       kind: 'chat',
@@ -68,7 +70,9 @@ describe('SQLite mailbox canonical serialization', () => {
       status: 'paused',
     });
     inboundDb
-      .prepare('UPDATE messages_in SET timestamp = ?, process_after = ? WHERE id = ?')
+      .prepare(
+        'UPDATE messages_in SET timestamp = ?, process_after = ? WHERE id = ?',
+      )
       .run('2026-01-01 00:00:00', '2999-01-01 00:00:00', 'task-1');
     expect(inbound.getTask('task-1')).toMatchObject({
       id: 'task-1',
@@ -83,7 +87,9 @@ describe('SQLite mailbox canonical serialization', () => {
     });
 
     outboundDb
-      .prepare('INSERT INTO processing_ack (message_id, status, status_changed) VALUES (?, ?, ?)')
+      .prepare(
+        'INSERT INTO processing_ack (message_id, status, status_changed) VALUES (?, ?, ?)',
+      )
       .run('in-1', 'completed', '2026-01-01 00:00:00');
     expect(outbound.getTerminalProcessingAcks()).toEqual([
       {
@@ -138,7 +144,13 @@ describe('SQLite mailbox canonical serialization', () => {
         `INSERT INTO messages_in (id, seq, timestamp, kind, channel_type, content, trigger)
          VALUES (?, ?, ?, 'chat', ?, ?, 1)`,
       )
-      .run('echo', 2, '2026-01-01T00:00:00.000Z', 'session-echo', '{"text":"ambient"}');
+      .run(
+        'echo',
+        2,
+        '2026-01-01T00:00:00.000Z',
+        'session-echo',
+        '{"text":"ambient"}',
+      );
     inboundDb
       .prepare(
         `INSERT INTO messages_in (id, seq, timestamp, kind, channel_type, content, trigger)
@@ -150,13 +162,26 @@ describe('SQLite mailbox canonical serialization', () => {
         `INSERT INTO messages_out (id, seq, timestamp, kind, channel_type, thread_id, content)
          VALUES (?, ?, ?, ?, 'slack', ?, ?)`,
       )
-      .run('system', 1, '2026-01-01T00:00:02.000Z', 'system', null, '{"text":"hidden"}');
+      .run(
+        'system',
+        1,
+        '2026-01-01T00:00:02.000Z',
+        'system',
+        null,
+        '{"text":"hidden"}',
+      );
     outboundDb
       .prepare(
         `INSERT INTO messages_out (id, seq, timestamp, kind, channel_type, thread_id, content)
          VALUES (?, ?, ?, 'chat', 'slack', ?, ?)`,
       )
-      .run('reply', 3, '2026-01-01T00:00:03.000Z', 'thread:reply', '{"text":"thread reply"}');
+      .run(
+        'reply',
+        3,
+        '2026-01-01T00:00:03.000Z',
+        'thread:reply',
+        '{"text":"thread reply"}',
+      );
     outboundDb
       .prepare(
         `INSERT INTO messages_out (id, seq, timestamp, kind, channel_type, thread_id, content)
@@ -169,7 +194,10 @@ describe('SQLite mailbox canonical serialization', () => {
       content: '{"text":"root"}',
     });
     expect(wrapSqliteOutbound(outboundDb).getTopLevelOutbound(10)).toEqual([
-      { timestamp: '2026-01-01T00:00:04.000Z', content: '{"text":"top level"}' },
+      {
+        timestamp: '2026-01-01T00:00:04.000Z',
+        content: '{"text":"top level"}',
+      },
     ]);
   });
 });

@@ -16,12 +16,24 @@ vi.mock('./primitive.js', () => ({
   pickApprover: vi.fn().mockResolvedValue(['telegram:admin']),
   pickApprovalDelivery: vi.fn().mockResolvedValue({
     userId: 'telegram:admin',
-    messagingGroup: { channel_type: 'telegram', platform_id: 'D-1', instance: null },
+    messagingGroup: {
+      channel_type: 'telegram',
+      platform_id: 'D-1',
+      instance: null,
+    },
   }),
 }));
 
-import { closeDb, createAgentGroup, initTestDb, runMigrations } from '../../db/index.js';
-import { createPendingApproval, getPendingApproval } from '../../db/sessions.js';
+import {
+  closeDb,
+  createAgentGroup,
+  initTestDb,
+  runMigrations,
+} from '../../db/index.js';
+import {
+  createPendingApproval,
+  getPendingApproval,
+} from '../../db/sessions.js';
 import type { ChannelDeliveryAdapter } from '../../delivery.js';
 import {
   resetGatewayProvider,
@@ -56,8 +68,13 @@ const captureAdapter: ChannelDeliveryAdapter = {
   },
 };
 
-let capturedHandler: ((request: GatewayApprovalRequest) => Promise<GatewayApprovalDecision>) | null = null;
-const source: GatewayApprovalSource & { decide?: ReturnType<typeof vi.fn>; listPending?: ReturnType<typeof vi.fn> } = {
+let capturedHandler:
+  | ((request: GatewayApprovalRequest) => Promise<GatewayApprovalDecision>)
+  | null = null;
+const source: GatewayApprovalSource & {
+  decide?: ReturnType<typeof vi.fn>;
+  listPending?: ReturnType<typeof vi.fn>;
+} = {
   subscribe(handler) {
     capturedHandler = handler;
     return { stop() {} };
@@ -72,7 +89,9 @@ const fakeProvider: GatewayProvider = {
   approvals: () => source,
 };
 
-async function seedRow(overrides: Partial<PendingApproval> = {}): Promise<PendingApproval> {
+async function seedRow(
+  overrides: Partial<PendingApproval> = {},
+): Promise<PendingApproval> {
   const row: PendingApproval = {
     approval_id: 'oa-test0001',
     session_id: null,
@@ -103,11 +122,18 @@ beforeEach(async () => {
   capturedHandler = null;
   delete source.decide;
   delete source.listPending;
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: iso(0) });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: iso(0),
+  });
   resetGatewayProvider(fakeProvider);
 });
 
@@ -115,7 +141,8 @@ afterEach(async () => {
   stopOneCLIApprovalHandler();
   resetGatewayProvider(null);
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 describe('row-keyed resolution after a restart', () => {
@@ -128,7 +155,10 @@ describe('row-keyed resolution after a restart', () => {
     expect(await getPendingApproval('oa-test0001')).toBeUndefined();
 
     const edit = delivered.find((call) => call.content.includes('retry'));
-    expect(edit, 'approve without a gateway decide path must tell the human to have the agent retry').toBeDefined();
+    expect(
+      edit,
+      'approve without a gateway decide path must tell the human to have the agent retry',
+    ).toBeDefined();
   });
 
   it('a late reject needs no caveat edit — the auto-edited card is already honest', async () => {
@@ -167,14 +197,20 @@ describe('re-attach at startup', () => {
       expires_at: iso(-5_000),
       platform_message_id: 'pm-old',
     });
-    await seedRow({ approval_id: 'oa-alive001', request_id: 'req-new', expires_at: iso(120_000) });
+    await seedRow({
+      approval_id: 'oa-alive001',
+      request_id: 'req-new',
+      expires_at: iso(120_000),
+    });
 
     startOneCLIApprovalHandler(captureAdapter);
 
     await vi.waitFor(async () => {
       expect(await getPendingApproval('oa-overdue1')).toBeUndefined();
     });
-    const timeoutEdit = delivered.find((call) => call.content.includes('Timed out — no response'));
+    const timeoutEdit = delivered.find((call) =>
+      call.content.includes('Timed out — no response'),
+    );
     expect(timeoutEdit).toBeDefined();
     expect(await getPendingApproval('oa-alive001')).toBeDefined();
   });
@@ -208,7 +244,9 @@ describe('reconnect dedupe', () => {
     });
     await expect(decisionPromise).resolves.toBe('approve');
     // No ask_question card was delivered for the redelivery.
-    expect(delivered.filter((call) => call.content.includes('ask_question'))).toHaveLength(0);
+    expect(
+      delivered.filter((call) => call.content.includes('ask_question')),
+    ).toHaveLength(0);
   });
 
   it('a genuinely new request cards once and stamps the routed approver', async () => {
@@ -224,9 +262,12 @@ describe('reconnect dedupe', () => {
 
     let approvalId = '';
     await vi.waitFor(() => {
-      const card = delivered.find((call) => call.content.includes('ask_question'));
+      const card = delivered.find((call) =>
+        call.content.includes('ask_question'),
+      );
       expect(card).toBeDefined();
-      approvalId = (JSON.parse(card!.content) as { questionId: string }).questionId;
+      approvalId = (JSON.parse(card!.content) as { questionId: string })
+        .questionId;
     });
     const row = await getPendingApproval(approvalId);
     expect(row?.approver_user_id).toBe('telegram:admin');

@@ -26,13 +26,23 @@ import type { ResponsePayload } from '../../response-registry.js';
 import { log } from '../../log.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import type { PendingApproval } from '../../types.js';
-import { hasAdminPrivilege, isGlobalAdmin, isOwner } from '../permissions/db/user-roles.js';
+import {
+  hasAdminPrivilege,
+  isGlobalAdmin,
+  isOwner,
+} from '../permissions/db/user-roles.js';
 import { finalizeReject } from './finalize.js';
 import { ONECLI_ACTION, resolveOneCLIApproval } from './onecli-approvals.js';
-import { getApprovalHandler, notifyApprovalResolved, REJECT_WITH_REASON_VALUE } from './primitive.js';
+import {
+  getApprovalHandler,
+  notifyApprovalResolved,
+  REJECT_WITH_REASON_VALUE,
+} from './primitive.js';
 import { armReasonCapture } from './reason-capture.js';
 
-export async function handleApprovalsResponse(payload: ResponsePayload): Promise<boolean> {
+export async function handleApprovalsResponse(
+  payload: ResponsePayload,
+): Promise<boolean> {
   const approval = await getPendingApproval(payload.questionId);
   if (!approval) return false;
 
@@ -56,7 +66,11 @@ export async function handleApprovalsResponse(payload: ResponsePayload): Promise
     return true;
   }
 
-  await handleRegisteredApproval(approval, payload.value, namespacedUserId(payload) ?? '');
+  await handleRegisteredApproval(
+    approval,
+    payload.value,
+    namespacedUserId(payload) ?? '',
+  );
   return true;
 }
 
@@ -89,7 +103,14 @@ async function handleRegisteredApproval(
     return;
   }
 
-  if (!(await transitionPendingApprovalStatus(approval.approval_id, 'pending', 'approved'))) return;
+  if (
+    !(await transitionPendingApprovalStatus(
+      approval.approval_id,
+      'pending',
+      'approved',
+    ))
+  )
+    return;
 
   // Approved — dispatch to the module that registered for this action.
   const notify = (text: string): Promise<void> =>
@@ -109,9 +130,16 @@ async function handleRegisteredApproval(
       approvalId: approval.approval_id,
       action: approval.action,
     });
-    await notify(`Your ${approval.action} was approved, but no handler is installed to apply it.`);
+    await notify(
+      `Your ${approval.action} was approved, but no handler is installed to apply it.`,
+    );
     await deletePendingApproval(approval.approval_id);
-    await notifyApprovalResolved({ approval, session, outcome: 'approve', userId });
+    await notifyApprovalResolved({
+      approval,
+      session,
+      outcome: 'approve',
+      userId,
+    });
     await requestWake(session, 'approval-response');
     return;
   }
@@ -119,25 +147,43 @@ async function handleRegisteredApproval(
   const payload = JSON.parse(approval.payload);
   try {
     await handler({ session, payload, approval, userId, notify });
-    log.info('Approval handled', { approvalId: approval.approval_id, action: approval.action, userId });
+    log.info('Approval handled', {
+      approvalId: approval.approval_id,
+      action: approval.action,
+      userId,
+    });
   } catch (err) {
-    log.error('Approval handler threw', { approvalId: approval.approval_id, action: approval.action, err });
+    log.error('Approval handler threw', {
+      approvalId: approval.approval_id,
+      action: approval.action,
+      err,
+    });
     await notify(
       `Your ${approval.action} was approved, but applying it failed: ${err instanceof Error ? err.message : String(err)}.`,
     );
   }
 
   await deletePendingApproval(approval.approval_id);
-  await notifyApprovalResolved({ approval, session, outcome: 'approve', userId });
+  await notifyApprovalResolved({
+    approval,
+    session,
+    outcome: 'approve',
+    userId,
+  });
   await requestWake(session, 'approval-response');
 }
 
 function namespacedUserId(payload: ResponsePayload): string | null {
   if (!payload.userId) return null;
-  return payload.userId.includes(':') ? payload.userId : `${payload.channelType}:${payload.userId}`;
+  return payload.userId.includes(':')
+    ? payload.userId
+    : `${payload.channelType}:${payload.userId}`;
 }
 
-async function isAuthorizedApprovalClick(approval: PendingApproval, payload: ResponsePayload): Promise<boolean> {
+async function isAuthorizedApprovalClick(
+  approval: PendingApproval,
+  payload: ResponsePayload,
+): Promise<boolean> {
   const userId = namespacedUserId(payload);
   if (!userId) return false;
 
@@ -147,7 +193,10 @@ async function isAuthorizedApprovalClick(approval: PendingApproval, payload: Res
   }
 
   const agentGroupId =
-    approval.agent_group_id ?? (approval.session_id ? (await getSession(approval.session_id))?.agent_group_id : null);
+    approval.agent_group_id ??
+    (approval.session_id
+      ? (await getSession(approval.session_id))?.agent_group_id
+      : null);
 
   if (!agentGroupId) {
     return (await isOwner(userId)) || (await isGlobalAdmin(userId));

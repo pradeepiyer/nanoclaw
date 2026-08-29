@@ -12,14 +12,31 @@ export async function upsertUserDm(row: UserDm): Promise<void> {
   );
 }
 
-export async function getUserDm(userId: string, channelType: string): Promise<UserDm | undefined> {
-  return getDb().get<UserDm>('SELECT * FROM user_dms WHERE user_id = ? AND channel_type = ?', userId, channelType);
+export async function getUserDm(
+  userId: string,
+  channelType: string,
+): Promise<UserDm | undefined> {
+  return getDb().get<UserDm>(
+    'SELECT * FROM user_dms WHERE user_id = ? AND channel_type = ?',
+    userId,
+    channelType,
+  );
 }
 
 export async function getUserDmsForUser(userId: string): Promise<UserDm[]> {
-  return getDb().all<UserDm>('SELECT * FROM user_dms WHERE user_id = ?', userId);
+  return getDb().all<UserDm>(
+    'SELECT * FROM user_dms WHERE user_id = ?',
+    userId,
+  );
 }
 
-export async function deleteUserDm(userId: string, channelType: string): Promise<void> {
-  await getDb().run('DELETE FROM user_dms WHERE user_id = ? AND channel_type = ?', userId, channelType);
+export async function deleteUserDm(
+  userId: string,
+  channelType: string,
+): Promise<void> {
+  await getDb().run(
+    'DELETE FROM user_dms WHERE user_id = ? AND channel_type = ?',
+    userId,
+    channelType,
+  );
 }

@@ -54,7 +54,9 @@ export function parseTemplate(dir: string): Template {
           're-fetch it from the template library',
       );
     }
-    throw new Error(`Not an agent plugin: ${PLUGIN_MANIFEST_FILE} not found in ${dir}`);
+    throw new Error(
+      `Not an agent plugin: ${PLUGIN_MANIFEST_FILE} not found in ${dir}`,
+    );
   }
 
   // Containment + caps gate BEFORE any content is read, so a hostile tree
@@ -63,10 +65,14 @@ export function parseTemplate(dir: string): Template {
 
   let manifestRaw: unknown;
   try {
-    manifestRaw = JSON.parse(fs.readFileSync(path.join(dir, PLUGIN_MANIFEST_FILE), 'utf-8'));
+    manifestRaw = JSON.parse(
+      fs.readFileSync(path.join(dir, PLUGIN_MANIFEST_FILE), 'utf-8'),
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`${PLUGIN_MANIFEST_FILE} is not valid JSON: ${message}`, { cause: err });
+    throw new Error(`${PLUGIN_MANIFEST_FILE} is not valid JSON: ${message}`, {
+      cause: err,
+    });
   }
   const manifest = parsePluginManifest(manifestRaw);
   const { skills, report: skillsReport } = readPluginSkills(dir);
@@ -75,13 +81,22 @@ export function parseTemplate(dir: string): Template {
 
   return {
     name: manifest.name,
-    ...(extension.agentName === undefined ? {} : { agentName: extension.agentName }),
+    ...(extension.agentName === undefined
+      ? {}
+      : { agentName: extension.agentName }),
     mcpServers: servers,
-    ...(extension.instructions === undefined ? {} : { instructions: extension.instructions }),
+    ...(extension.instructions === undefined
+      ? {}
+      : { instructions: extension.instructions }),
     contextExtras: extension.contextExtras,
     skills,
     tasks: extension.tasks,
     dir: path.resolve(dir),
-    report: [...manifest.report, ...skillsReport, ...mcpReport, ...extension.report],
+    report: [
+      ...manifest.report,
+      ...skillsReport,
+      ...mcpReport,
+      ...extension.report,
+    ],
   };
 }

@@ -17,8 +17,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initTestDb, closeDb, runMigrations } from '../../db/index.js';
 import { createAgentGroup } from '../../db/agent-groups.js';
 import { createMessagingGroup } from '../../db/messaging-groups.js';
-import { createSession, getPendingApprovalsByAction } from '../../db/sessions.js';
-import { setDeliveryAdapter, type ChannelDeliveryAdapter } from '../../delivery.js';
+import {
+  createSession,
+  getPendingApprovalsByAction,
+} from '../../db/sessions.js';
+import {
+  setDeliveryAdapter,
+  type ChannelDeliveryAdapter,
+} from '../../delivery.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import type { Session } from '../../types.js';
 import { upsertUser } from '../permissions/db/users.js';
@@ -36,7 +42,9 @@ vi.mock('../../config.js', async () => {
 });
 
 vi.mock('../../session-manager.js', async () => {
-  const actual = await vi.importActual<typeof import('../../session-manager.js')>('../../session-manager.js');
+  const actual = await vi.importActual<
+    typeof import('../../session-manager.js')
+  >('../../session-manager.js');
   return { ...actual, writeSessionMessage: vi.fn() };
 });
 
@@ -52,12 +60,19 @@ let session: Session;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
 
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: now(),
+  });
   session = {
     id: 'sess-1',
     agent_group_id: 'ag-1',
@@ -73,7 +88,12 @@ beforeEach(async () => {
 
   // Authorized approver + a cached DM so ensureUserDm resolves without a
   // platform openDM call.
-  await upsertUser({ id: 'slack:admin-1', kind: 'slack', display_name: 'Admin', created_at: now() });
+  await upsertUser({
+    id: 'slack:admin-1',
+    kind: 'slack',
+    display_name: 'Admin',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'slack:admin-1',
     role: 'owner',
@@ -100,7 +120,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 /** The text of the most recent agent-facing note written via writeSessionMessage. */

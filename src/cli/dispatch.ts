@@ -17,9 +17,17 @@ import { getAgentGroup } from '../db/agent-groups.js';
 import { getMessagingGroupAgentByPair } from '../db/messaging-groups.js';
 import { getSession } from '../db/sessions.js';
 import { guard, type GuardActor } from '../guard/index.js';
-import { registerApprovalHandler, requestApproval } from '../modules/approvals/index.js';
+import {
+  registerApprovalHandler,
+  requestApproval,
+} from '../modules/approvals/index.js';
 import type { PendingApproval } from '../types.js';
-import type { CallerContext, ErrorCode, RequestFrame, ResponseFrame } from './frame.js';
+import type {
+  CallerContext,
+  ErrorCode,
+  RequestFrame,
+  ResponseFrame,
+} from './frame.js';
 import { localizeIsoTimestamps } from './format.js';
 import { getResource } from './crud.js';
 import { listVerbs, renderVerbHelp } from './help-render.js';
@@ -33,7 +41,11 @@ type DispatchOptions = {
 function actorFor(ctx: CallerContext): GuardActor {
   return ctx.caller === 'host'
     ? { kind: 'host' }
-    : { kind: 'agent', agentGroupId: ctx.agentGroupId, sessionId: ctx.sessionId };
+    : {
+        kind: 'agent',
+        agentGroupId: ctx.agentGroupId,
+        sessionId: ctx.sessionId,
+      };
 }
 
 export async function dispatch(
@@ -60,7 +72,11 @@ export async function dispatch(
       if (fallback) {
         const tail = req.command.slice(shortened.length + 1); // full remainder = id, dashes intact
         cmd = fallback;
-        req = { ...req, command: shortened, args: { ...req.args, id: req.args.id ?? tail } };
+        req = {
+          ...req,
+          command: shortened,
+          args: { ...req.args, id: req.args.id ?? tail },
+        };
         break;
       }
     }
@@ -91,9 +107,20 @@ export async function dispatch(
 
       // Group-scoped agents may only inspect or update the wiring for the
       // conversation they are currently serving. Never trust a caller ID.
-      if (req.args.help !== true && (req.command === 'wirings-get' || req.command === 'wirings-update')) {
-        const wiring = await getMessagingGroupAgentByPair(ctx.messagingGroupId, ctx.agentGroupId);
-        if (!wiring) return err(req.id, 'forbidden', 'Wiring not found for this conversation.');
+      if (
+        req.args.help !== true &&
+        (req.command === 'wirings-get' || req.command === 'wirings-update')
+      ) {
+        const wiring = await getMessagingGroupAgentByPair(
+          ctx.messagingGroupId,
+          ctx.agentGroupId,
+        );
+        if (!wiring)
+          return err(
+            req.id,
+            'forbidden',
+            'Wiring not found for this conversation.',
+          );
         fill.id = wiring.id;
       }
       req = { ...req, args: { ...req.args, ...fill } };
@@ -104,12 +131,17 @@ export async function dispatch(
       // also self-scopes in its handler — this is defense-in-depth.)
       if (
         cmd.resource === 'sessions' &&
-        (req.command === 'sessions-get' || req.command === 'sessions-history') &&
+        (req.command === 'sessions-get' ||
+          req.command === 'sessions-history') &&
         req.args.id
       ) {
         const s = await getSession(req.args.id as string);
         if (!s || s.agent_group_id !== ctx.agentGroupId) {
-          return err(req.id, 'handler-error', `session not found: ${req.args.id}`);
+          return err(
+            req.id,
+            'handler-error',
+            `session not found: ${req.args.id}`,
+          );
         }
       }
     }
@@ -157,12 +189,19 @@ export async function dispatch(
       session,
       agentName,
       action: 'cli_command',
-      payload: { frame: { id: req.id, command: req.command, args: req.args }, callerContext: ctx },
+      payload: {
+        frame: { id: req.id, command: req.command, args: req.args },
+        callerContext: ctx,
+      },
       title: `CLI: ${req.command}`,
       question: `Agent "${agentName}" wants to run:\n\`ncl ${req.command}${argSummary ? ' ' + argSummary : ''}\``,
     });
 
-    return err(req.id, 'approval-pending', 'Approval request sent to admin. You will be notified of the result.');
+    return err(
+      req.id,
+      'approval-pending',
+      'Approval request sent to admin. You will be notified of the result.',
+    );
   }
 
   let parsed: unknown;
@@ -195,7 +234,11 @@ export async function dispatch(
         if (!groupField) {
           // Fail closed: a whitelisted resource exposing list/get must declare
           // `scopeField` so its rows can be filtered.
-          return err(req.id, 'forbidden', `"${cmd.resource}" is not available in group scope.`);
+          return err(
+            req.id,
+            'forbidden',
+            `"${cmd.resource}" is not available in group scope.`,
+          );
         }
         if (Array.isArray(data)) {
           data = data.filter(
@@ -205,8 +248,14 @@ export async function dispatch(
               (row as Record<string, unknown>)[groupField] === ctx.agentGroupId,
           );
         } else if (data && typeof data === 'object') {
-          if ((data as Record<string, unknown>)[groupField] !== ctx.agentGroupId) {
-            return err(req.id, 'forbidden', 'Resource belongs to a different agent group.');
+          if (
+            (data as Record<string, unknown>)[groupField] !== ctx.agentGroupId
+          ) {
+            return err(
+              req.id,
+              'forbidden',
+              'Resource belongs to a different agent group.',
+            );
           }
         }
       }
@@ -229,19 +278,31 @@ export async function dispatch(
   }
 }
 
-registerApprovalHandler('cli_command', async ({ payload, approval, notify }) => {
-  const frame = payload.frame as RequestFrame;
-  const callerContext = parseCallerContext(payload.callerContext) ?? { caller: 'host' };
-  const response = await dispatch(frame, callerContext, { grant: approval });
+registerApprovalHandler(
+  'cli_command',
+  async ({ payload, approval, notify }) => {
+    const frame = payload.frame as RequestFrame;
+    const callerContext = parseCallerContext(payload.callerContext) ?? {
+      caller: 'host',
+    };
+    const response = await dispatch(frame, callerContext, { grant: approval });
 
-  if (response.ok) {
-    const localized = localizeIsoTimestamps(response.data);
-    const data = typeof localized === 'string' ? localized : JSON.stringify(localized, null, 2);
-    await notify(`Your \`ncl ${frame.command}\` request was approved and executed.\n\n${data}`);
-  } else {
-    await notify(`Your \`ncl ${frame.command}\` request was approved but failed: ${response.error.message}`);
-  }
-});
+    if (response.ok) {
+      const localized = localizeIsoTimestamps(response.data);
+      const data =
+        typeof localized === 'string'
+          ? localized
+          : JSON.stringify(localized, null, 2);
+      await notify(
+        `Your \`ncl ${frame.command}\` request was approved and executed.\n\n${data}`,
+      );
+    } else {
+      await notify(
+        `Your \`ncl ${frame.command}\` request was approved but failed: ${response.error.message}`,
+      );
+    }
+  },
+);
 
 function parseCallerContext(value: unknown): CallerContext | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -264,7 +325,11 @@ function parseCallerContext(value: unknown): CallerContext | undefined {
 }
 
 /** Help text for a resolved command: deep verb help when derivable, else description. */
-function commandHelp(name: string, resource: string | undefined, description: string): string {
+function commandHelp(
+  name: string,
+  resource: string | undefined,
+  description: string,
+): string {
   if (resource && name.startsWith(`${resource}-`)) {
     const res = getResource(resource);
     const verb = name.slice(resource.length + 1);
@@ -274,7 +339,9 @@ function commandHelp(name: string, resource: string | undefined, description: st
     // names are dash-joined ('groups-config-update'). Resolve by matching keys
     // normalized the same way registerResource builds command names.
     if (res?.customOperations) {
-      const spaced = Object.keys(res.customOperations).find((k) => k.replace(/ /g, '-') === verb);
+      const spaced = Object.keys(res.customOperations).find(
+        (k) => k.replace(/ /g, '-') === verb,
+      );
       const deepSpaced = spaced && renderVerbHelp(res, spaced);
       if (deepSpaced) return deepSpaced;
     }
@@ -331,7 +398,11 @@ function editDistance(a: string, b: string, cap: number): number {
     let rowMin = prev[0];
     for (let j = 1; j <= b.length; j++) {
       const tmp = prev[j];
-      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev[j] = Math.min(
+        prev[j] + 1,
+        prev[j - 1] + 1,
+        diag + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
       diag = tmp;
       rowMin = Math.min(rowMin, prev[j]);
     }

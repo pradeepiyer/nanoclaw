@@ -139,8 +139,16 @@ class InProcessReconcileQueue implements ReconcileQueue {
     } catch (err) {
       const attempt = (this.failures.get(key) ?? 0) + 1;
       this.failures.set(key, attempt);
-      retryInMs = Math.min(INITIAL_BACKOFF_MS * 2 ** (attempt - 1), MAX_BACKOFF_MS);
-      log.error('Reconcile failed — retrying with backoff', { key, attempt, retryInMs, err });
+      retryInMs = Math.min(
+        INITIAL_BACKOFF_MS * 2 ** (attempt - 1),
+        MAX_BACKOFF_MS,
+      );
+      log.error('Reconcile failed — retrying with backoff', {
+        key,
+        attempt,
+        retryInMs,
+        err,
+      });
     } finally {
       this.runningKeys.delete(key);
       this.active--;
@@ -160,12 +168,17 @@ class InProcessReconcileQueue implements ReconcileQueue {
     const sessionId = sessionIdOf(key);
     if (sessionId !== null) return this.reconcile(sessionId);
     const handler = this.singletons[key as SingletonKey];
-    if (!handler) return Promise.reject(new Error(`no handler registered for queue key '${key}'`));
+    if (!handler)
+      return Promise.reject(
+        new Error(`no handler registered for queue key '${key}'`),
+      );
     return handler();
   }
 }
 
-export function createReconcileQueue(options: ReconcileQueueOptions): InProcessReconcileQueue {
+export function createReconcileQueue(
+  options: ReconcileQueueOptions,
+): InProcessReconcileQueue {
   return new InProcessReconcileQueue(options);
 }
 

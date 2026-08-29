@@ -18,7 +18,11 @@ import { upsertUser } from '../permissions/db/users.js';
 import { grantRole } from '../permissions/db/user-roles.js';
 import { initSessionFolder } from '../../session-manager.js';
 import { handleApprovalsResponse } from './response-handler.js';
-import { registerApprovalHandler, registerApprovalResolvedHandler, type ApprovalResolvedEvent } from './primitive.js';
+import {
+  registerApprovalHandler,
+  registerApprovalResolvedHandler,
+  type ApprovalResolvedEvent,
+} from './primitive.js';
 
 vi.mock('../../container-runner.js', () => ({
   wakeContainer: vi.fn().mockResolvedValue(undefined),
@@ -49,12 +53,19 @@ async function seedApproval(approvalId: string, action: string): Promise<void> {
 }
 
 beforeEach(async () => {
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
 
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: now(),
+  });
   await createSession({
     id: 'sess-1',
     agent_group_id: 'ag-1',
@@ -69,7 +80,12 @@ beforeEach(async () => {
   initSessionFolder('ag-1', 'sess-1');
 
   // Resolution only happens for authorized clicks — seed the clicking admin.
-  await upsertUser({ id: 'slack:admin-1', kind: 'slack', display_name: 'Admin', created_at: now() });
+  await upsertUser({
+    id: 'slack:admin-1',
+    kind: 'slack',
+    display_name: 'Admin',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'slack:admin-1',
     role: 'owner',
@@ -81,7 +97,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 describe('approval-resolved callbacks', () => {

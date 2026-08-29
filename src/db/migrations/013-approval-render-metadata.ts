@@ -20,9 +20,17 @@ export const migration013: Migration = {
   name: 'approval-render-metadata',
   sqliteOnly: true,
   up(db: Database.Database) {
-    db.exec(`ALTER TABLE pending_channel_approvals ADD COLUMN title TEXT NOT NULL DEFAULT ''`);
-    db.exec(`ALTER TABLE pending_channel_approvals ADD COLUMN options_json TEXT NOT NULL DEFAULT '[]'`);
-    db.exec(`ALTER TABLE pending_sender_approvals ADD COLUMN title TEXT NOT NULL DEFAULT ''`);
-    db.exec(`ALTER TABLE pending_sender_approvals ADD COLUMN options_json TEXT NOT NULL DEFAULT '[]'`);
+    db.exec(
+      `ALTER TABLE pending_channel_approvals ADD COLUMN title TEXT NOT NULL DEFAULT ''`,
+    );
+    db.exec(
+      `ALTER TABLE pending_channel_approvals ADD COLUMN options_json TEXT NOT NULL DEFAULT '[]'`,
+    );
+    db.exec(
+      `ALTER TABLE pending_sender_approvals ADD COLUMN title TEXT NOT NULL DEFAULT ''`,
+    );
+    db.exec(
+      `ALTER TABLE pending_sender_approvals ADD COLUMN options_json TEXT NOT NULL DEFAULT '[]'`,
+    );
   },
 };

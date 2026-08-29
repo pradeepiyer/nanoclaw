@@ -21,14 +21,20 @@ import type { InboundEvent } from './adapter.js';
 
 // vi.mock factories are hoisted above imports, so the socket dir is a hoisted
 // literal: the adapter must never bind a running install's data/cli.sock.
-const { TEST_DIR } = vi.hoisted(() => ({ TEST_DIR: `/tmp/nanoclaw-cli-channel-test-${process.pid}` }));
+const { TEST_DIR } = vi.hoisted(() => ({
+  TEST_DIR: `/tmp/nanoclaw-cli-channel-test-${process.pid}`,
+}));
 vi.mock('../config.js', async () => {
-  const actual = await vi.importActual<typeof import('../config.js')>('../config.js');
+  const actual =
+    await vi.importActual<typeof import('../config.js')>('../config.js');
   return { ...actual, DATA_DIR: TEST_DIR };
 });
 
 import './cli.js';
-import { initChannelAdapters, teardownChannelAdapters } from './channel-registry.js';
+import {
+  initChannelAdapters,
+  teardownChannelAdapters,
+} from './channel-registry.js';
 
 let nextEvent: ((event: InboundEvent) => void) | null = null;
 
@@ -61,11 +67,19 @@ describe('cli channel: routed message carries to.instance', () => {
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
   });
 
-  const to = { channelType: 'telegram', platformId: 'telegram:42', threadId: null };
+  const to = {
+    channelType: 'telegram',
+    platformId: 'telegram:42',
+    threadId: null,
+  };
 
   it('stamps a named instance onto the InboundEvent', async () => {
     const event = await routed({ ...to, instance: 'telegram-mega' });
-    expect(event).toMatchObject({ channelType: 'telegram', platformId: 'telegram:42', instance: 'telegram-mega' });
+    expect(event).toMatchObject({
+      channelType: 'telegram',
+      platformId: 'telegram:42',
+      instance: 'telegram-mega',
+    });
   });
 
   it('leaves instance undefined when the address has none (default instance)', async () => {
@@ -78,7 +92,10 @@ describe('cli channel: routed message carries to.instance', () => {
     try {
       const event = await routed({ ...to, instance: 'bad/key' });
       expect(event.instance).toBeUndefined();
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('non-URL-safe to.instance'), { instance: 'bad/key' });
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('non-URL-safe to.instance'),
+        { instance: 'bad/key' },
+      );
     } finally {
       warn.mockRestore();
     }

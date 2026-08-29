@@ -3,7 +3,12 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { MAX_PLUGIN_FILES, MAX_PLUGIN_TOTAL_BYTES, copyPluginDir, walkPluginDir } from './plugin-dir.js';
+import {
+  MAX_PLUGIN_FILES,
+  MAX_PLUGIN_TOTAL_BYTES,
+  copyPluginDir,
+  walkPluginDir,
+} from './plugin-dir.js';
 
 let root: string;
 let src: string;
@@ -42,12 +47,14 @@ describe('walkPluginDir', () => {
   });
 
   it(`rejects more than ${MAX_PLUGIN_FILES} files`, () => {
-    for (let i = 0; i <= MAX_PLUGIN_FILES; i++) fs.writeFileSync(path.join(src, `f${i}`), 'x');
+    for (let i = 0; i <= MAX_PLUGIN_FILES; i++)
+      fs.writeFileSync(path.join(src, `f${i}`), 'x');
     expect(() => walkPluginDir(src)).toThrow(/more than \d+ entries/);
   });
 
   it('counts directories toward the entry cap (breadth bomb)', () => {
-    for (let i = 0; i <= MAX_PLUGIN_FILES; i++) fs.mkdirSync(path.join(src, `d${i}`));
+    for (let i = 0; i <= MAX_PLUGIN_FILES; i++)
+      fs.mkdirSync(path.join(src, `d${i}`));
     expect(() => walkPluginDir(src)).toThrow(/more than \d+ entries/);
   });
 
@@ -93,7 +100,9 @@ describe('copyPluginDir', () => {
     copyPluginDir(src, dest);
 
     expect(fs.readFileSync(path.join(dest, 'plugin.json'), 'utf-8')).toBe('{}');
-    expect(fs.statSync(path.join(dest, 'skills/a/scripts/run.sh')).mode & 0o111).not.toBe(0);
+    expect(
+      fs.statSync(path.join(dest, 'skills/a/scripts/run.sh')).mode & 0o111,
+    ).not.toBe(0);
     expect(fs.existsSync(path.join(dest, 'old'))).toBe(false);
   });
 

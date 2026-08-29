@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { enqueueSessionReconcile, registerReconcileEnqueue } from './reconcile-feeds.js';
+import {
+  enqueueSessionReconcile,
+  registerReconcileEnqueue,
+} from './reconcile-feeds.js';
 
 afterEach(() => {
   registerReconcileEnqueue(null);

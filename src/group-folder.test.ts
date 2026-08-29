@@ -11,7 +11,11 @@ vi.mock('./config.js', async () => {
   return { ...actual, GROUPS_DIR: '/tmp/nanoclaw-test-group-folder/groups' };
 });
 
-import { groupFolderExistsOnDisk, isValidGroupFolder, resolveGroupFolderPath } from './group-folder.js';
+import {
+  groupFolderExistsOnDisk,
+  isValidGroupFolder,
+  resolveGroupFolderPath,
+} from './group-folder.js';
 
 const TEST_ROOT = '/tmp/nanoclaw-test-group-folder';
 const GROUPS_DIR = path.join(TEST_ROOT, 'groups');
@@ -32,7 +36,9 @@ describe('group folder validation', () => {
 
   it('resolves safe paths under groups directory', () => {
     const resolved = resolveGroupFolderPath('family-chat');
-    expect(resolved.endsWith(`${path.sep}groups${path.sep}family-chat`)).toBe(true);
+    expect(resolved.endsWith(`${path.sep}groups${path.sep}family-chat`)).toBe(
+      true,
+    );
   });
 
   it('throws for unsafe folder names', () => {
@@ -63,7 +69,10 @@ describe('groupFolderExistsOnDisk', () => {
     // would EEXIST) and still resolves reads through whatever reappears at
     // the target. existsSync follows the link and reports absent; the
     // docstring's "any form" requires lstat semantics.
-    fs.symlinkSync(path.join(TEST_ROOT, 'no-such-target'), path.join(GROUPS_DIR, 'residue-link'));
+    fs.symlinkSync(
+      path.join(TEST_ROOT, 'no-such-target'),
+      path.join(GROUPS_DIR, 'residue-link'),
+    );
     expect(fs.existsSync(path.join(GROUPS_DIR, 'residue-link'))).toBe(false); // precondition: link is dangling
     expect(groupFolderExistsOnDisk('residue-link')).toBe(true);
   });

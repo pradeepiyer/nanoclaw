@@ -7,13 +7,23 @@ import fs from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../config.js', async () => {
-  const actual = await vi.importActual<typeof import('../../config.js')>('../../config.js');
+  const actual =
+    await vi.importActual<typeof import('../../config.js')>('../../config.js');
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-cross-session-history' };
 });
 
-import { closeDb, createAgentGroup, initTestDb, runMigrations } from '../../db/index.js';
+import {
+  closeDb,
+  createAgentGroup,
+  initTestDb,
+  runMigrations,
+} from '../../db/index.js';
 import { createSession } from '../../db/sessions.js';
-import { initSessionFolder, writeOutboundDirect, writeSessionMessage } from '../../session-manager.js';
+import {
+  initSessionFolder,
+  writeOutboundDirect,
+  writeSessionMessage,
+} from '../../session-manager.js';
 import type { CallerContext } from '../../cli/frame.js';
 import { formatHistoryLines, sessionHistory } from './history.js';
 
@@ -22,7 +32,12 @@ const AG = 'ag-hist';
 const SESS = 'sess-hist';
 
 const HOST: CallerContext = { caller: 'host' };
-const OWN_AGENT: CallerContext = { caller: 'agent', sessionId: 'sess-x', agentGroupId: AG, messagingGroupId: 'mg-x' };
+const OWN_AGENT: CallerContext = {
+  caller: 'agent',
+  sessionId: 'sess-x',
+  agentGroupId: AG,
+  messagingGroupId: 'mg-x',
+};
 const FOREIGN_AGENT: CallerContext = {
   caller: 'agent',
   sessionId: 'sess-y',
@@ -30,7 +45,12 @@ const FOREIGN_AGENT: CallerContext = {
   messagingGroupId: 'mg-y',
 };
 
-async function writeInbound(id: string, timestamp: string, text: string, sender = 'Gavriel'): Promise<void> {
+async function writeInbound(
+  id: string,
+  timestamp: string,
+  text: string,
+  sender = 'Gavriel',
+): Promise<void> {
   await writeSessionMessage(AG, SESS, {
     id,
     kind: 'chat',
@@ -105,10 +125,16 @@ describe('sessionHistory', () => {
 
   it('formatHistoryLines renders pipe lines with localized stamps and capped cells', async () => {
     await writeInbound('in-1', '2026-08-01T10:00:00.000Z', 'hello there');
-    const lines = formatHistoryLines(await sessionHistory({ id: SESS }, HOST), 'UTC').split('\n');
+    const lines = formatHistoryLines(
+      await sessionHistory({ id: SESS }, HOST),
+      'UTC',
+    ).split('\n');
     expect(lines).toEqual(['2026-08-01 10:00|in|chat|Gavriel|hello there']);
     // A non-UTC install timezone shifts the human stamp; data stays ISO.
-    const berlin = formatHistoryLines(await sessionHistory({ id: SESS }, HOST), 'Europe/Berlin');
+    const berlin = formatHistoryLines(
+      await sessionHistory({ id: SESS }, HOST),
+      'Europe/Berlin',
+    );
     expect(berlin.startsWith('2026-08-01 12:00|')).toBe(true);
   });
 
@@ -123,7 +149,11 @@ describe('sessionHistory', () => {
   });
 
   it('sanitizes newlines and pipes in the human rendering only — rows keep the raw text', async () => {
-    await writeInbound('in-1', '2026-08-01T10:00:00.000Z', 'line one\nline two | with pipe');
+    await writeInbound(
+      'in-1',
+      '2026-08-01T10:00:00.000Z',
+      'line one\nline two | with pipe',
+    );
     const rows = await sessionHistory({ id: SESS }, HOST);
     expect(rows[0].text).toBe('line one\nline two | with pipe');
     const line = formatHistoryLines(rows, 'UTC');
@@ -133,14 +163,22 @@ describe('sessionHistory', () => {
 
   it('self-scopes: a cross-group agent gets "session not found", same as a bogus id', async () => {
     await writeInbound('in-1', '2026-08-01T10:00:00.000Z', 'private');
-    await expect(sessionHistory({ id: SESS }, FOREIGN_AGENT)).rejects.toThrow(`session not found: ${SESS}`);
-    await expect(sessionHistory({ id: 'sess-nope' }, FOREIGN_AGENT)).rejects.toThrow('session not found: sess-nope');
-    await expect(sessionHistory({ id: 'sess-nope' }, HOST)).rejects.toThrow('session not found: sess-nope');
+    await expect(sessionHistory({ id: SESS }, FOREIGN_AGENT)).rejects.toThrow(
+      `session not found: ${SESS}`,
+    );
+    await expect(
+      sessionHistory({ id: 'sess-nope' }, FOREIGN_AGENT),
+    ).rejects.toThrow('session not found: sess-nope');
+    await expect(sessionHistory({ id: 'sess-nope' }, HOST)).rejects.toThrow(
+      'session not found: sess-nope',
+    );
   });
 
   it('allows the owning agent group and the host', async () => {
     await writeInbound('in-1', '2026-08-01T10:00:00.000Z', 'visible');
-    expect((await sessionHistory({ id: SESS }, OWN_AGENT))[0].text).toBe('visible');
+    expect((await sessionHistory({ id: SESS }, OWN_AGENT))[0].text).toBe(
+      'visible',
+    );
     expect((await sessionHistory({ id: SESS }, HOST))[0].text).toBe('visible');
   });
 });

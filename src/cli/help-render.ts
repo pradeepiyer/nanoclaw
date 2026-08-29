@@ -33,7 +33,8 @@ export function indent(text: string, pad: string): string {
 function flagLine(col: ColumnDef, extraTags: string[] = []): string {
   const tags: string[] = [...extraTags];
   if (col.required) tags.push('required');
-  if (col.default !== undefined && col.default !== null) tags.push(`default: ${col.default}`);
+  if (col.default !== undefined && col.default !== null)
+    tags.push(`default: ${col.default}`);
   if (col.enum) tags.push(`values: ${col.enum.join(' | ')}`);
   const tagStr = tags.length > 0 ? ` (${tags.join(', ')})` : '';
   return `  ${flagName(col).padEnd(28)} ${summaryLine(col.description)}${tagStr}`;
@@ -56,8 +57,15 @@ function genericFlags(res: ResourceDef, verb: GenericVerb): ColumnDef[] {
     case 'list':
       // Non-generated columns double as equality filters.
       return [
-        ...res.columns.filter((c) => !c.generated).map((c) => ({ ...c, required: false })),
-        { name: 'limit', type: 'number', description: 'Max rows returned.', default: 200 } as ColumnDef,
+        ...res.columns
+          .filter((c) => !c.generated)
+          .map((c) => ({ ...c, required: false })),
+        {
+          name: 'limit',
+          type: 'number',
+          description: 'Max rows returned.',
+          default: 200,
+        } as ColumnDef,
       ];
     case 'get':
     case 'delete':
@@ -85,15 +93,22 @@ function genericSummary(res: ResourceDef, verb: GenericVerb): string {
  * `verb` is a custom-operation key or a generic CRUD verb. Returns undefined
  * for a verb the resource doesn't have.
  */
-export function renderVerbHelp(res: ResourceDef, verb: string): string | undefined {
+export function renderVerbHelp(
+  res: ResourceDef,
+  verb: string,
+): string | undefined {
   const op: CustomOperation | undefined = res.customOperations?.[verb];
-  const generic = !op && (GENERIC_VERBS as readonly string[]).includes(verb) ? (verb as GenericVerb) : undefined;
+  const generic =
+    !op && (GENERIC_VERBS as readonly string[]).includes(verb)
+      ? (verb as GenericVerb)
+      : undefined;
   if (!op && !generic) return undefined;
   if (generic && !res.operations[generic]) return undefined;
 
   const access = op ? op.access : res.operations[generic!];
   const accessTag = access && access !== 'open' ? ` [${access}]` : '';
-  const needsId = generic === 'get' || generic === 'update' || generic === 'delete';
+  const needsId =
+    generic === 'get' || generic === 'update' || generic === 'delete';
 
   const lines: string[] = [];
   lines.push(`ncl ${res.plural} ${verb}${needsId ? ' <id>' : ''}${accessTag}`);

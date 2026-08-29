@@ -11,7 +11,11 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-import { isSessionEventsDriver, withSessionEvents, type SupervisedHandle } from './session-events.js';
+import {
+  isSessionEventsDriver,
+  withSessionEvents,
+  type SupervisedHandle,
+} from './session-events.js';
 import { fixtureSpec } from './spec-fixture.js';
 import type {
   DriverCapabilities,
@@ -34,7 +38,10 @@ class FakeHandle implements SessionHandle {
   statusValue: SessionStatus = { phase: 'running' };
   /** When set, each status() blocks until the test settles it — an async truth read. */
   manualStatus = false;
-  readonly pendingStatus: Array<{ resolve: (status: SessionStatus) => void; reject: (err: Error) => void }> = [];
+  readonly pendingStatus: Array<{
+    resolve: (status: SessionStatus) => void;
+    reject: (err: Error) => void;
+  }> = [];
   readonly stops: string[] = [];
 
   constructor(
@@ -45,7 +52,9 @@ class FakeHandle implements SessionHandle {
   async start(): Promise<void> {}
   async status(): Promise<SessionStatus> {
     if (this.manualStatus) {
-      return new Promise((resolve, reject) => this.pendingStatus.push({ resolve, reject }));
+      return new Promise((resolve, reject) =>
+        this.pendingStatus.push({ resolve, reject }),
+      );
     }
     return this.statusValue;
   }
@@ -91,7 +100,10 @@ class FakeDriver implements SessionDriver {
     this.listCalls += 1;
     return this.snapshots;
   }
-  watchSessions(_installSlug: string, onEvent: (event: SessionEvent) => void): { stop(): void } {
+  watchSessions(
+    _installSlug: string,
+    onEvent: (event: SessionEvent) => void,
+  ): { stop(): void } {
     this.watchCalls += 1;
     this.subscribers.add(onEvent);
     return { stop: () => this.subscribers.delete(onEvent) };
@@ -109,7 +121,11 @@ async function settled(): Promise<void> {
 async function prepared(
   driver: FakeDriver,
   sessionId: string,
-): Promise<{ inner: FakeHandle; handle: SupervisedHandle; hub: ReturnType<typeof withSessionEvents> }> {
+): Promise<{
+  inner: FakeHandle;
+  handle: SupervisedHandle;
+  hub: ReturnType<typeof withSessionEvents>;
+}> {
   const hub = withSessionEvents(driver);
   const inner = new FakeHandle(makeKey(sessionId));
   driver.nextPrepared = inner;
@@ -141,7 +157,11 @@ describe('hint discipline: events are re-read, never acted on', () => {
     const terminal = vi.fn();
     handle.onTerminal(terminal);
 
-    const failure = { kind: 'started-then-died' as const, retryable: false as const, exitCode: 3 };
+    const failure = {
+      kind: 'started-then-died' as const,
+      retryable: false as const,
+      exitCode: 3,
+    };
     inner.statusValue = { phase: 'failed', failure };
     driver.emit({ key: inner.key, kind: 'terminal' });
     driver.emit({ key: inner.key, kind: 'terminal' });
@@ -292,7 +312,11 @@ describe('resync', () => {
     const terminal = vi.fn();
     handle.onTerminal(terminal);
 
-    const failure = { kind: 'started-then-died' as const, retryable: false as const, exitCode: 9 };
+    const failure = {
+      kind: 'started-then-died' as const,
+      retryable: false as const,
+      exitCode: 9,
+    };
     driver.snapshots = [{ handle: inner, phase: 'terminal', failure }];
     await hub.resync('spike');
     await hub.resync('spike');

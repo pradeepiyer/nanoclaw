@@ -7,14 +7,24 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { INBOUND_SCHEMA } from '../../mailbox/sqlite/schema.js';
 import { wrapSqliteInbound } from '../../mailbox/sqlite/index.js';
-import { ECHO_BACKLOG_CAP, ECHO_CHANNEL_TYPE, ECHO_MAX_AGE_DAYS } from './config.js';
+import {
+  ECHO_BACKLOG_CAP,
+  ECHO_CHANNEL_TYPE,
+  ECHO_MAX_AGE_DAYS,
+} from './config.js';
 import { pruneEchoBacklog } from './prune.js';
 
 const NOW = Date.parse('2026-08-01T12:00:00.000Z');
 
 let db: Database.Database;
 
-function insertRow(opts: { id: string; seq: number; channelType?: string; status?: string; ageMs?: number }): void {
+function insertRow(opts: {
+  id: string;
+  seq: number;
+  channelType?: string;
+  status?: string;
+  ageMs?: number;
+}): void {
   db.prepare(
     `INSERT INTO messages_in (id, seq, kind, timestamp, status, channel_type, content, trigger)
      VALUES (?, ?, 'chat', ?, ?, ?, '{"text":"x"}', 0)`,
@@ -28,7 +38,11 @@ function insertRow(opts: { id: string; seq: number; channelType?: string; status
 }
 
 function remainingIds(): string[] {
-  return (db.prepare('SELECT id FROM messages_in ORDER BY seq').all() as Array<{ id: string }>).map((r) => r.id);
+  return (
+    db.prepare('SELECT id FROM messages_in ORDER BY seq').all() as Array<{
+      id: string;
+    }>
+  ).map((r) => r.id);
 }
 
 beforeEach(() => {
@@ -56,7 +70,11 @@ describe('pruneEchoBacklog', () => {
   });
 
   it('drops pending echo rows older than the TTL even under the count cap', () => {
-    insertRow({ id: 'old', seq: 2, ageMs: (ECHO_MAX_AGE_DAYS * 24 + 1) * 60 * 60 * 1000 });
+    insertRow({
+      id: 'old',
+      seq: 2,
+      ageMs: (ECHO_MAX_AGE_DAYS * 24 + 1) * 60 * 60 * 1000,
+    });
     insertRow({ id: 'fresh', seq: 4, ageMs: 60_000 });
 
     expect(pruneEchoBacklog(wrapSqliteInbound(db), { now: NOW })).toBe(1);
@@ -65,10 +83,21 @@ describe('pruneEchoBacklog', () => {
 
   it('never touches non-echo rows or already-processed echo rows', () => {
     // A real chat row and a task row far older than the TTL.
-    insertRow({ id: 'chat', seq: 2, channelType: 'slack', ageMs: 30 * 24 * 60 * 60 * 1000 });
-    insertRow({ id: 'done-echo', seq: 4, status: 'completed', ageMs: 30 * 24 * 60 * 60 * 1000 });
+    insertRow({
+      id: 'chat',
+      seq: 2,
+      channelType: 'slack',
+      ageMs: 30 * 24 * 60 * 60 * 1000,
+    });
+    insertRow({
+      id: 'done-echo',
+      seq: 4,
+      status: 'completed',
+      ageMs: 30 * 24 * 60 * 60 * 1000,
+    });
     // Overflow of pending echoes to prove the delete fires while sparing the above.
-    for (let i = 0; i < ECHO_BACKLOG_CAP + 1; i++) insertRow({ id: `e-${i}`, seq: 100 + i * 2 });
+    for (let i = 0; i < ECHO_BACKLOG_CAP + 1; i++)
+      insertRow({ id: `e-${i}`, seq: 100 + i * 2 });
 
     expect(pruneEchoBacklog(wrapSqliteInbound(db), { now: NOW })).toBe(1);
     const ids = remainingIds();

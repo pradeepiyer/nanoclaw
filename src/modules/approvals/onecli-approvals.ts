@@ -84,7 +84,10 @@ function shortApprovalId(): string {
  * live request resolves its waiting Promise; a re-armed card from a previous
  * process takes the late-decision path.
  */
-export async function resolveOneCLIApproval(approvalId: string, selectedOption: string): Promise<boolean> {
+export async function resolveOneCLIApproval(
+  approvalId: string,
+  selectedOption: string,
+): Promise<boolean> {
   const row = await getPendingApproval(approvalId);
   if (!row || row.action !== ONECLI_ACTION) return false;
 
@@ -119,13 +122,19 @@ export async function resolveOneCLIApproval(approvalId: string, selectedOption: 
  * an approval must tell the human the truth — the credentialed call is gone
  * and the agent has to retry it.
  */
-async function deliverLateDecision(row: PendingApproval, decision: Decision): Promise<void> {
+async function deliverLateDecision(
+  row: PendingApproval,
+  decision: Decision,
+): Promise<void> {
   let delivered = false;
   if (approvalSource?.decide && row.request_id) {
     try {
       delivered = await approvalSource.decide(row.request_id, decision);
     } catch (err) {
-      log.warn('Late approval decision not accepted by the gateway', { approvalId: row.approval_id, err });
+      log.warn('Late approval decision not accepted by the gateway', {
+        approvalId: row.approval_id,
+        err,
+      });
     }
   }
   if (decision === 'approve' && !delivered) {
@@ -134,29 +143,44 @@ async function deliverLateDecision(row: PendingApproval, decision: Decision): Pr
       '✅ Approved — recorded, but the original request ended when the host restarted. Ask the agent to retry the action.',
     );
   }
-  log.info('Gateway approval resolved late', { approvalId: row.approval_id, decision, delivered });
+  log.info('Gateway approval resolved late', {
+    approvalId: row.approval_id,
+    decision,
+    delivered,
+  });
 }
 
-export function startOneCLIApprovalHandler(deliveryAdapter: ChannelDeliveryAdapter): void {
+export function startOneCLIApprovalHandler(
+  deliveryAdapter: ChannelDeliveryAdapter,
+): void {
   if (started) return;
   started = true;
   adapterRef = deliveryAdapter;
   approvalSource = getGatewayProvider().approvals?.() ?? null;
 
-  reattachSurvivingApprovals().catch((err) => log.error('Approval re-attach failed', { err }));
+  reattachSurvivingApprovals().catch((err) =>
+    log.error('Approval re-attach failed', { err }),
+  );
 
   if (approvalSource) {
-    subscription = approvalSource.subscribe(async (request: GatewayApprovalRequest): Promise<Decision> => {
-      try {
-        return await handleRequest(request);
-      } catch (err) {
-        log.error('Gateway approval handler errored', { id: request.id, err });
-        return 'deny';
-      }
-    });
+    subscription = approvalSource.subscribe(
+      async (request: GatewayApprovalRequest): Promise<Decision> => {
+        try {
+          return await handleRequest(request);
+        } catch (err) {
+          log.error('Gateway approval handler errored', {
+            id: request.id,
+            err,
+          });
+          return 'deny';
+        }
+      },
+    );
     log.info('Gateway approval handler started');
   } else {
-    log.info('Gateway provider exposes no approvals capability — held-request approvals disabled');
+    log.info(
+      'Gateway provider exposes no approvals capability — held-request approvals disabled',
+    );
   }
 
   // Row-driven expiry: overdue rows expire on the sweep regardless of which
@@ -184,10 +208,16 @@ export function stopOneCLIApprovalHandler(): void {
 }
 
 /** Arm the in-memory Promise for a live request, with its pre-TTL expiry timer. */
-function armPendingPromise(approvalId: string, expiresAt: string): Promise<Decision> {
+function armPendingPromise(
+  approvalId: string,
+  expiresAt: string,
+): Promise<Decision> {
   // Expiry timer fires just before the gateway's own TTL so our decision lands
   // in time to be recorded, even though the HTTP side will already be closing.
-  const timeoutMs = Math.max(1000, new Date(expiresAt).getTime() - Date.now() - 1000);
+  const timeoutMs = Math.max(
+    1000,
+    new Date(expiresAt).getTime() - Date.now() - 1000,
+  );
   return new Promise<Decision>((resolve) => {
     const timer = setTimeout(() => {
       if (!pending.has(approvalId)) return;
@@ -202,7 +232,9 @@ function armPendingPromise(approvalId: string, expiresAt: string): Promise<Decis
   });
 }
 
-async function handleRequest(request: GatewayApprovalRequest): Promise<Decision> {
+async function handleRequest(
+  request: GatewayApprovalRequest,
+): Promise<Decision> {
   if (!adapterRef) return 'deny';
 
   // Reconnect dedupe: a gateway that redelivers a request we already carded
@@ -221,7 +253,9 @@ async function handleRequest(request: GatewayApprovalRequest): Promise<Decision>
   // Originating agent group is carried on the request via the gateway's agent
   // identifier (set by container-runner.ts to agentGroup.id). Use it as
   // the scope for approver selection: admin @ group → global admin → owner.
-  const originGroup = request.agent.externalId ? await getAgentGroup(request.agent.externalId) : undefined;
+  const originGroup = request.agent.externalId
+    ? await getAgentGroup(request.agent.externalId)
+    : undefined;
   const agentGroupId = originGroup?.id ?? null;
   const approvers = await pickApprover(agentGroupId);
   if (approvers.length === 0) {
@@ -245,12 +279,25 @@ async function handleRequest(request: GatewayApprovalRequest): Promise<Decision>
   }
 
   const approvalId = shortApprovalId();
-  const question = buildQuestion(request, originGroup?.name ?? request.agent.name);
+  const question = buildQuestion(
+    request,
+    originGroup?.name ?? request.agent.name,
+  );
 
   const cardTitle = 'Credentials Request';
   const cardOptions = [
-    { label: 'Approve', selectedLabel: '✅ Approved', value: 'approve', style: 'primary' as const },
-    { label: 'Reject', selectedLabel: '❌ Rejected', value: 'reject', style: 'danger' as const },
+    {
+      label: 'Approve',
+      selectedLabel: '✅ Approved',
+      value: 'approve',
+      style: 'primary' as const,
+    },
+    {
+      label: 'Reject',
+      selectedLabel: '❌ Rejected',
+      value: 'reject',
+      style: 'danger' as const,
+    },
   ];
   let platformMessageId: string | undefined;
   try {
@@ -274,7 +321,11 @@ async function handleRequest(request: GatewayApprovalRequest): Promise<Decision>
       target.messagingGroup.instance,
     );
   } catch (err) {
-    log.error('Failed to deliver approval card', { approvalId, requestId: request.id, err });
+    log.error('Failed to deliver approval card', {
+      approvalId,
+      requestId: request.id,
+      err,
+    });
     return 'deny';
   }
 
@@ -310,11 +361,17 @@ async function handleRequest(request: GatewayApprovalRequest): Promise<Decision>
   return armPendingPromise(approvalId, request.expiresAt);
 }
 
-async function expireApproval(approvalId: string, reason: ExpiryReason): Promise<void> {
+async function expireApproval(
+  approvalId: string,
+  reason: ExpiryReason,
+): Promise<void> {
   const row = await getPendingApproval(approvalId);
   if (!row || row.action !== ONECLI_ACTION) return;
 
-  if (!(await transitionPendingApprovalStatus(approvalId, 'pending', 'expired'))) return;
+  if (
+    !(await transitionPendingApprovalStatus(approvalId, 'pending', 'expired'))
+  )
+    return;
   await editCardExpired(row, reason);
   await deletePendingApproval(approvalId);
   log.info('Gateway approval expired', { approvalId, reason });
@@ -333,16 +390,22 @@ async function reattachSurvivingApprovals(): Promise<void> {
   let heldAtGateway: Set<string> | null = null;
   if (approvalSource?.listPending) {
     try {
-      heldAtGateway = new Set((await approvalSource.listPending()).map((request) => request.id));
+      heldAtGateway = new Set(
+        (await approvalSource.listPending()).map((request) => request.id),
+      );
     } catch (err) {
-      log.warn('Gateway pending-approvals listing failed during re-attach', { err });
+      log.warn('Gateway pending-approvals listing failed during re-attach', {
+        err,
+      });
     }
   }
 
   let rearmed = 0;
   let expired = 0;
   for (const row of rows) {
-    const stillOpen = row.expires_at !== null && new Date(row.expires_at).getTime() > Date.now();
+    const stillOpen =
+      row.expires_at !== null &&
+      new Date(row.expires_at).getTime() > Date.now();
     if (!stillOpen) {
       await expireApproval(row.approval_id, 'no response');
       expired += 1;
@@ -351,7 +414,9 @@ async function reattachSurvivingApprovals(): Promise<void> {
     rearmed += 1;
     log.info('Re-armed approval from previous process', {
       approvalId: row.approval_id,
-      heldAtGateway: heldAtGateway ? heldAtGateway.has(row.request_id ?? '') : null,
+      heldAtGateway: heldAtGateway
+        ? heldAtGateway.has(row.request_id ?? '')
+        : null,
     });
   }
   log.info('Approval re-attach complete', { rearmed, expired });
@@ -363,7 +428,11 @@ async function expireOverdueApprovals(): Promise<void> {
   try {
     const rows = await getPendingApprovalsByAction(ONECLI_ACTION);
     for (const row of rows) {
-      if (row.expires_at !== null && new Date(row.expires_at).getTime() > Date.now()) continue;
+      if (
+        row.expires_at !== null &&
+        new Date(row.expires_at).getTime() > Date.now()
+      )
+        continue;
       // Live requests have their own pre-TTL timer; the sweep owns the rest.
       if (pending.has(row.approval_id)) continue;
       await expireApproval(row.approval_id, 'no response');
@@ -375,14 +444,28 @@ async function expireOverdueApprovals(): Promise<void> {
 }
 
 /** Exported for tests — the sweep and the expiry timer are its only callers. */
-export async function editCardExpired(row: PendingApproval, reason: ExpiryReason): Promise<void> {
+export async function editCardExpired(
+  row: PendingApproval,
+  reason: ExpiryReason,
+): Promise<void> {
   const resolution =
-    reason === 'no response' ? '⏱️ Timed out — no response' : '⏱️ Timed out — host restarted before resolution';
+    reason === 'no response'
+      ? '⏱️ Timed out — no response'
+      : '⏱️ Timed out — host restarted before resolution';
   await editCardResolution(row, resolution);
 }
 
-async function editCardResolution(row: PendingApproval, resolution: string): Promise<void> {
-  if (!adapterRef || !row.platform_message_id || !row.channel_type || !row.platform_id) return;
+async function editCardResolution(
+  row: PendingApproval,
+  resolution: string,
+): Promise<void> {
+  if (
+    !adapterRef ||
+    !row.platform_message_id ||
+    !row.channel_type ||
+    !row.platform_id
+  )
+    return;
   try {
     await adapterRef.deliver(
       row.channel_type,
@@ -394,7 +477,9 @@ async function editCardResolution(row: PendingApproval, resolution: string): Pro
         messageId: row.platform_message_id,
         // Native adapters that cannot edit rich cards treat this as a
         // terminal follow-up; Chat SDK adapters prefer terminalCard below.
-        text: [row.title, row.question, resolution].filter(Boolean).join('\n\n'),
+        text: [row.title, row.question, resolution]
+          .filter(Boolean)
+          .join('\n\n'),
         terminalCard: {
           title: row.title,
           question: row.question,
@@ -410,7 +495,10 @@ async function editCardResolution(row: PendingApproval, resolution: string): Pro
     // Louder than a warn: the row is deleted straight after, so a swallowed
     // failure leaves a card showing live Approve/Reject buttons that resolve
     // nothing, with no other trace that it happened.
-    log.error('Failed to edit resolved approval card', { approvalId: row.approval_id, err });
+    log.error('Failed to edit resolved approval card', {
+      approvalId: row.approval_id,
+      err,
+    });
   }
 }
 
@@ -418,7 +506,10 @@ async function editCardResolution(row: PendingApproval, resolution: string): Pro
  *  performed plus labeled fields (To / Subject / Body for email sends). */
 const SUMMARY_VALUE_EXCERPT_CHARS = 900;
 
-function buildQuestion(request: GatewayApprovalRequest, agentName: string): string {
+function buildQuestion(
+  request: GatewayApprovalRequest,
+  agentName: string,
+): string {
   const lines = [`*Agent:* ${agentName}`];
 
   const summary = request.summary;
@@ -430,10 +521,15 @@ function buildQuestion(request: GatewayApprovalRequest, agentName: string): stri
     // section limit or delivery itself fails.
     let budget = 2600;
     for (const { label, value } of summary.details) {
-      const raw = typeof value === 'string' ? value : (JSON.stringify(value) ?? String(value));
+      const raw =
+        typeof value === 'string'
+          ? value
+          : (JSON.stringify(value) ?? String(value));
       const cap = Math.min(SUMMARY_VALUE_EXCERPT_CHARS, Math.max(0, budget));
       if (cap === 0) {
-        lines.push(`_…${summary.details.length} field(s) omitted for length — see the audit payload._`);
+        lines.push(
+          `_…${summary.details.length} field(s) omitted for length — see the audit payload._`,
+        );
         break;
       }
       const v = raw.length > cap ? `${raw.slice(0, cap)}…` : raw;
@@ -444,7 +540,11 @@ function buildQuestion(request: GatewayApprovalRequest, agentName: string): stri
       else lines.push(`*${label}:* ${v}`);
     }
   } else if (request.bodyPreview) {
-    lines.push('```', request.bodyPreview.slice(0, SUMMARY_VALUE_EXCERPT_CHARS * 2), '```');
+    lines.push(
+      '```',
+      request.bodyPreview.slice(0, SUMMARY_VALUE_EXCERPT_CHARS * 2),
+      '```',
+    );
     lines.push(`_${request.method} ${request.host}${request.path}_`);
   } else {
     lines.push(`_${request.method} ${request.host}${request.path}_`);

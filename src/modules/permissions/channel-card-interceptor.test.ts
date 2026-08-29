@@ -66,9 +66,20 @@ beforeEach(async () => {
   const db = await initTestDb();
   await runMigrations(db);
 
-  await createAgentGroup({ id: 'ag-1', name: 'Andy', folder: 'andy', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Andy',
+    folder: 'andy',
+    agent_provider: null,
+    created_at: now(),
+  });
 
-  await upsertUser({ id: 'telegram:owner', kind: 'telegram', display_name: 'Owner', created_at: now() });
+  await upsertUser({
+    id: 'telegram:owner',
+    kind: 'telegram',
+    display_name: 'Owner',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'telegram:owner',
     role: 'owner',
@@ -101,7 +112,10 @@ afterEach(async () => {
   if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true });
 });
 
-async function unwiredChannel(id: string, channelType = 'telegram'): Promise<MessagingGroup> {
+async function unwiredChannel(
+  id: string,
+  channelType = 'telegram',
+): Promise<MessagingGroup> {
   const mg: MessagingGroup = {
     id,
     channel_type: channelType,
@@ -127,18 +141,25 @@ function mention(mg: MessagingGroup): InboundEvent {
       timestamp: now(),
       isMention: true,
       isGroup: true,
-      content: JSON.stringify({ senderId: 'caller', senderName: 'Caller', text: '@bot hi' }),
+      content: JSON.stringify({
+        senderId: 'caller',
+        senderName: 'Caller',
+        text: '@bot hi',
+      }),
     },
   };
 }
 
 async function pendingCount(): Promise<number> {
-  return (await getDb().get<{ c: number }>('SELECT COUNT(*) AS c FROM pending_channel_approvals'))!.c;
+  return (await getDb().get<{ c: number }>(
+    'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+  ))!.c;
 }
 
 describe('channel-card interceptor seam', () => {
   it("'handled' suppresses the card: no delivery, no pending row", async () => {
-    const { registerChannelCardInterceptor, requestChannelApproval } = await import('./channel-approval.js');
+    const { registerChannelCardInterceptor, requestChannelApproval } =
+      await import('./channel-approval.js');
     const interceptor = vi.fn().mockResolvedValue('handled');
     registerChannelCardInterceptor('telegram', interceptor);
 
@@ -147,17 +168,27 @@ describe('channel-card interceptor seam', () => {
     await requestChannelApproval({ messagingGroupId: mg.id, event });
 
     expect(interceptor).toHaveBeenCalledTimes(1);
-    expect(interceptor).toHaveBeenCalledWith(expect.objectContaining({ id: mg.id }), event);
+    expect(interceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ id: mg.id }),
+      event,
+    );
     expect(deliverMock).not.toHaveBeenCalled();
     expect(await pendingCount()).toBe(0);
   });
 
   it("'card' proceeds with today's flow", async () => {
-    const { registerChannelCardInterceptor, requestChannelApproval } = await import('./channel-approval.js');
-    registerChannelCardInterceptor('telegram', vi.fn().mockResolvedValue('card'));
+    const { registerChannelCardInterceptor, requestChannelApproval } =
+      await import('./channel-approval.js');
+    registerChannelCardInterceptor(
+      'telegram',
+      vi.fn().mockResolvedValue('card'),
+    );
 
     const mg = await unwiredChannel('mg-b');
-    await requestChannelApproval({ messagingGroupId: mg.id, event: mention(mg) });
+    await requestChannelApproval({
+      messagingGroupId: mg.id,
+      event: mention(mg),
+    });
 
     expect(deliverMock).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(deliverMock.mock.calls[0][4] as string);
@@ -166,36 +197,54 @@ describe('channel-card interceptor seam', () => {
   });
 
   it('interceptor throw falls back to the card', async () => {
-    const { registerChannelCardInterceptor, requestChannelApproval } = await import('./channel-approval.js');
-    registerChannelCardInterceptor('telegram', vi.fn().mockRejectedValue(new Error('boom')));
+    const { registerChannelCardInterceptor, requestChannelApproval } =
+      await import('./channel-approval.js');
+    registerChannelCardInterceptor(
+      'telegram',
+      vi.fn().mockRejectedValue(new Error('boom')),
+    );
 
     const mg = await unwiredChannel('mg-c');
-    await requestChannelApproval({ messagingGroupId: mg.id, event: mention(mg) });
+    await requestChannelApproval({
+      messagingGroupId: mg.id,
+      event: mention(mg),
+    });
 
     expect(deliverMock).toHaveBeenCalledTimes(1);
     expect(await pendingCount()).toBe(1);
   });
 
   it('only consulted for its own channel type', async () => {
-    const { registerChannelCardInterceptor, requestChannelApproval } = await import('./channel-approval.js');
+    const { registerChannelCardInterceptor, requestChannelApproval } =
+      await import('./channel-approval.js');
     const interceptor = vi.fn().mockResolvedValue('handled');
     registerChannelCardInterceptor('slack', interceptor);
 
     const mg = await unwiredChannel('mg-d'); // telegram
-    await requestChannelApproval({ messagingGroupId: mg.id, event: mention(mg) });
+    await requestChannelApproval({
+      messagingGroupId: mg.id,
+      event: mention(mg),
+    });
 
     expect(interceptor).not.toHaveBeenCalled();
     expect(deliverMock).toHaveBeenCalledTimes(1);
   });
 
   it('in-flight dedupe short-circuits before the interceptor', async () => {
-    const { registerChannelCardInterceptor, requestChannelApproval } = await import('./channel-approval.js');
+    const { registerChannelCardInterceptor, requestChannelApproval } =
+      await import('./channel-approval.js');
     const interceptor = vi.fn().mockResolvedValue('card');
     registerChannelCardInterceptor('telegram', interceptor);
 
     const mg = await unwiredChannel('mg-e');
-    await requestChannelApproval({ messagingGroupId: mg.id, event: mention(mg) });
-    await requestChannelApproval({ messagingGroupId: mg.id, event: mention(mg) });
+    await requestChannelApproval({
+      messagingGroupId: mg.id,
+      event: mention(mg),
+    });
+    await requestChannelApproval({
+      messagingGroupId: mg.id,
+      event: mention(mg),
+    });
 
     expect(interceptor).toHaveBeenCalledTimes(1); // second call died at the pending-row check
     expect(deliverMock).toHaveBeenCalledTimes(1);

@@ -29,7 +29,14 @@ vi.mock('../modules/agent-to-agent/write-destinations.js', () => ({
   writeDestinations: (...args: unknown[]) => writeDestinationsSpy(...args),
 }));
 
-import { initTestDb, closeDb, getDb, runMigrations, createAgentGroup, createMessagingGroup } from '../db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  getDb,
+  runMigrations,
+  createAgentGroup,
+  createMessagingGroup,
+} from '../db/index.js';
 import { createSession } from '../db/sessions.js';
 import { getContainerConfig } from '../db/container-configs.js';
 import { getDestinations } from '../modules/agent-to-agent/db/agent-destinations.js';
@@ -58,14 +65,25 @@ registerResource({
   columns: [
     { name: 'id', type: 'string', description: 'UUID.', generated: true },
     { name: 'kind', type: 'string', description: 'test input', required: true },
-    { name: 'mode', type: 'string', description: 'hook-fillable column', default: 'static' },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'mode',
+      type: 'string',
+      description: 'hook-fillable column',
+      default: 'static',
+    },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
   operations: { create: 'open' },
   resolveDefaults: (values) => {
     hookCalls.push({ ...values });
     if (values.kind === 'boom') throw new Error('hook rejected');
-    if (values.mode === undefined && values.kind === 'fill') values.mode = 'hooked';
+    if (values.mode === undefined && values.kind === 'fill')
+      values.mode = 'hooked';
   },
 });
 
@@ -80,7 +98,12 @@ registerResource({
     { name: 'enabled', type: 'boolean', description: 'Boolean filter.' },
     { name: 'score', type: 'number', description: 'Numeric filter.' },
     { name: 'payload', type: 'json', description: 'JSON filter.' },
-    { name: 'created_at', type: 'string', description: 'Timestamp.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Timestamp.',
+      generated: true,
+    },
   ],
   operations: { list: 'open' },
 });
@@ -103,10 +126,32 @@ beforeEach(async () => {
 
 describe('genericList portable filters and ordering', () => {
   beforeEach(async () => {
-    const sql = 'INSERT INTO listtest_rows (id, enabled, score, payload, created_at) VALUES (?, ?, ?, ?, ?)';
-    await getDb().run(sql, 'b', 1, 2, '{"kind":"match"}', '2026-08-17T10:00:00.000Z');
-    await getDb().run(sql, 'a', 1, 2, '{"kind":"match"}', '2026-08-17T10:00:00.000Z');
-    await getDb().run(sql, 'c', 0, 3, '{"kind":"other"}', '2026-08-17T11:00:00.000Z');
+    const sql =
+      'INSERT INTO listtest_rows (id, enabled, score, payload, created_at) VALUES (?, ?, ?, ?, ?)';
+    await getDb().run(
+      sql,
+      'b',
+      1,
+      2,
+      '{"kind":"match"}',
+      '2026-08-17T10:00:00.000Z',
+    );
+    await getDb().run(
+      sql,
+      'a',
+      1,
+      2,
+      '{"kind":"match"}',
+      '2026-08-17T10:00:00.000Z',
+    );
+    await getDb().run(
+      sql,
+      'c',
+      0,
+      3,
+      '{"kind":"other"}',
+      '2026-08-17T11:00:00.000Z',
+    );
   });
 
   it('coerces boolean, number, and JSON filters by column type', async () => {
@@ -119,17 +164,20 @@ describe('genericList portable filters and ordering', () => {
   });
 
   it('orders by the first timestamp descending and the id as a stable tie-breaker', async () => {
-    const rows = (await lookup('listtests-list')!.handler({}, hostCtx)) as Array<{ id: string }>;
+    const rows = (await lookup('listtests-list')!.handler(
+      {},
+      hostCtx,
+    )) as Array<{ id: string }>;
     expect(rows.map((row) => row.id)).toEqual(['c', 'a', 'b']);
   });
 
   it('rejects invalid typed filters', async () => {
-    await expect(lookup('listtests-list')!.handler({ enabled: 'sometimes' }, hostCtx)).rejects.toThrow(
-      '--enabled must be true or false',
-    );
-    await expect(lookup('listtests-list')!.handler({ score: 'many' }, hostCtx)).rejects.toThrow(
-      '--score must be a number',
-    );
+    await expect(
+      lookup('listtests-list')!.handler({ enabled: 'sometimes' }, hostCtx),
+    ).rejects.toThrow('--enabled must be true or false');
+    await expect(
+      lookup('listtests-list')!.handler({ score: 'many' }, hostCtx),
+    ).rejects.toThrow('--score must be a number');
   });
 });
 
@@ -142,7 +190,10 @@ describe('genericCreate postCreate hook', () => {
     const cmd = lookup('groups-create');
     expect(cmd, 'groups-create command must be registered').toBeDefined();
 
-    const result = (await cmd!.handler({ name: 'Test', folder: 'test' }, hostCtx)) as { id: string };
+    const result = (await cmd!.handler(
+      { name: 'Test', folder: 'test' },
+      hostCtx,
+    )) as { id: string };
 
     // Hook fired with the just-inserted row (incl. generated `id`).
     expect(ensureContainerConfigSpy).toHaveBeenCalledWith(result.id);
@@ -177,7 +228,10 @@ describe('genericCreate postCreate hook', () => {
     const cmd = lookup('wirings-create');
     expect(cmd, 'wirings-create command must be registered').toBeDefined();
 
-    await cmd!.handler({ messaging_group_id: 'mg-1', agent_group_id: 'ag-1' }, hostCtx);
+    await cmd!.handler(
+      { messaging_group_id: 'mg-1', agent_group_id: 'ag-1' },
+      hostCtx,
+    );
 
     // Visible side effect: a destination row was created so the agent can
     // address this chat as a delivery target. Without postCreate, this was
@@ -223,7 +277,10 @@ describe('genericCreate postCommit hook', () => {
     });
 
     const cmd = lookup('wirings-create');
-    await cmd!.handler({ messaging_group_id: 'mg-1', agent_group_id: 'ag-1' }, hostCtx);
+    await cmd!.handler(
+      { messaging_group_id: 'mg-1', agent_group_id: 'ag-1' },
+      hostCtx,
+    );
 
     // Live-refresh parity with `ncl destinations add`: without postCommit the
     // running container keeps serving the stale projection and drops replies
@@ -250,7 +307,10 @@ describe('genericCreate postCommit hook', () => {
     });
 
     const cmd = lookup('wirings-create');
-    await cmd!.handler({ messaging_group_id: 'mg-2', agent_group_id: 'ag-2' }, hostCtx);
+    await cmd!.handler(
+      { messaging_group_id: 'mg-2', agent_group_id: 'ag-2' },
+      hostCtx,
+    );
 
     // No live session for ag-2 → nothing to project, and the central
     // destination row was still written (covered above).
@@ -267,7 +327,10 @@ describe('genericCreate resolveDefaults hook (two-pass create)', () => {
   });
 
   it('runs between explicit args and static defaults — a hook fill beats the static default', async () => {
-    const row = (await lookup('hooktests-create')!.handler({ kind: 'fill' }, hostCtx)) as { mode: string };
+    const row = (await lookup('hooktests-create')!.handler(
+      { kind: 'fill' },
+      hostCtx,
+    )) as { mode: string };
     expect(row.mode).toBe('hooked');
     // The hook saw the pre-static-default state: mode still unset. Were the
     // static default applied first, the hook could never fill it.
@@ -275,12 +338,18 @@ describe('genericCreate resolveDefaults hook (two-pass create)', () => {
   });
 
   it('static default still applies when the hook leaves the column unset', async () => {
-    const row = (await lookup('hooktests-create')!.handler({ kind: 'plain' }, hostCtx)) as { mode: string };
+    const row = (await lookup('hooktests-create')!.handler(
+      { kind: 'plain' },
+      hostCtx,
+    )) as { mode: string };
     expect(row.mode).toBe('static');
   });
 
   it('explicit args always win over the hook', async () => {
-    const row = (await lookup('hooktests-create')!.handler({ kind: 'fill', mode: 'explicit' }, hostCtx)) as {
+    const row = (await lookup('hooktests-create')!.handler(
+      { kind: 'fill', mode: 'explicit' },
+      hostCtx,
+    )) as {
       mode: string;
     };
     expect(row.mode).toBe('explicit');
@@ -288,8 +357,12 @@ describe('genericCreate resolveDefaults hook (two-pass create)', () => {
   });
 
   it('a hook throw rejects the create and nothing is inserted', async () => {
-    await expect(lookup('hooktests-create')!.handler({ kind: 'boom' }, hostCtx)).rejects.toThrow('hook rejected');
-    const count = await getDb().get<{ n: number }>('SELECT COUNT(*) AS n FROM hooktest_rows');
+    await expect(
+      lookup('hooktests-create')!.handler({ kind: 'boom' }, hostCtx),
+    ).rejects.toThrow('hook rejected');
+    const count = await getDb().get<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM hooktest_rows',
+    );
     expect(count!.n).toBe(0);
   });
 });

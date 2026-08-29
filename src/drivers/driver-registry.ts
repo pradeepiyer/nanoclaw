@@ -31,14 +31,19 @@ const registry = new Map<DriverKind, SessionDriverFactory>();
  * import got added twice, or two overlays claim one kind) and throws rather
  * than letting the last import silently win.
  */
-export function registerSessionDriver(kind: DriverKind, factory: SessionDriverFactory): void {
+export function registerSessionDriver(
+  kind: DriverKind,
+  factory: SessionDriverFactory,
+): void {
   if (registry.has(kind)) {
     throw new Error(`Session driver already registered: ${kind}`);
   }
   registry.set(kind, factory);
 }
 
-export function getSessionDriverFactory(kind: DriverKind): SessionDriverFactory | undefined {
+export function getSessionDriverFactory(
+  kind: DriverKind,
+): SessionDriverFactory | undefined {
   return registry.get(kind);
 }
 

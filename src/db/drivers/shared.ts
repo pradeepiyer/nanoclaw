@@ -10,19 +10,26 @@ export interface TransactionScope<TConnection> {
 }
 
 export class TransactionScopeStore<TConnection> {
-  private readonly storage = new AsyncLocalStorage<TransactionScope<TConnection>>();
+  private readonly storage = new AsyncLocalStorage<
+    TransactionScope<TConnection>
+  >();
 
   current(): TransactionScope<TConnection> | undefined {
     return this.storage.getStore();
   }
 
-  run<T>(scope: TransactionScope<TConnection>, fn: () => Promise<T>): Promise<T> {
+  run<T>(
+    scope: TransactionScope<TConnection>,
+    fn: () => Promise<T>,
+  ): Promise<T> {
     return this.storage.run(scope, fn);
   }
 
   assertOpen(scope: TransactionScope<TConnection>): void {
     if (scope.closed) {
-      throw new Error('Central DB transaction scope is closed; an async continuation escaped its callback');
+      throw new Error(
+        'Central DB transaction scope is closed; an async continuation escaped its callback',
+      );
     }
   }
 
@@ -55,7 +62,9 @@ export async function withTransactionWatchdog<T>(
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
-      reject(new Error(`Central DB transaction exceeded ${timeoutMs}ms watchdog`));
+      reject(
+        new Error(`Central DB transaction exceeded ${timeoutMs}ms watchdog`),
+      );
     }, timeoutMs);
     timer.unref();
   });

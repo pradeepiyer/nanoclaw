@@ -26,7 +26,10 @@ import { log } from '../log.js';
 import { isGuardedAction, type GuardedAction } from './guard-actions.js';
 import { ALLOW, DENY, type GuardDecision, type GuardInput } from './types.js';
 
-export async function guard(action: GuardedAction, input: GuardInput): Promise<GuardDecision> {
+export async function guard(
+  action: GuardedAction,
+  input: GuardInput,
+): Promise<GuardDecision> {
   if (!isGuardedAction(action)) {
     // JS-level backstop — the branded type already forbids this. A
     // hand-rolled object must not carry a decide fn never vetted at
@@ -41,7 +44,10 @@ export async function guard(action: GuardedAction, input: GuardInput): Promise<G
   try {
     decision = await action.decide(input);
   } catch (err) {
-    log.error('Guard evaluation threw — failing closed', { action: action.action, err });
+    log.error('Guard evaluation threw — failing closed', {
+      action: action.action,
+      err,
+    });
     return DENY('guard failure (failing closed)');
   }
 
@@ -59,7 +65,10 @@ export async function guard(action: GuardedAction, input: GuardInput): Promise<G
   return DENY('replay carried an invalid or mismatched grant');
 }
 
-async function grantSatisfies(action: GuardedAction, input: GuardInput): Promise<boolean> {
+async function grantSatisfies(
+  action: GuardedAction,
+  input: GuardInput,
+): Promise<boolean> {
   const grant = input.grant;
   if (!grant || !action.grantActionName) return false;
   if (grant.action !== action.grantActionName) return false;
@@ -67,6 +76,7 @@ async function grantSatisfies(action: GuardedAction, input: GuardInput): Promise
   // execute once and a fabricated row object doesn't pass.
   const live = await getPendingApproval(grant.approval_id);
   if (!live || live.action !== action.grantActionName) return false;
-  if (action.grantCoversRequest && !action.grantCoversRequest(grant, input)) return false;
+  if (action.grantCoversRequest && !action.grantCoversRequest(grant, input))
+    return false;
   return true;
 }

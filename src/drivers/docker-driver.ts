@@ -22,7 +22,12 @@ import fs from 'fs';
 
 import { log } from '../log.js';
 
-import { realCli, validateRuntimeName, type Cli, type SupervisedProcess } from './cli.js';
+import {
+  realCli,
+  validateRuntimeName,
+  type Cli,
+  type SupervisedProcess,
+} from './cli.js';
 import { JsonDocumentStream } from './json-stream.js';
 import {
   LABELS,
@@ -137,7 +142,14 @@ export class DockerSessionDriver implements SessionDriver {
     assertMountSourcesExist(agent.mounts);
 
     const args = ['create', '--rm', '--name', name];
-    args.push(...labelArgs(labelsForKey(spec.key, 'agent', { ...spec.labels, ...(agent.labels ?? {}) })));
+    args.push(
+      ...labelArgs(
+        labelsForKey(spec.key, 'agent', {
+          ...spec.labels,
+          ...(agent.labels ?? {}),
+        }),
+      ),
+    );
     args.push(...resourceArgs(spec));
     args.push(...hardeningArgs(spec));
     args.push(...userArgs(spec));
@@ -209,7 +221,10 @@ export class DockerSessionDriver implements SessionDriver {
       });
   }
 
-  watchSessions(installSlug: string, onEvent: (event: SessionEvent) => void): SessionWatch {
+  watchSessions(
+    installSlug: string,
+    onEvent: (event: SessionEvent) => void,
+  ): SessionWatch {
     let watch = this.#watches.get(installSlug);
     if (!watch) {
       // Lazy: the subscription process exists only once someone is listening.
@@ -231,7 +246,11 @@ export class DockerSessionDriver implements SessionDriver {
    * transition — including ends the host itself requested; intent filtering is
    * the session-events hub's job, not this driver's.
    */
-  #connectWatch(installSlug: string, watch: InstallWatch, reconnected = false): void {
+  #connectWatch(
+    installSlug: string,
+    watch: InstallWatch,
+    reconnected = false,
+  ): void {
     const stream = new JsonDocumentStream();
     const proc = this.#cli.start(
       [
@@ -260,9 +279,15 @@ export class DockerSessionDriver implements SessionDriver {
       if (this.#watches.get(installSlug) !== watch) return;
       // Bounded backoff, never give up: an unrecovered drop would end
       // supervision for every session of the install at once.
-      const delay = Math.min(WATCH_RECOVERY_BASE_MS * 2 ** watch.attempt, WATCH_RECOVERY_MAX_MS);
+      const delay = Math.min(
+        WATCH_RECOVERY_BASE_MS * 2 ** watch.attempt,
+        WATCH_RECOVERY_MAX_MS,
+      );
       watch.attempt += 1;
-      const timer = setTimeout(() => this.#connectWatch(installSlug, watch, true), delay);
+      const timer = setTimeout(
+        () => this.#connectWatch(installSlug, watch, true),
+        delay,
+      );
       timer.unref?.();
     });
     if (reconnected) void this.#reconcileWatchGap(installSlug, watch);
@@ -281,7 +306,10 @@ export class DockerSessionDriver implements SessionDriver {
    * same dead daemon exits the events process too, and the next reconnect
    * retries this.
    */
-  async #reconcileWatchGap(installSlug: string, watch: InstallWatch): Promise<void> {
+  async #reconcileWatchGap(
+    installSlug: string,
+    watch: InstallWatch,
+  ): Promise<void> {
     if (this.#watches.get(installSlug) !== watch) return;
     let snapshots: SessionSnapshot[];
     try {
@@ -290,7 +318,9 @@ export class DockerSessionDriver implements SessionDriver {
       return;
     }
     const listed = new Set(snapshots.map((s) => keyId(s.handle.key)));
-    const gapKeys = snapshots.filter((s) => s.phase === 'terminal').map((s) => s.handle.key);
+    const gapKeys = snapshots
+      .filter((s) => s.phase === 'terminal')
+      .map((s) => s.handle.key);
     for (const [id, key] of this.#knownKeys.get(installSlug) ?? []) {
       if (!listed.has(id)) gapKeys.push(key);
     }
@@ -339,12 +369,20 @@ export class DockerSessionDriver implements SessionDriver {
       const stale = out.trim().split('\n').filter(Boolean);
       for (const name of stale) {
         try {
-          this.#cli.run(['rm', '--force', validateRuntimeName(name, 'container')]);
+          this.#cli.run([
+            'rm',
+            '--force',
+            validateRuntimeName(name, 'container'),
+          ]);
         } catch {
           /* already gone */
         }
       }
-      if (stale.length > 0) log.info('Removed orphaned containers', { count: stale.length, names: stale });
+      if (stale.length > 0)
+        log.info('Removed orphaned containers', {
+          count: stale.length,
+          names: stale,
+        });
     } catch (err) {
       log.warn('Failed to clean up orphaned containers', { err });
     }
@@ -372,12 +410,20 @@ export class DockerSessionDriver implements SessionDriver {
         .map(([name]) => name);
       for (const name of preSeam) {
         try {
-          this.#cli.run(['rm', '--force', validateRuntimeName(name, 'container')]);
+          this.#cli.run([
+            'rm',
+            '--force',
+            validateRuntimeName(name, 'container'),
+          ]);
         } catch {
           /* already gone */
         }
       }
-      if (preSeam.length > 0) log.info('Stopped pre-seam containers', { count: preSeam.length, names: preSeam });
+      if (preSeam.length > 0)
+        log.info('Stopped pre-seam containers', {
+          count: preSeam.length,
+          names: preSeam,
+        });
     } catch (err) {
       log.warn('Failed to clean up pre-seam containers', { err });
     }
@@ -406,7 +452,11 @@ export class DockerSessionDriver implements SessionDriver {
         /* still in use by a live session, or already gone */
       }
     }
-    if (removed.length > 0) log.info('Removed orphaned networks', { count: removed.length, names: removed });
+    if (removed.length > 0)
+      log.info('Removed orphaned networks', {
+        count: removed.length,
+        names: removed,
+      });
   }
 
   /**
@@ -430,13 +480,25 @@ export class DockerSessionDriver implements SessionDriver {
       return false;
     }
     const [install, group, session] = out.trim().split('|');
-    if (install === key.installSlug && group === key.agentGroupId && session === key.sessionId) return true;
-    log.warn('Container name collision: existing container is not this session', {
-      containerName: name,
-      wanted: key,
-      found: { install, group, session },
+    if (
+      install === key.installSlug &&
+      group === key.agentGroupId &&
+      session === key.sessionId
+    )
+      return true;
+    log.warn(
+      'Container name collision: existing container is not this session',
+      {
+        containerName: name,
+        wanted: key,
+        found: { install, group, session },
+      },
+    );
+    throw asFailureError({
+      kind: 'unknown',
+      retryable: false,
+      opaqueRef: `name-collision-${name}`,
     });
-    throw asFailureError({ kind: 'unknown', retryable: false, opaqueRef: `name-collision-${name}` });
   }
 }
 
@@ -472,8 +534,17 @@ class DockerHandle implements SessionHandle {
     });
     proc.onExit((code) => {
       this.#attachExitCode = code;
-      if (!this.#stopping && code !== 0 && code !== null && this.#stderrTail.length > 0) {
-        log.warn('Container exited non-zero', { containerName: this.name, code, stderrTail: this.#stderrTail });
+      if (
+        !this.#stopping &&
+        code !== 0 &&
+        code !== null &&
+        this.#stderrTail.length > 0
+      ) {
+        log.warn('Container exited non-zero', {
+          containerName: this.name,
+          code,
+          stderrTail: this.#stderrTail,
+        });
       }
       // Every observed terminal transition rides the driver-level stream —
       // even ends the host requested. Intent filtering is the hub's job.
@@ -484,15 +555,30 @@ class DockerHandle implements SessionHandle {
   async status(): Promise<SessionStatus> {
     let state: string;
     try {
-      state = this.cli.run(['inspect', '--format', '{{.State.Status}}|{{.State.ExitCode}}', this.name]).trim();
+      state = this.cli
+        .run([
+          'inspect',
+          '--format',
+          '{{.State.Status}}|{{.State.ExitCode}}',
+          this.name,
+        ])
+        .trim();
     } catch {
       // `--rm` means an exited container has already been removed; the attach
       // exit code is the only record of how it ended. A host-requested stop is
       // not a failure, whatever code the runtime used to end the process.
-      if (!this.#stopping && typeof this.#attachExitCode === 'number' && this.#attachExitCode !== 0) {
+      if (
+        !this.#stopping &&
+        typeof this.#attachExitCode === 'number' &&
+        this.#attachExitCode !== 0
+      ) {
         return {
           phase: 'failed',
-          failure: { kind: 'started-then-died', retryable: false, exitCode: this.#attachExitCode },
+          failure: {
+            kind: 'started-then-died',
+            retryable: false,
+            exitCode: this.#attachExitCode,
+          },
         };
       }
       if (!this.#stopping && this.#proc && this.#attachExitCode === undefined) {
@@ -505,13 +591,22 @@ class DockerHandle implements SessionHandle {
         // within one process exit.
         return { phase: 'running' };
       }
-      return this.pendingSpec && !this.#proc ? { phase: 'ready' } : { phase: 'stopped' };
+      return this.pendingSpec && !this.#proc
+        ? { phase: 'ready' }
+        : { phase: 'stopped' };
     }
     const [status, exit] = state.split('|');
     if (status === 'running') return { phase: 'running' };
     if (status === 'created') return { phase: 'ready' };
     if (status === 'exited' && exit !== '0') {
-      return { phase: 'failed', failure: { kind: 'started-then-died', retryable: false, exitCode: Number(exit) } };
+      return {
+        phase: 'failed',
+        failure: {
+          kind: 'started-then-died',
+          retryable: false,
+          exitCode: Number(exit),
+        },
+      };
     }
     return { phase: 'stopped' };
   }
@@ -523,7 +618,10 @@ class DockerHandle implements SessionHandle {
    */
   async stop(reason: string): Promise<void> {
     this.#stopping = true;
-    log.info('Stopping session container', { containerName: this.name, reason });
+    log.info('Stopping session container', {
+      containerName: this.name,
+      reason,
+    });
     const grace = String(this.pendingSpec?.stopGraceSeconds ?? 1);
     try {
       this.cli.run(['stop', '-t', grace, this.name]);
@@ -562,7 +660,8 @@ function keyId(key: SessionKey): string {
  * have adoption tear down freshly-prepared sessions.
  */
 export function dockerStatePhase(state: string): SessionPhase {
-  if (state === 'running' || state === 'paused' || state === 'restarting') return 'running';
+  if (state === 'running' || state === 'paused' || state === 'restarting')
+    return 'running';
   if (state === 'created') return 'starting';
   // exited, dead, removing — self-ended corpses awaiting cleanup.
   return 'terminal';
@@ -578,7 +677,10 @@ interface DockerEventDoc {
  * the event carries (the adoption contract, again: labels are the identity).
  * Unknown actions and label-less events are dropped — hints may drop.
  */
-export function dockerEventToSessionEvent(doc: unknown, installSlug: string): SessionEvent | null {
+export function dockerEventToSessionEvent(
+  doc: unknown,
+  installSlug: string,
+): SessionEvent | null {
   const event = doc as DockerEventDoc;
   const attrs = event.Actor?.Attributes ?? {};
   const agentGroupId = attrs[LABELS.group];
@@ -590,7 +692,11 @@ export function dockerEventToSessionEvent(doc: unknown, installSlug: string): Se
       ? ('terminal' as const)
       : action === 'create' || action === 'start' || action === 'restart'
         ? ('phase' as const)
-        : action === 'kill' || action === 'stop' || action === 'oom' || action === 'pause' || action === 'unpause'
+        : action === 'kill' ||
+            action === 'stop' ||
+            action === 'oom' ||
+            action === 'pause' ||
+            action === 'unpause'
           ? ('hint' as const)
           : null;
   if (!kind) return null;
@@ -610,9 +716,15 @@ export function dockerEventToSessionEvent(doc: unknown, installSlug: string): Se
  * to generate survives as the `nanoclaw-container-name` lineage label.
  */
 export function agentContainerName(spec: SessionSpec): string {
-  const raw = `${spec.key.installSlug}-${spec.key.sessionId}`.replaceAll(/[^a-zA-Z0-9_.-]/g, '-');
+  const raw = `${spec.key.installSlug}-${spec.key.sessionId}`.replaceAll(
+    /[^a-zA-Z0-9_.-]/g,
+    '-',
+  );
   if (raw.length <= 48) return `ncl-${raw}`;
-  const hash = createHash('sha256').update(`${spec.key.installSlug} ${spec.key.sessionId}`).digest('hex').slice(0, 8);
+  const hash = createHash('sha256')
+    .update(`${spec.key.installSlug} ${spec.key.sessionId}`)
+    .digest('hex')
+    .slice(0, 8);
   return `ncl-${raw.slice(0, 39)}-${hash}`;
 }
 
@@ -628,7 +740,12 @@ export function agentContainerName(spec: SessionSpec): string {
  * every stop ends in SIGKILL after the full grace period.
  */
 export function hardeningArgs(spec: SessionSpec): string[] {
-  const args = ['--cap-drop=ALL', '--security-opt', 'no-new-privileges', '--init'];
+  const args = [
+    '--cap-drop=ALL',
+    '--security-opt',
+    'no-new-privileges',
+    '--init',
+  ];
   // Test >0, not truthiness: cgroups v2 rejects `--pids-limit 0` with EINVAL.
   const pids = spec.resources.pidsLimit;
   if (typeof pids === 'number' && Number.isFinite(pids) && pids > 0) {
@@ -646,9 +763,11 @@ export function hardeningArgs(spec: SessionSpec): string[] {
 export function resourceArgs(spec: SessionSpec): string[] {
   const args: string[] = [];
   if (spec.resources.cpus) args.push('--cpus', spec.resources.cpus);
-  if (spec.resources.memoryMb) args.push('--memory', `${spec.resources.memoryMb}m`);
+  if (spec.resources.memoryMb)
+    args.push('--memory', `${spec.resources.memoryMb}m`);
   // Docker defaults /dev/shm to 64m, which silently short-writes past that size.
-  if (spec.resources.shmSizeMb) args.push(`--shm-size=${spec.resources.shmSizeMb}m`);
+  if (spec.resources.shmSizeMb)
+    args.push(`--shm-size=${spec.resources.shmSizeMb}m`);
   return args;
 }
 
@@ -659,7 +778,9 @@ export function userArgs(spec: SessionSpec): string[] {
 export function mountArgs(mounts: readonly MountSpec[]): string[] {
   return mounts.flatMap((m) => [
     '-v',
-    m.mode === 'ro' ? `${m.hostPath}:${m.containerPath}:ro` : `${m.hostPath}:${m.containerPath}`,
+    m.mode === 'ro'
+      ? `${m.hostPath}:${m.containerPath}:ro`
+      : `${m.hostPath}:${m.containerPath}`,
   ]);
 }
 
@@ -673,14 +794,21 @@ export function labelArgs(labels: Record<string, string>): string[] {
 
 export function normalizeDockerError(error: unknown): Error & SessionFailure {
   const msg = error instanceof Error ? error.message : String(error);
-  const failure: SessionFailure = /manifest unknown|pull access denied|not found: manifest|No such image/i.test(msg)
-    ? { kind: 'image-unavailable', retryable: true }
-    : /Cannot connect to the Docker daemon|daemon is not running/i.test(msg)
-      ? { kind: 'runtime-unavailable', retryable: true }
-      : /no space left|cannot allocate memory/i.test(msg)
-        ? { kind: 'resources-exhausted', retryable: true }
-        : // Raw runtime errors never cross the seam.
-          { kind: 'unknown', retryable: false, opaqueRef: `docker-${Date.now()}` };
+  const failure: SessionFailure =
+    /manifest unknown|pull access denied|not found: manifest|No such image/i.test(
+      msg,
+    )
+      ? { kind: 'image-unavailable', retryable: true }
+      : /Cannot connect to the Docker daemon|daemon is not running/i.test(msg)
+        ? { kind: 'runtime-unavailable', retryable: true }
+        : /no space left|cannot allocate memory/i.test(msg)
+          ? { kind: 'resources-exhausted', retryable: true }
+          : // Raw runtime errors never cross the seam.
+            {
+              kind: 'unknown',
+              retryable: false,
+              opaqueRef: `docker-${Date.now()}`,
+            };
   return asFailureError(failure);
 }
 
@@ -709,15 +837,33 @@ export function ensureDockerRunning(cli: Cli = realCli('docker')): void {
     log.debug('Container runtime already running');
   } catch (err) {
     log.error('Failed to reach container runtime', { err });
-    console.error('\n╔════════════════════════════════════════════════════════════════╗');
-    console.error('║  FATAL: Container runtime failed to start                      ║');
-    console.error('║                                                                ║');
-    console.error('║  Agents cannot run without a container runtime. To fix:        ║');
-    console.error('║  1. Ensure Docker is installed and running                     ║');
-    console.error('║  2. Run: docker info                                           ║');
-    console.error('║  3. Restart NanoClaw                                           ║');
-    console.error('╚════════════════════════════════════════════════════════════════╝\n');
-    throw new Error('Container runtime is required but failed to start', { cause: err });
+    console.error(
+      '\n╔════════════════════════════════════════════════════════════════╗',
+    );
+    console.error(
+      '║  FATAL: Container runtime failed to start                      ║',
+    );
+    console.error(
+      '║                                                                ║',
+    );
+    console.error(
+      '║  Agents cannot run without a container runtime. To fix:        ║',
+    );
+    console.error(
+      '║  1. Ensure Docker is installed and running                     ║',
+    );
+    console.error(
+      '║  2. Run: docker info                                           ║',
+    );
+    console.error(
+      '║  3. Restart NanoClaw                                           ║',
+    );
+    console.error(
+      '╚════════════════════════════════════════════════════════════════╝\n',
+    );
+    throw new Error('Container runtime is required but failed to start', {
+      cause: err,
+    });
   }
 }
 

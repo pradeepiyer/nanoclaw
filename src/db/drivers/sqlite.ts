@@ -11,7 +11,12 @@ import {
 type SqliteDatabase = Database.Database;
 
 function isNamedParams(params: unknown[]): params is [Record<string, unknown>] {
-  return params.length === 1 && typeof params[0] === 'object' && params[0] !== null && !Array.isArray(params[0]);
+  return (
+    params.length === 1 &&
+    typeof params[0] === 'object' &&
+    params[0] !== null &&
+    !Array.isArray(params[0])
+  );
 }
 
 export class SqliteDriver implements DbDriver {
@@ -49,24 +54,37 @@ export class SqliteDriver implements DbDriver {
     return fn(this.raw);
   }
 
-  async get<T = unknown>(sql: string, ...params: unknown[]): Promise<T | undefined> {
+  async get<T = unknown>(
+    sql: string,
+    ...params: unknown[]
+  ): Promise<T | undefined> {
     return this.access((db) => {
       const statement = db.prepare(sql);
-      return (isNamedParams(params) ? statement.get(params[0]) : statement.get(...params)) as T | undefined;
+      return (
+        isNamedParams(params)
+          ? statement.get(params[0])
+          : statement.get(...params)
+      ) as T | undefined;
     });
   }
 
   async all<T = unknown>(sql: string, ...params: unknown[]): Promise<T[]> {
     return this.access((db) => {
       const statement = db.prepare(sql);
-      return (isNamedParams(params) ? statement.all(params[0]) : statement.all(...params)) as T[];
+      return (
+        isNamedParams(params)
+          ? statement.all(params[0])
+          : statement.all(...params)
+      ) as T[];
     });
   }
 
   async run(sql: string, ...params: unknown[]): Promise<RunResult> {
     return this.access((db) => {
       const statement = db.prepare(sql);
-      const result = isNamedParams(params) ? statement.run(params[0]) : statement.run(...params);
+      const result = isNamedParams(params)
+        ? statement.run(params[0])
+        : statement.run(...params);
       return { changes: result.changes };
     });
   }
@@ -107,12 +125,19 @@ export class SqliteDriver implements DbDriver {
       resolveGate = resolve;
     });
     this.finishActiveTransaction = resolveGate;
-    const scope = { connection: this.raw, depth: 1, closed: false, savepointSequence: 0 };
+    const scope = {
+      connection: this.raw,
+      depth: 1,
+      closed: false,
+      savepointSequence: 0,
+    };
     let began = false;
     try {
       this.raw.exec('BEGIN IMMEDIATE');
       began = true;
-      const result = await this.scopes.run(scope, () => withTransactionWatchdog(fn, this.transactionWatchdogMs));
+      const result = await this.scopes.run(scope, () =>
+        withTransactionWatchdog(fn, this.transactionWatchdogMs),
+      );
       this.scopes.assertOpen(scope);
       scope.closed = true;
       this.raw.exec('COMMIT');
@@ -163,6 +188,9 @@ export class SqliteDriver implements DbDriver {
 }
 
 export function sqliteRaw(driver: DbDriver): SqliteDatabase {
-  if (!(driver instanceof SqliteDriver)) throw new Error('SQLite-only operation requires the SQLite central DB driver');
+  if (!(driver instanceof SqliteDriver))
+    throw new Error(
+      'SQLite-only operation requires the SQLite central DB driver',
+    );
   return driver.rawDatabase();
 }

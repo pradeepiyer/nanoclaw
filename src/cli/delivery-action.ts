@@ -20,7 +20,9 @@ registerDeliveryAction(
     const args = (content.args as Record<string, unknown>) ?? {};
 
     if (!requestId || !command) {
-      log.warn('cli_request missing requestId or command', { sessionId: session.id });
+      log.warn('cli_request missing requestId or command', {
+        sessionId: session.id,
+      });
       return;
     }
 
@@ -32,7 +34,11 @@ registerDeliveryAction(
       messagingGroupId: session.messaging_group_id ?? '',
     };
 
-    log.info('CLI request from agent', { requestId, command, sessionId: session.id });
+    log.info('CLI request from agent', {
+      requestId,
+      command,
+      sessionId: session.id,
+    });
 
     const response = await dispatch(req, ctx);
 
@@ -52,7 +58,11 @@ registerDeliveryAction(
       trigger: false,
     });
 
-    log.info('CLI response written', { requestId, ok: response.ok, sessionId: session.id });
+    log.info('CLI response written', {
+      requestId,
+      ok: response.ok,
+      sessionId: session.id,
+    });
   },
   unguarded('transport envelope — every inner command is guarded at dispatch'),
 );

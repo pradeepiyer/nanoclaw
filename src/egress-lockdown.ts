@@ -9,7 +9,11 @@
  */
 import { execFileSync } from 'child_process';
 
-import { EGRESS_LOCKDOWN, EGRESS_NETWORK, ONECLI_GATEWAY_CONTAINER } from './config.js';
+import {
+  EGRESS_LOCKDOWN,
+  EGRESS_NETWORK,
+  ONECLI_GATEWAY_CONTAINER,
+} from './config.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { log } from './log.js';
 
@@ -31,7 +35,10 @@ export class EgressLockdownError extends Error {
 
 function dockerOk(args: string[]): boolean {
   try {
-    execFileSync(CONTAINER_RUNTIME_BIN, args, { stdio: 'pipe', timeout: 15000 });
+    execFileSync(CONTAINER_RUNTIME_BIN, args, {
+      stdio: 'pipe',
+      timeout: 15000,
+    });
     return true;
   } catch {
     return false;
@@ -43,7 +50,13 @@ function gatewayAttached(): boolean {
   try {
     const out = execFileSync(
       CONTAINER_RUNTIME_BIN,
-      ['network', 'inspect', EGRESS_NETWORK, '--format', '{{range .Containers}}{{.Name}} {{end}}'],
+      [
+        'network',
+        'inspect',
+        EGRESS_NETWORK,
+        '--format',
+        '{{range .Containers}}{{.Name}} {{end}}',
+      ],
       { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf-8', timeout: 15000 },
     );
     return out.split(/\s+/).includes(ONECLI_GATEWAY_CONTAINER);
@@ -66,13 +79,22 @@ export function ensureEgressNetwork(): boolean {
     !dockerOk(['network', 'inspect', EGRESS_NETWORK]) &&
     !dockerOk(['network', 'create', '--internal', EGRESS_NETWORK])
   ) {
-    throw new EgressLockdownError(`the "${EGRESS_NETWORK}" internal network could not be created`);
+    throw new EgressLockdownError(
+      `the "${EGRESS_NETWORK}" internal network could not be created`,
+    );
   }
 
   if (gatewayAttached()) return true;
 
   if (
-    dockerOk(['network', 'connect', '--alias', 'host.docker.internal', EGRESS_NETWORK, ONECLI_GATEWAY_CONTAINER]) &&
+    dockerOk([
+      'network',
+      'connect',
+      '--alias',
+      'host.docker.internal',
+      EGRESS_NETWORK,
+      ONECLI_GATEWAY_CONTAINER,
+    ]) &&
     gatewayAttached()
   ) {
     log.info('Egress lockdown: OneCLI gateway attached', {

@@ -31,7 +31,10 @@ import {
 const onecli = new OneCLI({ url: ONECLI_URL, apiKey: ONECLI_API_KEY });
 
 /** Argv → typed contribution. Exported for its tests; the grammar is closed. */
-export function contributionFromArgs(args: readonly string[], groupScope: string): GatewayContribution {
+export function contributionFromArgs(
+  args: readonly string[],
+  groupScope: string,
+): GatewayContribution {
   const env: Record<string, string> = {};
   const mounts: MountSpec[] = [];
   for (let i = 0; i < args.length; i += 2) {
@@ -44,7 +47,11 @@ export function contributionFromArgs(args: readonly string[], groupScope: string
     }
     if (flag === '-v' && value) {
       const parts = value.split(':');
-      if (parts.length >= 2 && parts.length <= 3 && (parts[2] === undefined || parts[2] === 'ro')) {
+      if (
+        parts.length >= 2 &&
+        parts.length <= 3 &&
+        (parts[2] === undefined || parts[2] === 'ro')
+      ) {
         mounts.push({
           class: 'allowlisted-extra',
           hostPath: parts[0],
@@ -57,7 +64,9 @@ export function contributionFromArgs(args: readonly string[], groupScope: string
     }
     // Fail-closed on grammar drift: an SDK that starts emitting a flag this
     // parser cannot type must break the spawn loudly, not smuggle argv.
-    throw new Error(`OneCLI gateway emitted argv this seam cannot type: '${flag} ${value ?? ''}'`);
+    throw new Error(
+      `OneCLI gateway emitted argv this seam cannot type: '${flag} ${value ?? ''}'`,
+    );
   }
   return { env, mounts };
 }
@@ -90,11 +99,19 @@ registerGatewayProvider('onecli', () => ({
     // sessions and reversible via getAgentGroup() for approval routing.
     await onecli.ensureAgent({ name: groupName, identifier: key.agentGroupId });
     const args: string[] = [];
-    const applied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: key.agentGroupId });
+    const applied = await onecli.applyContainerConfig(args, {
+      addHostMapping: false,
+      agent: key.agentGroupId,
+    });
     if (!applied) {
-      throw new Error('OneCLI gateway not applied — refusing to spawn container without credentials');
+      throw new Error(
+        'OneCLI gateway not applied — refusing to spawn container without credentials',
+      );
     }
-    log.info('OneCLI gateway applied', { agentGroupId: key.agentGroupId, sessionId: key.sessionId });
+    log.info('OneCLI gateway applied', {
+      agentGroupId: key.agentGroupId,
+      sessionId: key.sessionId,
+    });
     return contributionFromArgs(args, key.agentGroupId);
   },
 }));

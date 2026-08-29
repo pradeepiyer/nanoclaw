@@ -9,14 +9,27 @@ registerResource({
   idColumn: 'user_id',
   listOrder: 'resolved_at DESC, user_id, channel_type',
   columns: [
-    { name: 'user_id', type: 'string', description: 'User this DM route is for.' },
-    { name: 'channel_type', type: 'string', description: 'Channel adapter type.' },
+    {
+      name: 'user_id',
+      type: 'string',
+      description: 'User this DM route is for.',
+    },
+    {
+      name: 'channel_type',
+      type: 'string',
+      description: 'Channel adapter type.',
+    },
     {
       name: 'messaging_group_id',
       type: 'string',
-      description: 'The messaging group used to deliver DMs to this user on this channel.',
+      description:
+        'The messaging group used to deliver DMs to this user on this channel.',
     },
-    { name: 'resolved_at', type: 'string', description: 'When this DM route was last resolved.' },
+    {
+      name: 'resolved_at',
+      type: 'string',
+      description: 'When this DM route was last resolved.',
+    },
   ],
   operations: { list: 'open' },
 });

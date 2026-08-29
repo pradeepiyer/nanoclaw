@@ -24,7 +24,12 @@ import { log } from '../log.js';
 import { SqliteStateAdapter } from '../state-sqlite.js';
 import { registerWebhookAdapter } from '../webhook-server.js';
 import { normalizeOptions, type NormalizedOption } from './ask-question.js';
-import type { ChannelAdapter, ChannelDefaults, ChannelSetup, InboundMessage } from './adapter.js';
+import type {
+  ChannelAdapter,
+  ChannelDefaults,
+  ChannelSetup,
+  InboundMessage,
+} from './adapter.js';
 import { INSTANCE_KEY_RE } from './channel-registry.js';
 import { resolveQuestionRender } from './question-render-registry.js';
 
@@ -56,9 +61,13 @@ export interface AgentDmOpenedEvent {
   channelId: string;
 }
 
-let agentDmOpenedHandler: ((event: AgentDmOpenedEvent) => void | Promise<void>) | null = null;
+let agentDmOpenedHandler:
+  | ((event: AgentDmOpenedEvent) => void | Promise<void>)
+  | null = null;
 
-export function setAgentDmOpenedHandler(fn: (event: AgentDmOpenedEvent) => void | Promise<void>): void {
+export function setAgentDmOpenedHandler(
+  fn: (event: AgentDmOpenedEvent) => void | Promise<void>,
+): void {
   agentDmOpenedHandler = fn;
 }
 
@@ -66,10 +75,16 @@ function dispatchAgentDmOpened(event: AgentDmOpenedEvent): void {
   if (!agentDmOpenedHandler) return;
   try {
     Promise.resolve(agentDmOpenedHandler(event)).catch((err) =>
-      log.warn('Agent-DM opened handler failed', { channelId: event.channelId, err }),
+      log.warn('Agent-DM opened handler failed', {
+        channelId: event.channelId,
+        err,
+      }),
     );
   } catch (err) {
-    log.warn('Agent-DM opened handler threw', { channelId: event.channelId, err });
+    log.warn('Agent-DM opened handler threw', {
+      channelId: event.channelId,
+      err,
+    });
   }
 }
 
@@ -93,12 +108,21 @@ export interface AppContextEntity {
  * "viewing X" is worse than none.
  */
 const APP_CONTEXT_TTL_MS = 5 * 60 * 1000;
-const appContextCache = new Map<string, { entities: AppContextEntity[]; at: number }>();
+const appContextCache = new Map<
+  string,
+  { entities: AppContextEntity[]; at: number }
+>();
 
 /** Channel ids arrive both raw ("D0123") and platform-encoded ("slack:D0123")
  *  depending on the emitting path — key on the final segment so both match. */
-function appContextKey(instance: string, channelId: string, userId: string): string {
-  const channel = channelId.includes(':') ? channelId.slice(channelId.lastIndexOf(':') + 1) : channelId;
+function appContextKey(
+  instance: string,
+  channelId: string,
+  userId: string,
+): string {
+  const channel = channelId.includes(':')
+    ? channelId.slice(channelId.lastIndexOf(':') + 1)
+    : channelId;
   return `${instance}|${channel}|${userId}`;
 }
 
@@ -114,7 +138,9 @@ export function appContextEntities(
   event: AssistantThreadStartedEvent | AssistantContextChangedEvent,
 ): AppContextEntity[] {
   const raw = event as unknown as Record<string, unknown>;
-  const direct = raw.entities ?? (raw.context as Record<string, unknown> | undefined)?.entities;
+  const direct =
+    raw.entities ??
+    (raw.context as Record<string, unknown> | undefined)?.entities;
   if (Array.isArray(direct)) {
     return direct
       .map((e) => {
@@ -127,7 +153,9 @@ export function appContextEntities(
       .filter((e) => e.type !== '' && e.id !== '');
   }
   const channelId = event.context?.channelId;
-  return typeof channelId === 'string' && channelId ? [{ type: 'channel', id: channelId }] : [];
+  return typeof channelId === 'string' && channelId
+    ? [{ type: 'channel', id: channelId }]
+    : [];
 }
 
 export function cacheAppContext(
@@ -195,7 +223,10 @@ export function attachAppContext(
  * wirings are unaffected downstream: the router strips thread ids when the
  * wiring's thread policy is off, restoring today's top-level behavior.
  */
-export function normalizeDmThreadId(threadId: string, messageId: string): string {
+export function normalizeDmThreadId(
+  threadId: string,
+  messageId: string,
+): string {
   if (threadId.endsWith(':') && messageId && !messageId.includes(':')) {
     return threadId + messageId;
   }
@@ -204,7 +235,9 @@ export function normalizeDmThreadId(threadId: string, messageId: string): string
 
 /** Extract reply context from a platform-specific raw message. Return null if no reply. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ReplyContextExtractor = (raw: Record<string, any>) => ReplyContext | null;
+export type ReplyContextExtractor = (
+  raw: Record<string, any>,
+) => ReplyContext | null;
 
 // ---------------------------------------------------------------------------
 // Membership hook
@@ -230,7 +263,9 @@ export interface MembershipEvent {
   left?: boolean;
 }
 
-export type MembershipHandler = (event: MembershipEvent) => void | Promise<void>;
+export type MembershipHandler = (
+  event: MembershipEvent,
+) => void | Promise<void>;
 
 const membershipHandlers = new Map<string, MembershipHandler>();
 
@@ -243,7 +278,10 @@ const membershipHandlers = new Map<string, MembershipHandler>();
  * never thrown into SDK dispatch. With no handler registered the bridge
  * behaves exactly as before.
  */
-export function setMembershipHandler(channelType: string, fn: MembershipHandler): void {
+export function setMembershipHandler(
+  channelType: string,
+  fn: MembershipHandler,
+): void {
   if (membershipHandlers.has(channelType)) {
     log.warn('Membership handler overwritten', { channelType });
   }
@@ -288,7 +326,10 @@ function dispatchMembership(event: MembershipEvent): void {
  * captured in the returned closure is naturally per-instance (= per bot
  * identity when several bridges share one platform).
  */
-export type BridgeInboundPolicy = (setup: ChannelSetup, instanceKey: string) => ChannelSetup | Promise<ChannelSetup>;
+export type BridgeInboundPolicy = (
+  setup: ChannelSetup,
+  instanceKey: string,
+) => ChannelSetup | Promise<ChannelSetup>;
 
 const bridgeInboundPolicies = new Map<string, BridgeInboundPolicy>();
 
@@ -298,7 +339,10 @@ const bridgeInboundPolicies = new Map<string, BridgeInboundPolicy>();
  * with a warning, mirroring the router's hook discipline). Bridges whose
  * channel type has no registered policy are unaffected.
  */
-export function registerBridgeInboundPolicy(channelType: string, wrap: BridgeInboundPolicy): void {
+export function registerBridgeInboundPolicy(
+  channelType: string,
+  wrap: BridgeInboundPolicy,
+): void {
   if (bridgeInboundPolicies.has(channelType)) {
     log.warn('Bridge inbound policy overwritten', { channelType });
   }
@@ -389,7 +433,11 @@ interface TerminalApprovalCard {
  * replaces the actions row, making the card visibly inactive without
  * discarding the request an admin decided on.
  */
-export function buildTerminalApprovalCard({ title, question, resolution }: TerminalApprovalCard) {
+export function buildTerminalApprovalCard({
+  title,
+  question,
+  resolution,
+}: TerminalApprovalCard) {
   const children: CardChild[] = [];
   if (question) children.push(CardText(question));
   children.push(CardText(resolution, { style: 'muted' }));
@@ -399,7 +447,9 @@ export function buildTerminalApprovalCard({ title, question, resolution }: Termi
 function terminalApprovalMessage(spec: TerminalApprovalCard) {
   return {
     card: buildTerminalApprovalCard(spec),
-    fallbackText: [spec.title, spec.question, spec.resolution].filter(Boolean).join('\n\n'),
+    fallbackText: [spec.title, spec.question, spec.resolution]
+      .filter(Boolean)
+      .join('\n\n'),
   };
 }
 
@@ -419,7 +469,9 @@ export function splitForLimit(text: string, limit: number): string[] {
   return chunks;
 }
 
-export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter {
+export function createChatSdkBridge(
+  config: ChatSdkBridgeConfig,
+): ChannelAdapter {
   const { adapter } = config;
   // The instance name becomes a webhook route segment (the route regex is
   // [^/?]+) and ':' is the state-namespace delimiter — reject anything that
@@ -434,7 +486,8 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         `non-empty, only letters, digits, '.', '_' or '-'`,
     );
   }
-  const transformText = (t: string): string => (config.transformOutboundText ? config.transformOutboundText(t) : t);
+  const transformText = (t: string): string =>
+    config.transformOutboundText ? config.transformOutboundText(t) : t;
   /** Registry/routing key for this bridge — also the app-context cache
    *  namespace. Default instances key by the platform name. */
   const instanceKey = config.instance ?? adapter.name;
@@ -480,14 +533,18 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
     // Extract reply context via platform-specific hook
     if (config.extractReplyContext && message.raw) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const replyTo = config.extractReplyContext(message.raw as Record<string, any>);
+      const replyTo = config.extractReplyContext(
+        message.raw as Record<string, any>,
+      );
       if (replyTo) serialized.replyTo = replyTo;
     }
 
     // Project chat-sdk's nested author into the flat sender fields the router
     // expects (see src/router.ts extractAndUpsertUser). Native adapters already
     // populate these directly; this brings chat-sdk adapters in line.
-    const author = serialized.author as { userId?: string; fullName?: string; userName?: string } | undefined;
+    const author = serialized.author as
+      | { userId?: string; fullName?: string; userName?: string }
+      | undefined;
     if (author) {
       const name = author.fullName ?? author.userName;
       serialized.senderId = author.userId;
@@ -522,14 +579,20 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       // through — means one policy covers onSubscribedMessage, onNewMention,
       // onDirectMessage and onNewMessage alike.
       const inboundPolicy = bridgeInboundPolicies.get(adapter.name);
-      setupConfig = inboundPolicy ? await inboundPolicy(hostConfig, instanceKey) : hostConfig;
+      setupConfig = inboundPolicy
+        ? await inboundPolicy(hostConfig, instanceKey)
+        : hostConfig;
 
       // State namespace: ONLY for a named non-default instance. A skill
       // that explicitly names the primary instance after the platform
       // (instance === adapter.name) still lands on the legacy UNPREFIXED
       // keyspace — prefixing the default would orphan every live install's
       // chat_sdk_subscriptions/kv/locks/lists rows.
-      state = new SqliteStateAdapter(config.instance && config.instance !== adapter.name ? config.instance : undefined);
+      state = new SqliteStateAdapter(
+        config.instance && config.instance !== adapter.name
+          ? config.instance
+          : undefined,
+      );
 
       chat = new Chat({
         adapters: { [adapter.name]: adapter },
@@ -561,7 +624,11 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       // @mention in an unsubscribed thread — SDK-confirmed bot mention.
       chat.onNewMention(async (thread, message) => {
         const channelId = adapter.channelIdFromThreadId(thread.id);
-        await setupConfig.onInbound(channelId, thread.id, await messageToInbound(message, true, true));
+        await setupConfig.onInbound(
+          channelId,
+          thread.id,
+          await messageToInbound(message, true, true),
+        );
       });
 
       // DMs — by definition addressed to the bot. Thread id flows through
@@ -575,7 +642,10 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         log.info('Inbound DM received', {
           adapter: adapter.name,
           channelId,
-          sender: (message.author as any)?.fullName ?? (message.author as any)?.userId ?? 'unknown',
+          sender:
+            (message.author as any)?.fullName ??
+            (message.author as any)?.userId ??
+            'unknown',
           threadId: thread.id,
         });
         const inbound = await messageToInbound(message, true, false);
@@ -603,19 +673,33 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       // flood gate.
       chat.onNewMessage(/[\s\S]*/, async (thread, message) => {
         const channelId = adapter.channelIdFromThreadId(thread.id);
-        await setupConfig.onInbound(channelId, thread.id, await messageToInbound(message, false, true));
+        await setupConfig.onInbound(
+          channelId,
+          thread.id,
+          await messageToInbound(message, false, true),
+        );
       });
 
       // Agent-mode assistant context: cache the latest "what the user is
       // viewing" per (channel, user). The installed chat core (4.29.0)
       // dispatches both the legacy assistant_thread_started and the
       // agent_view app_context_changed events into these handlers.
-      const rememberAppContext = (event: AssistantThreadStartedEvent | AssistantContextChangedEvent): void => {
-        cacheAppContext(instanceKey, event.channelId, event.userId, appContextEntities(event));
+      const rememberAppContext = (
+        event: AssistantThreadStartedEvent | AssistantContextChangedEvent,
+      ): void => {
+        cacheAppContext(
+          instanceKey,
+          event.channelId,
+          event.userId,
+          appContextEntities(event),
+        );
       };
       chat.onAssistantThreadStarted((event) => {
         rememberAppContext(event);
-        dispatchAgentDmOpened({ instance: instanceKey, channelId: event.channelId });
+        dispatchAgentDmOpened({
+          instance: instanceKey,
+          channelId: event.channelId,
+        });
       });
       chat.onAssistantContextChanged(rememberAppContext);
 
@@ -654,18 +738,25 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         const selectedOption = resolveSelectedOption(render, event.value, tail);
         const title = render?.title ?? '❓ Question';
         const matched = render?.options.find((o) => o.value === selectedOption);
-        const selectedLabel = matched?.selectedLabel ?? selectedOption ?? '(clicked)';
+        const selectedLabel =
+          matched?.selectedLabel ?? selectedOption ?? '(clicked)';
 
         // Update the card to show the selected answer, who acted, and remove buttons
         const actorName = event.user?.userName || event.user?.fullName || '';
-        const resolution = actorName ? `${selectedLabel} by ${actorName}` : selectedLabel;
+        const resolution = actorName
+          ? `${selectedLabel} by ${actorName}`
+          : selectedLabel;
         try {
           const tid = event.threadId;
           await adapter.editMessage(
             tid,
             event.messageId,
             render?.question
-              ? terminalApprovalMessage({ title, question: render.question, resolution })
+              ? terminalApprovalMessage({
+                  title,
+                  question: render.question,
+                  resolution,
+                })
               : { markdown: `${title}\n\n${resolution}` },
           );
         } catch (err) {
@@ -689,7 +780,11 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         gatewayAbort = new AbortController();
 
         // Start local HTTP server to receive forwarded Gateway events (including interactions)
-        const webhookUrl = await startLocalWebhookServer(gatewayAdapter, setupConfig, config.botToken);
+        const webhookUrl = await startLocalWebhookServer(
+          gatewayAdapter,
+          setupConfig,
+          config.botToken,
+        );
 
         // Exponential backoff capped at 1h. Without this, an unrecoverable
         // failure (e.g., TokenInvalid) restarts ~10×/sec and Discord's
@@ -719,7 +814,10 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
               const ranForMs = Date.now() - startedAt;
               if (ranForMs > 5 * 60 * 1000) consecutiveFailures = 0;
               else consecutiveFailures++;
-              const delayMs = Math.min(60 * 60 * 1000, 2 ** consecutiveFailures * 1000);
+              const delayMs = Math.min(
+                60 * 60 * 1000,
+                2 ** consecutiveFailures * 1000,
+              );
               if (err) {
                 log.error('Gateway listener error, retrying', {
                   adapter: adapter.name,
@@ -741,31 +839,46 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         };
         startGateway();
         log.info('Gateway listener started', { adapter: adapter.name });
-      } else if ('runtimeMode' in adapter && adapter.runtimeMode === 'polling') {
+      } else if (
+        'runtimeMode' in adapter &&
+        adapter.runtimeMode === 'polling'
+      ) {
         // Polling adapters (Telegram) pull updates themselves; a route here
         // would only bind the shared webhook port for nothing. Read after
         // initialize(): the adapter resolves mode 'auto' there.
-        log.info('Polling adapter: no webhook route registered', { adapter: adapter.name });
+        log.info('Polling adapter: no webhook route registered', {
+          adapter: adapter.name,
+        });
       } else {
         // Non-gateway adapters (Slack, Teams, GitHub, etc.) — register on the
         // shared webhook server. The handler key stays adapter.name (the
         // Chat instance's webhooks map is keyed by it); the route segment is
         // the instance, so each same-platform bridge gets its own URL (and
         // its own signing secret — platforms sign per-app).
-        registerWebhookAdapter(chat, adapter.name, config.instance ?? adapter.name);
+        registerWebhookAdapter(
+          chat,
+          adapter.name,
+          config.instance ?? adapter.name,
+        );
       }
 
       log.info('Chat SDK bridge initialized', { adapter: adapter.name });
     },
 
-    async deliver(platformId: string, threadId: string | null, message): Promise<string | undefined> {
+    async deliver(
+      platformId: string,
+      threadId: string | null,
+      message,
+    ): Promise<string | undefined> {
       // platformId is already in the adapter's encoded format (e.g. "telegram:6037840640",
       // "discord:guildId:channelId") — use it directly as the thread ID
       const tid = threadId ?? platformId;
       const content = message.content as Record<string, unknown>;
 
       if (content.operation === 'edit' && content.messageId) {
-        const terminalCard = content.terminalCard as Partial<TerminalApprovalCard> | undefined;
+        const terminalCard = content.terminalCard as
+          | Partial<TerminalApprovalCard>
+          | undefined;
         if (
           terminalCard &&
           typeof terminalCard.title === 'string' &&
@@ -779,27 +892,45 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
           );
         } else {
           await adapter.editMessage(tid, content.messageId as string, {
-            markdown: transformText((content.text as string) || (content.markdown as string) || ''),
+            markdown: transformText(
+              (content.text as string) || (content.markdown as string) || '',
+            ),
           });
         }
         return;
       }
 
-      if (content.operation === 'reaction' && content.messageId && content.emoji) {
-        await adapter.addReaction(tid, content.messageId as string, content.emoji as string);
+      if (
+        content.operation === 'reaction' &&
+        content.messageId &&
+        content.emoji
+      ) {
+        await adapter.addReaction(
+          tid,
+          content.messageId as string,
+          content.emoji as string,
+        );
         return;
       }
 
       // Ask question card — render as Card with buttons
-      if (content.type === 'ask_question' && content.questionId && content.options) {
+      if (
+        content.type === 'ask_question' &&
+        content.questionId &&
+        content.options
+      ) {
         const questionId = content.questionId as string;
         const title = content.title as string;
         const question = content.question as string;
         if (!title) {
-          log.error('ask_question missing required title — skipping delivery', { questionId });
+          log.error('ask_question missing required title — skipping delivery', {
+            questionId,
+          });
           return;
         }
-        const options: NormalizedOption[] = normalizeOptions(content.options as never);
+        const options: NormalizedOption[] = normalizeOptions(
+          content.options as never,
+        );
         const card = Card({
           title,
           children: [
@@ -811,7 +942,12 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
               // well past that. The onAction handlers resolve the index back
               // to the real value via resolveQuestionRender(questionId).
               options.map((opt, idx) =>
-                Button({ id: `ncq:${questionId}:${idx}`, label: opt.label, value: String(idx), style: opt.style }),
+                Button({
+                  id: `ncq:${questionId}:${idx}`,
+                  label: opt.label,
+                  value: String(idx),
+                  style: opt.style,
+                }),
               ),
             ),
           ],
@@ -826,10 +962,18 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       // Display card (send_card MCP tool) — returns immediately, no callback flow.
       // Non-URL actions are dropped: send_card's contract is fire-and-forget, so a
       // callback button would have nowhere to land. URL actions render as link buttons.
-      if (content.type === 'card' && content.card && typeof content.card === 'object') {
+      if (
+        content.type === 'card' &&
+        content.card &&
+        typeof content.card === 'object'
+      ) {
         const cardSpec = content.card as Record<string, unknown>;
         const title = (cardSpec.title as string) || '';
-        const fallbackText = (content.fallbackText as string) || (cardSpec.description as string) || title || '';
+        const fallbackText =
+          (content.fallbackText as string) ||
+          (cardSpec.description as string) ||
+          title ||
+          '';
 
         const cardChildren: CardChild[] = [];
         if (typeof cardSpec.description === 'string' && cardSpec.description) {
@@ -844,17 +988,29 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
               typeof child === 'object' &&
               typeof (child as Record<string, unknown>).text === 'string'
             ) {
-              cardChildren.push(CardText((child as Record<string, string>).text));
+              cardChildren.push(
+                CardText((child as Record<string, string>).text),
+              );
             }
           }
         }
         if (Array.isArray(cardSpec.actions)) {
-          const linkButtons = (cardSpec.actions as Array<Record<string, unknown>>)
-            .filter((a) => typeof a.url === 'string' && a.url && typeof a.label === 'string' && a.label)
+          const linkButtons = (
+            cardSpec.actions as Array<Record<string, unknown>>
+          )
+            .filter(
+              (a) =>
+                typeof a.url === 'string' &&
+                a.url &&
+                typeof a.label === 'string' &&
+                a.label,
+            )
             .map((a) => {
               const style = a.style;
               const safeStyle: 'primary' | 'danger' | 'default' | undefined =
-                style === 'primary' || style === 'danger' || style === 'default' ? style : undefined;
+                style === 'primary' || style === 'danger' || style === 'default'
+                  ? style
+                  : undefined;
               return LinkButton({
                 label: a.label as string,
                 url: a.url as string,
@@ -881,10 +1037,12 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       const text = rawText ? transformText(rawText) : rawText;
       if (text) {
         // Attach files if present (FileUpload format: { data, filename })
-        const fileUploads = message.files?.map((f: { data: Buffer; filename: string }) => ({
-          data: f.data,
-          filename: f.filename,
-        }));
+        const fileUploads = message.files?.map(
+          (f: { data: Buffer; filename: string }) => ({
+            data: f.data,
+            filename: f.filename,
+          }),
+        );
         // Split if over the adapter's max length. Files ride on the first
         // chunk so the head of the reply still carries them.
         const chunks =
@@ -897,18 +1055,25 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
           const attachFiles = i === 0 && fileUploads && fileUploads.length > 0;
           const result = await adapter.postMessage(
             tid,
-            attachFiles ? { markdown: chunk, files: fileUploads } : { markdown: chunk },
+            attachFiles
+              ? { markdown: chunk, files: fileUploads }
+              : { markdown: chunk },
           );
           if (i === 0) firstId = result?.id;
         }
         return firstId;
       } else if (message.files && message.files.length > 0) {
         // Files only, no text
-        const fileUploads = message.files.map((f: { data: Buffer; filename: string }) => ({
-          data: f.data,
-          filename: f.filename,
-        }));
-        const result = await adapter.postMessage(tid, { markdown: '', files: fileUploads });
+        const fileUploads = message.files.map(
+          (f: { data: Buffer; filename: string }) => ({
+            data: f.data,
+            filename: f.filename,
+          }),
+        );
+        const result = await adapter.postMessage(tid, {
+          markdown: '',
+          files: fileUploads,
+        });
         return result?.id;
       }
     },
@@ -1015,10 +1180,13 @@ async function handleForwardedEvent(
     const interaction = event.data;
     // type 3 = MessageComponent (button/select)
     if (interaction.type === 3) {
-      const customId = (interaction.data as Record<string, unknown>)?.custom_id as string;
+      const customId = (interaction.data as Record<string, unknown>)
+        ?.custom_id as string;
       // In guilds the clicker is at interaction.member.user; in DMs it's interaction.user directly.
       const user =
-        ((interaction.member as Record<string, unknown>)?.user as Record<string, string> | undefined) ??
+        ((interaction.member as Record<string, unknown>)?.user as
+          | Record<string, string>
+          | undefined) ??
         (interaction.user as Record<string, string> | undefined);
       const interactionId = interaction.id as string;
       const interactionToken = interaction.token as string;
@@ -1036,35 +1204,50 @@ async function handleForwardedEvent(
 
       // Update the card to show the selected answer and remove buttons
       const originalEmbeds =
-        ((interaction.message as Record<string, unknown>)?.embeds as Array<Record<string, unknown>>) || [];
-      const originalDescription = (originalEmbeds[0]?.description as string) || '';
-      const render = questionId ? await resolveQuestionRender(questionId) : undefined;
+        ((interaction.message as Record<string, unknown>)?.embeds as Array<
+          Record<string, unknown>
+        >) || [];
+      const originalDescription =
+        (originalEmbeds[0]?.description as string) || '';
+      const render = questionId
+        ? await resolveQuestionRender(questionId)
+        : undefined;
       // Discord custom_id mirrors the new index-based encoding (see Button
       // construction). Decode back to the real option value for downstream.
       const selectedOption = resolveSelectedOption(render, tail, tail);
-      const cardTitle = render?.title ?? ((originalEmbeds[0]?.title as string) || '❓ Question');
-      const matchedOpt = render?.options.find((o) => o.value === selectedOption);
-      const selectedLabel = matchedOpt?.selectedLabel ?? selectedOption ?? customId;
+      const cardTitle =
+        render?.title ??
+        ((originalEmbeds[0]?.title as string) || '❓ Question');
+      const matchedOpt = render?.options.find(
+        (o) => o.value === selectedOption,
+      );
+      const selectedLabel =
+        matchedOpt?.selectedLabel ?? selectedOption ?? customId;
       const actorName = user?.global_name || user?.username || '';
-      const resolution = actorName ? `${selectedLabel} by ${actorName}` : selectedLabel;
+      const resolution = actorName
+        ? `${selectedLabel} by ${actorName}`
+        : selectedLabel;
       try {
-        await fetch(`https://discord.com/api/v10/interactions/${interactionId}/${interactionToken}/callback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 7, // UPDATE_MESSAGE — acknowledge + update in one call
-            data: {
-              embeds: [
-                {
-                  title: cardTitle,
-                  description: originalDescription || render?.question || '',
-                  footer: { text: resolution },
-                },
-              ],
-              components: [], // remove buttons
-            },
-          }),
-        });
+        await fetch(
+          `https://discord.com/api/v10/interactions/${interactionId}/${interactionToken}/callback`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 7, // UPDATE_MESSAGE — acknowledge + update in one call
+              data: {
+                embeds: [
+                  {
+                    title: cardTitle,
+                    description: originalDescription || render?.question || '',
+                    footer: { text: resolution },
+                  },
+                ],
+                components: [], // remove buttons
+              },
+            }),
+          },
+        );
       } catch (err) {
         log.error('Failed to update interaction', { err });
       }

@@ -99,7 +99,9 @@ export function registerProviderContainerConfig(
   registry.set(name, { fn, capabilities });
 }
 
-export function getProviderContainerConfig(name: string): ProviderContainerConfigFn | undefined {
+export function getProviderContainerConfig(
+  name: string,
+): ProviderContainerConfigFn | undefined {
   return registry.get(name)?.fn;
 }
 
@@ -108,7 +110,9 @@ export function getProviderContainerConfig(name: string): ProviderContainerConfi
  * baked-in default) report no capabilities — the host applies its default
  * surfaces, exactly as before this seam existed.
  */
-export function providerProvidesAgentSurfaces(name: string | null | undefined): boolean {
+export function providerProvidesAgentSurfaces(
+  name: string | null | undefined,
+): boolean {
   if (!name) return false;
   return registry.get(name)?.capabilities.providesAgentSurfaces === true;
 }

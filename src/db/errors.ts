@@ -9,5 +9,7 @@ export function isUniqueViolation(error: unknown): boolean {
   ) {
     return true;
   }
-  return error instanceof Error && /UNIQUE constraint failed/i.test(error.message);
+  return (
+    error instanceof Error && /UNIQUE constraint failed/i.test(error.message)
+  );
 }

@@ -17,7 +17,11 @@
  */
 import { recordDroppedMessage } from '../../db/dropped-messages.js';
 import { getAgentGroup, getAllAgentGroups } from '../../db/agent-groups.js';
-import { createMessagingGroupAgent, getMessagingGroup, setMessagingGroupDeniedAt } from '../../db/messaging-groups.js';
+import {
+  createMessagingGroupAgent,
+  getMessagingGroup,
+  setMessagingGroupDeniedAt,
+} from '../../db/messaging-groups.js';
 import { resolveWiringDefaults } from '../../channels/channel-defaults.js';
 import {
   routeInbound,
@@ -29,7 +33,10 @@ import {
   type AccessGateResult,
 } from '../../router.js';
 import type { InboundEvent } from '../../channels/adapter.js';
-import { registerResponseHandler, type ResponsePayload } from '../../response-registry.js';
+import {
+  registerResponseHandler,
+  type ResponsePayload,
+} from '../../response-registry.js';
 import { getDeliveryAdapter } from '../../delivery.js';
 import { log } from '../../log.js';
 import type { MessagingGroup, MessagingGroupAgent } from '../../types.js';
@@ -53,7 +60,10 @@ import {
   updatePendingChannelApprovalCard,
   type PendingChannelApproval,
 } from './db/pending-channel-approvals.js';
-import { deletePendingSenderApproval, getPendingSenderApproval } from './db/pending-sender-approvals.js';
+import {
+  deletePendingSenderApproval,
+  getPendingSenderApproval,
+} from './db/pending-sender-approvals.js';
 import { hasAdminPrivilege } from './db/user-roles.js';
 import { getUser, upsertUser } from './db/users.js';
 import { declineAndNotify, requestSenderApproval } from './sender-approval.js';
@@ -70,7 +80,9 @@ interface PendingNameInput {
 }
 const awaitingNameInput = new Map<string, PendingNameInput>();
 
-async function extractAndUpsertUser(event: InboundEvent): Promise<string | null> {
+async function extractAndUpsertUser(
+  event: InboundEvent,
+): Promise<string | null> {
   let content: Record<string, unknown>;
   try {
     content = JSON.parse(event.message.content) as Record<string, unknown>;
@@ -81,22 +93,31 @@ async function extractAndUpsertUser(event: InboundEvent): Promise<string | null>
   // chat-sdk-bridge serializes author info as a nested `author.userId` and
   // does NOT populate top-level `senderId`. Older adapters (v1, native) put
   // `senderId` or `sender` directly at the top level. Check all three.
-  const senderIdField = typeof content.senderId === 'string' ? content.senderId : undefined;
-  const senderField = typeof content.sender === 'string' ? content.sender : undefined;
+  const senderIdField =
+    typeof content.senderId === 'string' ? content.senderId : undefined;
+  const senderField =
+    typeof content.sender === 'string' ? content.sender : undefined;
   const author =
     typeof content.author === 'object' && content.author !== null
       ? (content.author as Record<string, unknown>)
       : undefined;
-  const authorUserId = typeof author?.userId === 'string' ? (author.userId as string) : undefined;
+  const authorUserId =
+    typeof author?.userId === 'string' ? (author.userId as string) : undefined;
   const senderName =
     (typeof content.senderName === 'string' ? content.senderName : undefined) ??
-    (typeof author?.fullName === 'string' ? (author.fullName as string) : undefined) ??
-    (typeof author?.userName === 'string' ? (author.userName as string) : undefined);
+    (typeof author?.fullName === 'string'
+      ? (author.fullName as string)
+      : undefined) ??
+    (typeof author?.userName === 'string'
+      ? (author.userName as string)
+      : undefined);
 
   const rawHandle = senderIdField ?? senderField ?? authorUserId;
   if (!rawHandle) return null;
 
-  const userId = rawHandle.includes(':') ? rawHandle : `${event.channelType}:${rawHandle}`;
+  const userId = rawHandle.includes(':')
+    ? rawHandle
+    : `${event.channelType}:${rawHandle}`;
   if (!(await getUser(userId))) {
     await upsertUser({
       id: userId,
@@ -108,7 +129,11 @@ async function extractAndUpsertUser(event: InboundEvent): Promise<string | null>
   return userId;
 }
 
-function safeParseContent(raw: string): { text?: string; sender?: string; senderId?: string } {
+function safeParseContent(raw: string): {
+  text?: string;
+  sender?: string;
+  senderId?: string;
+} {
   try {
     return JSON.parse(raw);
   } catch {
@@ -178,9 +203,12 @@ async function handleUnknownSender(
     // post the decline publicly into the channel — treat groups as strict:
     // the drop above stands, nothing is sent.
     if (mg.is_group === 1) {
-      log.warn('decline_notify on a group messaging group — treated as strict (no public decline)', {
-        messagingGroupId: mg.id,
-      });
+      log.warn(
+        'decline_notify on a group messaging group — treated as strict (no public decline)',
+        {
+          messagingGroupId: mg.id,
+        },
+      );
       return;
     }
     declineAndNotify({
@@ -211,25 +239,27 @@ async function handleUnknownSender(
 
 setSenderResolver(extractAndUpsertUser);
 
-setAccessGate(async (event, userId, mg, agentGroupId): Promise<AccessGateResult> => {
-  // Public channels skip the access check entirely.
-  if (mg.unknown_sender_policy === 'public') {
-    return { allowed: true };
-  }
+setAccessGate(
+  async (event, userId, mg, agentGroupId): Promise<AccessGateResult> => {
+    // Public channels skip the access check entirely.
+    if (mg.unknown_sender_policy === 'public') {
+      return { allowed: true };
+    }
 
-  if (!userId) {
-    await handleUnknownSender(mg, null, agentGroupId, 'unknown_user', event);
-    return { allowed: false, reason: 'unknown_user' };
-  }
+    if (!userId) {
+      await handleUnknownSender(mg, null, agentGroupId, 'unknown_user', event);
+      return { allowed: false, reason: 'unknown_user' };
+    }
 
-  const decision = await canAccessAgentGroup(userId, agentGroupId);
-  if (decision.allowed) {
-    return { allowed: true };
-  }
+    const decision = await canAccessAgentGroup(userId, agentGroupId);
+    if (decision.allowed) {
+      return { allowed: true };
+    }
 
-  await handleUnknownSender(mg, userId, agentGroupId, decision.reason, event);
-  return { allowed: false, reason: decision.reason };
-});
+    await handleUnknownSender(mg, userId, agentGroupId, decision.reason, event);
+    return { allowed: false, reason: decision.reason };
+  },
+);
 
 /**
  * Per-wiring sender-scope enforcement. Stricter than the messaging-group
@@ -268,7 +298,9 @@ setSenderScopeGate(
  * Deny: delete the row (no "deny list" — a future message re-triggers a
  * fresh card per ACTION-ITEMS item 5 "no denial persistence").
  */
-async function handleSenderApprovalResponse(payload: ResponsePayload): Promise<boolean> {
+async function handleSenderApprovalResponse(
+  payload: ResponsePayload,
+): Promise<boolean> {
   const row = await getPendingSenderApproval(payload.questionId);
   if (!row) return false;
 
@@ -283,7 +315,8 @@ async function handleSenderApprovalResponse(payload: ResponsePayload): Promise<b
     : null;
   const isAuthorized =
     clickerId !== null &&
-    (clickerId === row.approver_user_id || (await hasAdminPrivilege(clickerId, row.agent_group_id)));
+    (clickerId === row.approver_user_id ||
+      (await hasAdminPrivilege(clickerId, row.agent_group_id)));
   if (!isAuthorized) {
     log.warn('Unknown-sender approval click rejected — unauthorized clicker', {
       approvalId: row.id,
@@ -317,7 +350,10 @@ async function handleSenderApprovalResponse(payload: ResponsePayload): Promise<b
       const event = JSON.parse(row.original_message) as InboundEvent;
       await routeInbound(event);
     } catch (err) {
-      log.error('Failed to replay message after sender approval', { approvalId: row.id, err });
+      log.error('Failed to replay message after sender approval', {
+        approvalId: row.id,
+        err,
+      });
     }
     return true;
   }
@@ -372,7 +408,10 @@ async function wireApprovedChannel(
   const isGroup = event.message.isGroup ?? mg?.is_group === 1;
   const agentGroupName = (await getAgentGroup(agentGroupId))?.name ?? '';
 
-  let engage: { engage_mode: MessagingGroupAgent['engage_mode']; engage_pattern: string | null };
+  let engage: {
+    engage_mode: MessagingGroupAgent['engage_mode'];
+    engage_pattern: string | null;
+  };
   try {
     engage = resolveWiringDefaults(
       mg?.instance ?? mg?.channel_type ?? event.channelType,
@@ -452,7 +491,9 @@ async function wireApprovedChannel(
  *                     captures the reply and creates immediately)
  *   reject          — set denied_at, delete pending row
  */
-async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<boolean> {
+async function handleChannelApprovalResponse(
+  payload: ResponsePayload,
+): Promise<boolean> {
   const row = await getPendingChannelApproval(payload.questionId);
   if (!row) return false;
 
@@ -480,7 +521,10 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
 
   // ── Reject / Cancel ──
   if (payload.value === REJECT_VALUE) {
-    await setMessagingGroupDeniedAt(row.messaging_group_id, new Date().toISOString());
+    await setMessagingGroupDeniedAt(
+      row.messaging_group_id,
+      new Date().toISOString(),
+    );
     await deletePendingChannelApproval(row.messaging_group_id);
     log.info('Channel registration denied', {
       messagingGroupId: row.messaging_group_id,
@@ -493,7 +537,10 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
   if (payload.value === CHOOSE_EXISTING_VALUE) {
     const origin = await getMessagingGroup(row.messaging_group_id);
     const approverDm = await ensureUserDm(row.approver_user_id, {
-      instance: payload.channelType === origin?.channel_type ? origin.instance : undefined,
+      instance:
+        payload.channelType === origin?.channel_type
+          ? origin.instance
+          : undefined,
     });
     if (!approverDm) {
       log.error('Channel registration: no DM channel for approver', {
@@ -510,7 +557,12 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
     const options = await buildAgentSelectionOptions(agentGroups, approverId);
     const title = '📋 Choose an agent';
     const question = `Which agent should handle this channel? ${AGENT_ACCESS_SCOPE_WARNING}`;
-    await updatePendingChannelApprovalCard(row.messaging_group_id, title, question, JSON.stringify(options));
+    await updatePendingChannelApprovalCard(
+      row.messaging_group_id,
+      title,
+      question,
+      JSON.stringify(options),
+    );
 
     try {
       await adapter.deliver(
@@ -541,7 +593,10 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
   if (payload.value === NEW_AGENT_VALUE) {
     const origin = await getMessagingGroup(row.messaging_group_id);
     const approverDm = await ensureUserDm(row.approver_user_id, {
-      instance: payload.channelType === origin?.channel_type ? origin.instance : undefined,
+      instance:
+        payload.channelType === origin?.channel_type
+          ? origin.instance
+          : undefined,
     });
     if (!approverDm) {
       log.error('Channel registration: no DM channel for approver', {
@@ -600,11 +655,14 @@ async function handleChannelApprovalResponse(payload: ResponsePayload): Promise<
       return true;
     }
     if (!(await hasAdminPrivilege(approverId, targetAgentGroupId))) {
-      log.warn('Channel registration: target agent group rejected for unauthorized approver', {
-        messagingGroupId: row.messaging_group_id,
-        targetAgentGroupId,
-        approverId,
-      });
+      log.warn(
+        'Channel registration: target agent group rejected for unauthorized approver',
+        {
+          messagingGroupId: row.messaging_group_id,
+          targetAgentGroupId,
+          approverId,
+        },
+      );
       return true;
     }
   } else {
@@ -632,8 +690,13 @@ registerMessageInterceptor(async (event: InboundEvent): Promise<boolean> => {
 
   const pending = awaitingNameInput.get(userId);
   if (!pending) return false;
-  if (event.channelType !== pending.dmChannelType || event.platformId !== pending.dmPlatformId) return false;
-  if ((event.instance ?? event.channelType) !== pending.dmInstance) return false;
+  if (
+    event.channelType !== pending.dmChannelType ||
+    event.platformId !== pending.dmPlatformId
+  )
+    return false;
+  if ((event.instance ?? event.channelType) !== pending.dmInstance)
+    return false;
 
   awaitingNameInput.delete(userId);
 

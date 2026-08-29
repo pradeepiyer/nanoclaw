@@ -17,7 +17,9 @@ afterEach(() => fs.rmSync(base, { recursive: true, force: true }));
 
 describe('resolveLocalTemplate', () => {
   it('resolves a valid multi-segment relative ref under the base', () => {
-    expect(resolveLocalTemplate('sales/sdr', base)).toBe(path.join(base, 'sales', 'sdr'));
+    expect(resolveLocalTemplate('sales/sdr', base)).toBe(
+      path.join(base, 'sales', 'sdr'),
+    );
   });
 
   it('rejects a ref that escapes the base via ../', () => {
@@ -25,7 +27,9 @@ describe('resolveLocalTemplate', () => {
   });
 
   it('rejects a multi-segment escape like sales/../../etc', () => {
-    expect(() => resolveLocalTemplate('sales/../../etc', base)).toThrow(/escapes/);
+    expect(() => resolveLocalTemplate('sales/../../etc', base)).toThrow(
+      /escapes/,
+    );
   });
 
   it('rejects an absolute ref', () => {

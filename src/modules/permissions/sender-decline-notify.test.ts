@@ -16,7 +16,11 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { initTestDb, closeDb, getDb, runMigrations } from '../../db/index.js';
 import { createAgentGroup } from '../../db/agent-groups.js';
-import { createMessagingGroup, createMessagingGroupAgent, updateMessagingGroup } from '../../db/messaging-groups.js';
+import {
+  createMessagingGroup,
+  createMessagingGroupAgent,
+  updateMessagingGroup,
+} from '../../db/messaging-groups.js';
 import { upsertUser } from './db/users.js';
 import { grantRole } from './db/user-roles.js';
 
@@ -74,7 +78,13 @@ beforeEach(async () => {
 
   // Fixtures: agent group, a wired 1:1 DM messaging group with
   // decline_notify (a DM-shaped channel), owner + owner DM.
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: now(),
+  });
 
   await createMessagingGroup({
     id: 'mg-dm-stranger',
@@ -99,7 +109,12 @@ beforeEach(async () => {
   });
 
   // Owner user (with display name — feeds the decline copy) + their DM.
-  await upsertUser({ id: 'telegram:owner', kind: 'telegram', display_name: 'Gavriel', created_at: now() });
+  await upsertUser({
+    id: 'telegram:owner',
+    kind: 'telegram',
+    display_name: 'Gavriel',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'telegram:owner',
     role: 'owner',
@@ -179,8 +194,12 @@ describe('unknown-sender decline_notify flow', () => {
 
     await declineAndNotify(input);
     await waitForDeliveries(2);
-    expect(JSON.parse(deliverMock.mock.calls[0][4] as string).text).toBe(input.declineText);
-    expect(JSON.parse(deliverMock.mock.calls[1][4] as string).text).toBe(input.fyiText);
+    expect(JSON.parse(deliverMock.mock.calls[0][4] as string).text).toBe(
+      input.declineText,
+    );
+    expect(JSON.parse(deliverMock.mock.calls[1][4] as string).text).toBe(
+      input.fyiText,
+    );
 
     await declineAndNotify({
       ...input,
@@ -198,13 +217,16 @@ describe('unknown-sender decline_notify flow', () => {
     await waitForDeliveries(2);
 
     // (a) Polite decline into the stranger's DM, as the bot.
-    const [dChannel, dPlatform, dThread, dKind, dContent] = deliverMock.mock.calls[0];
+    const [dChannel, dPlatform, dThread, dKind, dContent] =
+      deliverMock.mock.calls[0];
     expect(dChannel).toBe('telegram');
     expect(dPlatform).toBe('dm-stranger');
     expect(dThread).toBeNull();
     expect(dKind).toBe('chat-sdk');
     const decline = JSON.parse(dContent as string);
-    expect(decline.text).toBe("I'm Gavriel's personal agent — I can't help you directly.");
+    expect(decline.text).toBe(
+      "I'm Gavriel's personal agent — I can't help you directly.",
+    );
     expect(decline.options).toBeUndefined(); // plain text, no buttons
 
     // (b) One-line FYI to the owner's DM — informational, not a card.
@@ -230,10 +252,14 @@ describe('unknown-sender decline_notify flow', () => {
     expect(drop!.user_id).toBe('tg:stranger');
 
     // No card rows anywhere — only the decline stamp.
-    const rows = await getDb().all<{ id: string }>('SELECT id FROM pending_sender_approvals');
+    const rows = await getDb().all<{ id: string }>(
+      'SELECT id FROM pending_sender_approvals',
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toMatch(/^decline:/);
-    const channelRows = await getDb().get<{ c: number }>('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const channelRows = await getDb().get<{ c: number }>(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(channelRows).toBeDefined();
     expect(channelRows!.c).toBe(0);
   });
@@ -265,7 +291,10 @@ describe('unknown-sender decline_notify flow', () => {
 
     // Age the stamp past the window.
     const old = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
-    await getDb().run(`UPDATE pending_sender_approvals SET created_at = ? WHERE id LIKE 'decline:%'`, old);
+    await getDb().run(
+      `UPDATE pending_sender_approvals SET created_at = ? WHERE id LIKE 'decline:%'`,
+      old,
+    );
 
     await routeInbound(strangerDm('hello again'));
     await waitForDeliveries(4);
@@ -273,22 +302,30 @@ describe('unknown-sender decline_notify flow', () => {
       `SELECT created_at FROM pending_sender_approvals WHERE id LIKE 'decline:%'`,
     );
     expect(stamp).toBeDefined();
-    expect(new Date(stamp!.created_at).getTime()).toBeGreaterThan(Date.now() - 60_000); // refreshed
+    expect(new Date(stamp!.created_at).getTime()).toBeGreaterThan(
+      Date.now() - 60_000,
+    ); // refreshed
   });
 
   it('flip request_approval→decline_notify with a card pending: card row converts to a stamp, dedupe holds', async () => {
     // Start on request_approval — the stranger's first message cards.
-    await updateMessagingGroup('mg-dm-stranger', { unknown_sender_policy: 'request_approval' });
+    await updateMessagingGroup('mg-dm-stranger', {
+      unknown_sender_policy: 'request_approval',
+    });
     const { routeInbound } = await import('../../router.js');
     await routeInbound(strangerDm('hello'));
     await waitForDeliveries(1); // the approval card
 
-    let rows = await getDb().all<{ id: string }>('SELECT id FROM pending_sender_approvals');
+    let rows = await getDb().all<{ id: string }>(
+      'SELECT id FROM pending_sender_approvals',
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toMatch(/^nsa-/);
 
     // Operator flips the policy while the card is still pending.
-    await updateMessagingGroup('mg-dm-stranger', { unknown_sender_policy: 'decline_notify' });
+    await updateMessagingGroup('mg-dm-stranger', {
+      unknown_sender_policy: 'decline_notify',
+    });
     deliverMock.mockClear();
 
     await routeInbound(strangerDm('are you there?'));
@@ -296,7 +333,9 @@ describe('unknown-sender decline_notify flow', () => {
 
     // Decline + FYI went out; the pending card row became the stamp (the
     // UNIQUE(messaging_group_id, sender_identity) collision converts it).
-    rows = await getDb().all<{ id: string }>('SELECT id FROM pending_sender_approvals');
+    rows = await getDb().all<{ id: string }>(
+      'SELECT id FROM pending_sender_approvals',
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toMatch(/^decline:/);
 
@@ -342,7 +381,9 @@ describe('unknown-sender decline_notify flow', () => {
     );
     expect(drop).toBeDefined();
     expect(drop!.user_id).toBe('tg:stranger');
-    const stamps = await getDb().get<{ c: number }>('SELECT COUNT(*) AS c FROM pending_sender_approvals');
+    const stamps = await getDb().get<{ c: number }>(
+      'SELECT COUNT(*) AS c FROM pending_sender_approvals',
+    );
     expect(stamps).toBeDefined();
     expect(stamps!.c).toBe(0);
   });
@@ -352,7 +393,9 @@ describe('unknown-sender decline_notify flow', () => {
     await routeInbound(strangerDm('hello'));
     await waitForDeliveries(2);
 
-    await updateMessagingGroup('mg-dm-stranger', { unknown_sender_policy: 'request_approval' });
+    await updateMessagingGroup('mg-dm-stranger', {
+      unknown_sender_policy: 'request_approval',
+    });
     deliverMock.mockClear();
 
     await routeInbound(strangerDm('let me in'));
@@ -364,7 +407,9 @@ describe('unknown-sender decline_notify flow', () => {
     const payload = JSON.parse(content as string);
     expect(payload.type).toBe('ask_question');
 
-    const rows = await getDb().all<{ id: string }>('SELECT id FROM pending_sender_approvals');
+    const rows = await getDb().all<{ id: string }>(
+      'SELECT id FROM pending_sender_approvals',
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toMatch(/^nsa-/); // real card row; stamp gone
   });

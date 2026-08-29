@@ -16,7 +16,8 @@ vi.mock('./container-runner.js', () => ({
 }));
 
 vi.mock('./config.js', async () => {
-  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
+  const actual =
+    await vi.importActual<typeof import('./config.js')>('./config.js');
   return {
     ...actual,
     DATA_DIR: '/tmp/nanoclaw-test-delivery-authority',
@@ -26,8 +27,17 @@ vi.mock('./config.js', async () => {
 
 const TEST_DIR = '/tmp/nanoclaw-test-delivery-authority';
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup, createMessagingGroup } from './db/index.js';
-import { getDeliveryAttempt, recordDeliveryAttempt } from './db/coordination.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  createMessagingGroup,
+} from './db/index.js';
+import {
+  getDeliveryAttempt,
+  recordDeliveryAttempt,
+} from './db/coordination.js';
 import { inboundDbPath, outboundDbPath } from './mailbox/sqlite/paths.js';
 import { resolveSession } from './session-manager.js';
 import { deliverSessionMessages, setDeliveryAdapter } from './delivery.js';
@@ -55,7 +65,11 @@ async function seedAgentAndChannel(): Promise<void> {
   });
 }
 
-function insertOutbound(agentGroupId: string, sessionId: string, msgId: string): void {
+function insertOutbound(
+  agentGroupId: string,
+  sessionId: string,
+  msgId: string,
+): void {
   const db = new Database(outboundDbPath(agentGroupId, sessionId));
   db.prepare(
     `INSERT INTO messages_out (id, timestamp, kind, platform_id, channel_type, content)
@@ -65,7 +79,11 @@ function insertOutbound(agentGroupId: string, sessionId: string, msgId: string):
 }
 
 /** Attempts recorded by "a previous process life" — rows only, no module state. */
-async function seedPriorAttempts(messageId: string, sessionId: string, count: number): Promise<void> {
+async function seedPriorAttempts(
+  messageId: string,
+  sessionId: string,
+  count: number,
+): Promise<void> {
   for (let i = 0; i < count; i++) {
     await recordDeliveryAttempt({
       messageId,
@@ -77,11 +95,17 @@ async function seedPriorAttempts(messageId: string, sessionId: string, count: nu
   }
 }
 
-function deliveredRow(agentGroupId: string, sessionId: string, msgId: string): { status: string } | undefined {
-  const db = new Database(inboundDbPath(agentGroupId, sessionId), { readonly: true });
-  const row = db.prepare('SELECT status FROM delivered WHERE message_out_id = ?').get(msgId) as
-    | { status: string }
-    | undefined;
+function deliveredRow(
+  agentGroupId: string,
+  sessionId: string,
+  msgId: string,
+): { status: string } | undefined {
+  const db = new Database(inboundDbPath(agentGroupId, sessionId), {
+    readonly: true,
+  });
+  const row = db
+    .prepare('SELECT status FROM delivered WHERE message_out_id = ?')
+    .get(msgId) as { status: string } | undefined;
   db.close();
   return row;
 }
@@ -118,7 +142,9 @@ describe('delivery attempts survive a restart', () => {
     // through every future crash loop.
     await deliverSessionMessages(session);
     expect(callCount).toBe(1);
-    expect(deliveredRow('ag-1', session.id, 'out-poison')?.status).toBe('failed');
+    expect(deliveredRow('ag-1', session.id, 'out-poison')?.status).toBe(
+      'failed',
+    );
     expect(await getDeliveryAttempt('out-poison')).toBeUndefined();
 
     // And it stays failed — the adapter is never consulted again.
@@ -139,7 +165,9 @@ describe('delivery attempts survive a restart', () => {
     });
 
     await deliverSessionMessages(session);
-    expect(deliveredRow('ag-1', session.id, 'out-recovers')?.status).toBe('delivered');
+    expect(deliveredRow('ag-1', session.id, 'out-recovers')?.status).toBe(
+      'delivered',
+    );
     expect(await getDeliveryAttempt('out-recovers')).toBeUndefined();
   });
 });

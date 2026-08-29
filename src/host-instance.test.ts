@@ -2,10 +2,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { getDb, initSqliteTestDb, closeDb, runMigrations } from './db/index.js';
 import type { HostInstanceRow } from './db/coordination.js';
-import { getHostInstanceId, startHostInstanceLease, stopHostInstanceLease } from './host-instance.js';
+import {
+  getHostInstanceId,
+  startHostInstanceLease,
+  stopHostInstanceLease,
+} from './host-instance.js';
 
 async function row(instanceId: string): Promise<HostInstanceRow | undefined> {
-  return getDb().get<HostInstanceRow>('SELECT * FROM host_instances WHERE instance_id = ?', instanceId);
+  return getDb().get<HostInstanceRow>(
+    'SELECT * FROM host_instances WHERE instance_id = ?',
+    instanceId,
+  );
 }
 
 function sleep(ms: number): Promise<void> {
@@ -24,7 +31,10 @@ afterEach(async () => {
 
 describe('host instance lease', () => {
   it('registers on start, renews on the interval, stamps stop on shutdown', async () => {
-    const id = await startHostInstanceLease({ renewIntervalMs: 25, leaseTtlMs: 200 });
+    const id = await startHostInstanceLease({
+      renewIntervalMs: 25,
+      leaseTtlMs: 200,
+    });
     expect(getHostInstanceId()).toBe(id);
 
     const registered = await row(id);

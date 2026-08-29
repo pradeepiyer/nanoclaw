@@ -40,15 +40,26 @@ export function scriptBackoffMinutes(fails: number): number {
  *  appendRunLog helper (one writer format); appendRunLog throws on a bad
  *  series charset or a missing agent group, and the sweep must not crash
  *  over a log line, so failures are logged and swallowed. */
-async function appendHostTaskNote(agentGroupId: string, seriesId: string, note: string): Promise<void> {
+async function appendHostTaskNote(
+  agentGroupId: string,
+  seriesId: string,
+  note: string,
+): Promise<void> {
   try {
     await appendRunLog(agentGroupId, seriesId, note);
   } catch (err) {
-    log.warn('Could not append host task note to run log', { agentGroupId, seriesId, err });
+    log.warn('Could not append host task note to run log', {
+      agentGroupId,
+      seriesId,
+      err,
+    });
   }
 }
 
-export async function handleRecurrence(inDb: InboundMailbox, session: Session): Promise<void> {
+export async function handleRecurrence(
+  inDb: InboundMailbox,
+  session: Session,
+): Promise<void> {
   const recurring = inDb.getCompletedRecurring();
   // Resolved per call, not cached at module load: a group timezone change
   // (approved `groups config update --timezone`) must shift the series from
@@ -91,8 +102,13 @@ export async function handleRecurrence(inDb: InboundMailbox, session: Session): 
         continue;
       }
 
-      const backoffAt = scriptFails > 0 ? Date.now() + scriptBackoffMinutes(scriptFails) * 60_000 : 0;
-      const nextRun = new Date(Math.max(cronNext.getTime(), backoffAt)).toISOString();
+      const backoffAt =
+        scriptFails > 0
+          ? Date.now() + scriptBackoffMinutes(scriptFails) * 60_000
+          : 0;
+      const nextRun = new Date(
+        Math.max(cronNext.getTime(), backoffAt),
+      ).toISOString();
 
       await inDb.armNextTask(msg.id, {
         id: newId,
@@ -107,7 +123,10 @@ export async function handleRecurrence(inDb: InboundMailbox, session: Session): 
         newId,
         seriesId: msg.seriesId,
         nextRun,
-        ...(scriptFails > 0 && { scriptFails, backoffMin: scriptBackoffMinutes(scriptFails) }),
+        ...(scriptFails > 0 && {
+          scriptFails,
+          backoffMin: scriptBackoffMinutes(scriptFails),
+        }),
         sessionId: session.id,
       });
     } catch (err) {

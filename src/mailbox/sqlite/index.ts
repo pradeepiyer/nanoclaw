@@ -3,7 +3,12 @@ import type Database from 'better-sqlite3';
 
 import { log } from '../../log.js';
 import { sessionMailboxDir, sessionMailboxPath } from './paths.js';
-export { inboundDbPath, outboundDbPath, sessionMailboxDir, sessionMailboxPath } from './paths.js';
+export {
+  inboundDbPath,
+  outboundDbPath,
+  sessionMailboxDir,
+  sessionMailboxPath,
+} from './paths.js';
 import {
   countDueMessages,
   deleteOrphanProcessingClaims,
@@ -66,12 +71,19 @@ import type {
 const SQLITE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
 
 function sqliteTimestamp(value: string): string {
-  const source = SQLITE_TIMESTAMP.test(value) ? `${value.replace(' ', 'T')}Z` : value;
+  const source = SQLITE_TIMESTAMP.test(value)
+    ? `${value.replace(' ', 'T')}Z`
+    : value;
   const milliseconds = Date.parse(source);
-  return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : value;
+  return Number.isFinite(milliseconds)
+    ? new Date(milliseconds).toISOString()
+    : value;
 }
 
-function applyProcessingAcks(db: Database.Database, acks: ProcessingAck[]): void {
+function applyProcessingAcks(
+  db: Database.Database,
+  acks: ProcessingAck[],
+): void {
   if (acks.length === 0) return;
   const complete = db.prepare(
     "UPDATE messages_in SET status = 'completed' WHERE id = ? AND status NOT IN ('completed', 'failed')",
@@ -80,7 +92,8 @@ function applyProcessingAcks(db: Database.Database, acks: ProcessingAck[]): void
     "UPDATE messages_in SET status = 'failed' WHERE id = ? AND status NOT IN ('completed', 'failed')",
   );
   db.transaction(() => {
-    for (const ack of acks) (ack.status === 'script-skip:error' ? fail : complete).run(ack.messageId);
+    for (const ack of acks)
+      (ack.status === 'script-skip:error' ? fail : complete).run(ack.messageId);
   })();
 }
 
@@ -101,7 +114,8 @@ function taskRecord(row: TaskSqlRow): TaskRecord {
     id: row.row_id,
     seriesId: row.series_id,
     status: row.status,
-    processAfter: row.process_after === null ? null : sqliteTimestamp(row.process_after),
+    processAfter:
+      row.process_after === null ? null : sqliteTimestamp(row.process_after),
     recurrence: row.recurrence,
     content: row.content,
     timestamp: sqliteTimestamp(row.timestamp),
@@ -110,7 +124,10 @@ function taskRecord(row: TaskSqlRow): TaskRecord {
   });
 }
 
-function listLiveTasks(db: Database.Database, status?: 'pending' | 'paused'): TaskRecord[] {
+function listLiveTasks(
+  db: Database.Database,
+  status?: 'pending' | 'paused',
+): TaskRecord[] {
   const statusSql = status ? 'status = ?' : "status IN ('pending', 'paused')";
   const rows = db
     .prepare(
@@ -164,7 +181,11 @@ function getTaskStats(db: Database.Database, seriesId: string): TaskStats {
        FROM messages_in
       WHERE kind = 'task' AND (id = ? OR series_id = ?)`,
     )
-    .get(seriesId, seriesId) as { runs: number; last_run: string | null; failed_runs: number };
+    .get(seriesId, seriesId) as {
+    runs: number;
+    last_run: string | null;
+    failed_runs: number;
+  };
   return {
     runs: row.runs,
     lastRun: row.last_run === null ? null : sqliteTimestamp(row.last_run),
@@ -172,7 +193,10 @@ function getTaskStats(db: Database.Database, seriesId: string): TaskStats {
   };
 }
 
-export function wrapSqliteInbound(db: Database.Database, nextSequence = () => nextEvenAcross(db)): InboundMailbox {
+export function wrapSqliteInbound(
+  db: Database.Database,
+  nextSequence = () => nextEvenAcross(db),
+): InboundMailbox {
   return {
     setRouting: (routing) => {
       const record = parseSessionRoutingRecord(routing);
@@ -197,25 +221,33 @@ export function wrapSqliteInbound(db: Database.Database, nextSequence = () => ne
           };
         }),
       ),
-    insertMessage: async (message) => insertMessage(db, message, nextSequence()),
+    insertMessage: async (message) =>
+      insertMessage(db, message, nextSequence()),
     countDueMessages: () => countDueMessages(db),
     markMessageFailed: (messageId) => markMessageFailed(db, messageId),
-    retryWithBackoff: (messageId, backoffSec) => retryWithBackoff(db, messageId, backoffSec),
+    retryWithBackoff: (messageId, backoffSec) =>
+      retryWithBackoff(db, messageId, backoffSec),
     getMessageForRetry: (messageId, status) => {
       const row = getMessageForRetry(db, messageId, status);
       return (
         row && {
           ...row,
-          processAfter: row.processAfter === null ? null : sqliteTimestamp(row.processAfter),
+          processAfter:
+            row.processAfter === null
+              ? null
+              : sqliteTimestamp(row.processAfter),
         }
       );
     },
     applyProcessingAcks: (acks) => applyProcessingAcks(db, acks),
     getDeliveredIds: () => getDeliveredIds(db),
-    markDelivered: (messageOutId, platformMessageId) => markDelivered(db, messageOutId, platformMessageId),
+    markDelivered: (messageOutId, platformMessageId) =>
+      markDelivered(db, messageOutId, platformMessageId),
     markDeliveryFailed: (messageOutId) => markDeliveryFailed(db, messageOutId),
-    getInboundSourceSessionId: (messageId) => getInboundSourceSessionId(db, messageId),
-    getMostRecentPeerSourceSessionId: (peerAgentGroupId) => getMostRecentPeerSourceSessionId(db, peerAgentGroupId),
+    getInboundSourceSessionId: (messageId) =>
+      getInboundSourceSessionId(db, messageId),
+    getMostRecentPeerSourceSessionId: (peerAgentGroupId) =>
+      getMostRecentPeerSourceSessionId(db, peerAgentGroupId),
     insertTask: async (task) => insertTaskRow(db, task, nextSequence()),
     armNextTask: async (originalId, task) => {
       const sequence = nextSequence();
@@ -224,7 +256,8 @@ export function wrapSqliteInbound(db: Database.Database, nextSequence = () => ne
         clearRecurrence(db, originalId);
       })();
     },
-    cancelTask: (taskId) => (taskId === undefined ? cancelAllTasks(db) : cancelTask(db, taskId)),
+    cancelTask: (taskId) =>
+      taskId === undefined ? cancelAllTasks(db) : cancelTask(db, taskId),
     pauseTask: (taskId) => pauseTask(db, taskId),
     resumeTask: (taskId) => resumeTask(db, taskId),
     deleteTask: (taskId) => deleteTask(db, taskId),
@@ -244,7 +277,9 @@ export function wrapSqliteInbound(db: Database.Database, nextSequence = () => ne
     countLiveTasks: () =>
       (
         db
-          .prepare("SELECT COUNT(*) AS count FROM messages_in WHERE kind = 'task' AND status IN ('pending', 'paused')")
+          .prepare(
+            "SELECT COUNT(*) AS count FROM messages_in WHERE kind = 'task' AND status IN ('pending', 'paused')",
+          )
           .get() as { count: number }
       ).count,
     prunePendingMessages: (channelType, before, keep) => {
@@ -271,7 +306,9 @@ export function wrapSqliteInbound(db: Database.Database, nextSequence = () => ne
     getInboundHistory: (limit) =>
       (
         db
-          .prepare('SELECT timestamp, kind, content FROM messages_in ORDER BY seq DESC LIMIT ?')
+          .prepare(
+            'SELECT timestamp, kind, content FROM messages_in ORDER BY seq DESC LIMIT ?',
+          )
           .all(limit) as MailboxHistoryMessage[]
       ).map((row) => ({ ...row, timestamp: sqliteTimestamp(row.timestamp) })),
     getConversationRoot: () => {
@@ -302,7 +339,8 @@ export function wrapSqliteInbound(db: Database.Database, nextSequence = () => ne
 
 export function wrapSqliteOutbound(
   source: Database.Database | (() => Database.Database),
-  writable: () => Database.Database = () => (typeof source === 'function' ? source() : source),
+  writable: () => Database.Database = () =>
+    typeof source === 'function' ? source() : source,
   nextSequence = () => nextEvenAcross(undefined, writable()),
 ): OutboundMailbox {
   const readable = () => (typeof source === 'function' ? source() : source);
@@ -313,7 +351,11 @@ export function wrapSqliteOutbound(
           .prepare(
             "SELECT message_id, status, status_changed FROM processing_ack WHERE status IN ('completed', 'failed', 'script-skip:error')",
           )
-          .all() as Array<{ message_id: string; status: ProcessingAck['status']; status_changed: string }>
+          .all() as Array<{
+          message_id: string;
+          status: ProcessingAck['status'];
+          status_changed: string;
+        }>
       ).map((row) =>
         parseProcessingAckRecord({
           messageId: row.message_id,
@@ -328,16 +370,23 @@ export function wrapSqliteOutbound(
           status: 'processing',
           statusChanged: sqliteTimestamp(row.status_changed),
         });
-        return { messageId: record.messageId, statusChanged: record.statusChanged };
+        return {
+          messageId: record.messageId,
+          statusChanged: record.statusChanged,
+        };
       }),
-    deleteOrphanProcessingClaims: () => deleteOrphanProcessingClaims(writable()),
+    deleteOrphanProcessingClaims: () =>
+      deleteOrphanProcessingClaims(writable()),
     getContainerState: () => {
       const row = getContainerState(readable());
       if (!row) return null;
       const record = parseContainerRecord({
         currentTool: row.current_tool,
         toolDeclaredTimeoutMs: row.tool_declared_timeout_ms,
-        toolStartedAt: row.tool_started_at === null ? null : sqliteTimestamp(row.tool_started_at),
+        toolStartedAt:
+          row.tool_started_at === null
+            ? null
+            : sqliteTimestamp(row.tool_started_at),
         updatedAt: sqliteTimestamp(row.updated_at),
       });
       return {
@@ -357,7 +406,10 @@ export function wrapSqliteOutbound(
                 sequence: row.seq,
                 inReplyTo: row.in_reply_to,
                 timestamp: sqliteTimestamp(row.timestamp),
-                deliverAfter: row.deliver_after === null ? null : sqliteTimestamp(row.deliver_after),
+                deliverAfter:
+                  row.deliver_after === null
+                    ? null
+                    : sqliteTimestamp(row.deliver_after),
                 recurrence: row.recurrence,
                 kind: row.kind,
                 platformId: row.platform_id,
@@ -371,10 +423,18 @@ export function wrapSqliteOutbound(
             // back to a best-effort read so the row goes through the normal
             // per-message retry → mark-failed containment instead of throwing
             // out of the entire drain on every poll.
-            log.warn('Malformed outbound row — delivering best-effort', { id: String(row.id), err });
+            log.warn('Malformed outbound row — delivering best-effort', {
+              id: String(row.id),
+              err,
+            });
             const text = (value: unknown): string =>
-              typeof value === 'string' ? value : value == null ? '' : String(value);
-            const nullableText = (value: unknown): string | null => (value == null ? null : String(value));
+              typeof value === 'string'
+                ? value
+                : value == null
+                  ? ''
+                  : String(value);
+            const nullableText = (value: unknown): string | null =>
+              value == null ? null : String(value);
             return {
               id: text(row.id),
               kind: text(row.kind),
@@ -389,7 +449,11 @@ export function wrapSqliteOutbound(
     writeDirect: async (message) => {
       const writer = writable();
       const sequence = nextSequence();
-      const record = createDirectOutboundRecord(message, sequence, new Date().toISOString());
+      const record = createDirectOutboundRecord(
+        message,
+        sequence,
+        new Date().toISOString(),
+      );
       writer
         .prepare(
           `INSERT OR IGNORE INTO messages_out
@@ -402,7 +466,9 @@ export function wrapSqliteOutbound(
     getOutboundHistory: (limit) =>
       (
         readable()
-          .prepare('SELECT timestamp, kind, content FROM messages_out ORDER BY seq DESC LIMIT ?')
+          .prepare(
+            'SELECT timestamp, kind, content FROM messages_out ORDER BY seq DESC LIMIT ?',
+          )
           .all(limit) as MailboxHistoryMessage[]
       ).map((row) => ({ ...row, timestamp: sqliteTimestamp(row.timestamp) })),
     getTopLevelOutbound: (limit) =>
@@ -424,7 +490,10 @@ export class SqliteAgentMailbox implements AgentMailbox {
   private readonly migrated = new Set<string>();
 
   async exists(key: MailboxSessionKey): Promise<boolean> {
-    return fs.existsSync(sessionMailboxPath(key, 'inbound')) && fs.existsSync(sessionMailboxPath(key, 'outbound'));
+    return (
+      fs.existsSync(sessionMailboxPath(key, 'inbound')) &&
+      fs.existsSync(sessionMailboxPath(key, 'outbound'))
+    );
   }
 
   prepare(key: MailboxSessionKey): void {
@@ -440,7 +509,8 @@ export class SqliteAgentMailbox implements AgentMailbox {
     this.migrated.delete(inbound);
     for (const side of ['inbound', 'outbound'] as const) {
       const db = sessionMailboxPath(key, side);
-      for (const suffix of ['', '-journal', '-shm', '-wal']) fs.rmSync(`${db}${suffix}`, { force: true });
+      for (const suffix of ['', '-journal', '-shm', '-wal'])
+        fs.rmSync(`${db}${suffix}`, { force: true });
     }
   }
 
@@ -448,22 +518,36 @@ export class SqliteAgentMailbox implements AgentMailbox {
     return null;
   }
 
-  async runnerEnvironment(_key: MailboxSessionKey): Promise<Record<string, string>> {
+  async runnerEnvironment(
+    _key: MailboxSessionKey,
+  ): Promise<Record<string, string>> {
     return {};
   }
 
-  async session<T>(key: MailboxSessionKey, action: (mailbox: MailboxSession) => T | Promise<T>): Promise<T> {
+  async session<T>(
+    key: MailboxSessionKey,
+    action: (mailbox: MailboxSession) => T | Promise<T>,
+  ): Promise<T> {
     const inboundPath = sessionMailboxPath(key, 'inbound');
-    if (!(await this.exists(key))) throw new Error(`Mailbox is not prepared: ${key.agentGroupId}/${key.sessionId}`);
+    if (!(await this.exists(key)))
+      throw new Error(
+        `Mailbox is not prepared: ${key.agentGroupId}/${key.sessionId}`,
+      );
     const inbound = openInboundDb(inboundPath);
     let outbound: Database.Database | undefined;
     let outboundWriter: Database.Database | undefined;
-    const readableOutbound = () => (outbound ??= openOutboundDb(sessionMailboxPath(key, 'outbound')));
-    const writableOutbound = () => (outboundWriter ??= openOutboundDbRw(sessionMailboxPath(key, 'outbound')));
+    const readableOutbound = () =>
+      (outbound ??= openOutboundDb(sessionMailboxPath(key, 'outbound')));
+    const writableOutbound = () =>
+      (outboundWriter ??= openOutboundDbRw(
+        sessionMailboxPath(key, 'outbound'),
+      ));
     try {
       if (!this.migrated.has(inboundPath)) {
         migrateMessagesInTable(inbound);
-        const deliveredColumns = inbound.prepare("PRAGMA table_info('delivered')").all();
+        const deliveredColumns = inbound
+          .prepare("PRAGMA table_info('delivered')")
+          .all();
         if (deliveredColumns.length > 0) migrateDeliveredTable(inbound);
         this.migrated.add(inboundPath);
       }
@@ -483,9 +567,22 @@ export class SqliteAgentMailbox implements AgentMailbox {
   }
 }
 
-function nextEvenAcross(inbound?: Database.Database, outbound?: Database.Database): number {
-  const maximum = (db: Database.Database, table: 'messages_in' | 'messages_out') =>
-    (db.prepare(`SELECT COALESCE(MAX(seq), 0) AS value FROM ${table}`).get() as { value: number }).value;
-  const max = Math.max(inbound ? maximum(inbound, 'messages_in') : 0, outbound ? maximum(outbound, 'messages_out') : 0);
+function nextEvenAcross(
+  inbound?: Database.Database,
+  outbound?: Database.Database,
+): number {
+  const maximum = (
+    db: Database.Database,
+    table: 'messages_in' | 'messages_out',
+  ) =>
+    (
+      db
+        .prepare(`SELECT COALESCE(MAX(seq), 0) AS value FROM ${table}`)
+        .get() as { value: number }
+    ).value;
+  const max = Math.max(
+    inbound ? maximum(inbound, 'messages_in') : 0,
+    outbound ? maximum(outbound, 'messages_out') : 0,
+  );
   return max < 2 ? 2 : max + 2 - (max % 2);
 }

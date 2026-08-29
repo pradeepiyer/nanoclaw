@@ -14,7 +14,10 @@ import { log } from '../../log.js';
 import { withMailboxSession } from '../../session-manager.js';
 import { getDestinations } from './db/agent-destinations.js';
 
-export async function writeDestinations(agentGroupId: string, sessionId: string): Promise<void> {
+export async function writeDestinations(
+  agentGroupId: string,
+  sessionId: string,
+): Promise<void> {
   const rows = await getDestinations(agentGroupId);
   const resolved: Destination[] = [];
 

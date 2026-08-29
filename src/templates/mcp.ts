@@ -11,8 +11,15 @@
 import fs from 'fs';
 import path from 'path';
 
-import { parseMcpServerConfig, validateMcpServerName, type McpServerConfig } from '../container-config.js';
-import { SECRET_ENV_KEY_RE, SECRET_VALUE_RE } from '../modules/self-mod/request.js';
+import {
+  parseMcpServerConfig,
+  validateMcpServerName,
+  type McpServerConfig,
+} from '../container-config.js';
+import {
+  SECRET_ENV_KEY_RE,
+  SECRET_VALUE_RE,
+} from '../modules/self-mod/request.js';
 import { MCP_SCHEMA_URL } from './manifest.js';
 
 /** The one env/header value the stamp-time secret lint always accepts. */
@@ -24,7 +31,11 @@ const HTTP_FIELDS = new Set(['type', 'url', 'headers']);
 // Hostnames that reach the Docker host from inside a container. Hygiene, not
 // a boundary — the agent's own tools can reach the same endpoints; the real
 // boundary is the container network policy.
-const HOST_GATEWAY_HOSTS = new Set(['host.docker.internal', 'gateway.docker.internal', '172.17.0.1']);
+const HOST_GATEWAY_HOSTS = new Set([
+  'host.docker.internal',
+  'gateway.docker.internal',
+  '172.17.0.1',
+]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -38,14 +49,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * `${PLUGIN_ROOT}` cwds point into the shipped plugin instead — if those
  * directories are missing, that is the plugin's bug.
  */
-export function pluginDataCwdSubpaths(servers: Record<string, McpServerConfig>): string[] {
+export function pluginDataCwdSubpaths(
+  servers: Record<string, McpServerConfig>,
+): string[] {
   const prefix = '${PLUGIN_DATA}/';
   return Object.values(servers).flatMap((s) =>
-    s.type !== 'http' && s.cwd?.startsWith(prefix) ? [s.cwd.slice(prefix.length)] : [],
+    s.type !== 'http' && s.cwd?.startsWith(prefix)
+      ? [s.cwd.slice(prefix.length)]
+      : [],
   );
 }
 
-export function readPluginMcp(pluginDir: string): { servers: Record<string, McpServerConfig>; report: string[] } {
+export function readPluginMcp(pluginDir: string): {
+  servers: Record<string, McpServerConfig>;
+  report: string[];
+} {
   const report: string[] = [];
   const file = path.join(pluginDir, 'mcp.json');
 
@@ -66,16 +84,24 @@ export function readPluginMcp(pluginDir: string): { servers: Record<string, McpS
     return { servers: {}, report };
   }
   if (raw.$schema !== MCP_SCHEMA_URL) {
-    report.push(`mcp.json: $schema must be "${MCP_SCHEMA_URL}"; MCP component skipped`);
+    report.push(
+      `mcp.json: $schema must be "${MCP_SCHEMA_URL}"; MCP component skipped`,
+    );
     return { servers: {}, report };
   }
-  const unknownTop = Object.keys(raw).filter((key) => key !== '$schema' && key !== 'mcpServers');
+  const unknownTop = Object.keys(raw).filter(
+    (key) => key !== '$schema' && key !== 'mcpServers',
+  );
   if (unknownTop.length > 0) {
-    report.push(`mcp.json: allows exactly $schema and mcpServers (found "${unknownTop[0]}"); MCP component skipped`);
+    report.push(
+      `mcp.json: allows exactly $schema and mcpServers (found "${unknownTop[0]}"); MCP component skipped`,
+    );
     return { servers: {}, report };
   }
   if (!isPlainObject(raw.mcpServers)) {
-    report.push('mcp.json: mcpServers must be an object; MCP component skipped');
+    report.push(
+      'mcp.json: mcpServers must be an object; MCP component skipped',
+    );
     return { servers: {}, report };
   }
 
@@ -90,7 +116,9 @@ export function readPluginMcp(pluginDir: string): { servers: Record<string, McpS
       else servers[name] = server;
     } catch (err) {
       // Secret rejection is fatal for the whole plugin — rethrow.
-      throw err instanceof Error ? new Error(`mcp.json server "${name}": ${err.message}`, { cause: err }) : err;
+      throw err instanceof Error
+        ? new Error(`mcp.json server "${name}": ${err.message}`, { cause: err })
+        : err;
     }
   }
   return { servers, report };
@@ -100,7 +128,11 @@ export function readPluginMcp(pluginDir: string): { servers: Record<string, McpS
  * Validate one server entry. Returns the parsed config, or a skip reason.
  * Throws only for smuggled secrets (whole-plugin rejection).
  */
-function readServerEntry(name: string, entry: unknown, report: string[]): McpServerConfig | string {
+function readServerEntry(
+  name: string,
+  entry: unknown,
+  report: string[],
+): McpServerConfig | string {
   // Shared intake gate: names reach provider config writers with structural
   // syntax (codex TOML table headers), so the charset allowlist applies here
   // exactly as in the approval and ncl paths.
@@ -125,14 +157,18 @@ function readServerEntry(name: string, entry: unknown, report: string[]): McpSer
 
   let server: McpServerConfig;
   try {
-    server = parseMcpServerConfig({ ...entry, type: type === 'streamable-http' ? 'http' : type });
+    server = parseMcpServerConfig({
+      ...entry,
+      type: type === 'streamable-http' ? 'http' : type,
+    });
   } catch (err) {
     return err instanceof Error ? err.message : String(err);
   }
 
   if (server.type === 'http') {
     const hostname = new URL(server.url).hostname;
-    if (HOST_GATEWAY_HOSTS.has(hostname)) return `URL host "${hostname}" reaches the container host; not allowed`;
+    if (HOST_GATEWAY_HOSTS.has(hostname))
+      return `URL host "${hostname}" reaches the container host; not allowed`;
     lintSecrets(name, 'header', server.headers ?? {}, report);
     return server;
   }
@@ -140,11 +176,14 @@ function readServerEntry(name: string, entry: unknown, report: string[]): McpSer
   // command is a single token: a bare executable name or a ./-relative path
   // resolved against PLUGIN_ROOT inside the container. No shell strings, no
   // placeholder expansion in the command itself.
-  if (/\s/.test(server.command)) return 'command must be a single token (no shell strings)';
-  if (server.command.includes('${')) return 'command does not support ${PLUGIN_ROOT}/${PLUGIN_DATA} expansion';
+  if (/\s/.test(server.command))
+    return 'command must be a single token (no shell strings)';
+  if (server.command.includes('${'))
+    return 'command does not support ${PLUGIN_ROOT}/${PLUGIN_DATA} expansion';
   if (server.command.startsWith('./')) {
     const segments = server.command.slice(2).split('/');
-    if (segments.some((s) => s === '..' || s === '')) return 'command escapes the plugin root';
+    if (segments.some((s) => s === '..' || s === ''))
+      return 'command escapes the plugin root';
   } else if (server.command.includes('/') || server.command.includes('\\')) {
     return 'command must be a bare executable name or a ./-relative path';
   }
@@ -163,7 +202,12 @@ function readServerEntry(name: string, entry: unknown, report: string[]): McpSer
  * reject the whole plugin; a secret-looking KEY with an unrecognized value
  * only warns, so ordinary config values never block a legitimate setup.
  */
-function lintSecrets(server: string, kind: 'env' | 'header', values: Record<string, string>, report: string[]): void {
+function lintSecrets(
+  server: string,
+  kind: 'env' | 'header',
+  values: Record<string, string>,
+  report: string[],
+): void {
   for (const [key, value] of Object.entries(values)) {
     if (value === PLACEHOLDER_VALUE) continue;
     // SECRET_VALUE_RE is ^-anchored; strip an auth-scheme prefix so

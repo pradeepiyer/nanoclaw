@@ -25,10 +25,14 @@ import './installed.js';
 
 const DEFAULT_GATEWAY_PROVIDER_KIND = 'onecli';
 
-export function configuredGatewayProviderKind(env: NodeJS.ProcessEnv = process.env): GatewayProviderKind {
+export function configuredGatewayProviderKind(
+  env: NodeJS.ProcessEnv = process.env,
+): GatewayProviderKind {
   const configured =
     env.NANOCLAW_GATEWAY_PROVIDER?.trim() ||
-    readEnvFile(['NANOCLAW_GATEWAY_PROVIDER']).NANOCLAW_GATEWAY_PROVIDER?.trim() ||
+    readEnvFile([
+      'NANOCLAW_GATEWAY_PROVIDER',
+    ]).NANOCLAW_GATEWAY_PROVIDER?.trim() ||
     '';
   return configured.toLowerCase() || DEFAULT_GATEWAY_PROVIDER_KIND;
 }
@@ -53,7 +57,9 @@ export function getGatewayProvider(): GatewayProvider {
 }
 
 /** Test seam: drop the memoized provider so a suite can inject another one. */
-export function resetGatewayProvider(next: GatewayProvider | null = null): void {
+export function resetGatewayProvider(
+  next: GatewayProvider | null = null,
+): void {
   installed = next;
 }
 

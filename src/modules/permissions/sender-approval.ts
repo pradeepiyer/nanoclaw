@@ -31,7 +31,10 @@
  * deduped per (sender, messaging group) per 24h via a persisted decline
  * stamp reusing this table's UNIQUE key. See declineAndNotify at the bottom.
  */
-import { normalizeOptions, type RawOption } from '../../channels/ask-question.js';
+import {
+  normalizeOptions,
+  type RawOption,
+} from '../../channels/ask-question.js';
 import { getAllAgentGroups } from '../../db/agent-groups.js';
 import { getMessagingGroup } from '../../db/messaging-groups.js';
 import { getDeliveryAdapter } from '../../delivery.js';
@@ -50,8 +53,18 @@ import { getUser } from './db/users.js';
 import { AGENT_ACCESS_SCOPE_WARNING } from './channel-approval.js';
 
 const APPROVAL_OPTIONS: RawOption[] = [
-  { label: 'Allow', selectedLabel: '✅ Allowed', value: 'approve', style: 'primary' },
-  { label: 'Deny', selectedLabel: '❌ Denied', value: 'reject', style: 'danger' },
+  {
+    label: 'Allow',
+    selectedLabel: '✅ Allowed',
+    value: 'approve',
+    style: 'primary',
+  },
+  {
+    label: 'Deny',
+    selectedLabel: '❌ Denied',
+    value: 'reject',
+    style: 'danger',
+  },
 ];
 
 function generateId(): string {
@@ -66,8 +79,11 @@ export interface RequestSenderApprovalInput {
   event: InboundEvent;
 }
 
-export async function requestSenderApproval(input: RequestSenderApprovalInput): Promise<void> {
-  const { messagingGroupId, agentGroupId, senderIdentity, senderName, event } = input;
+export async function requestSenderApproval(
+  input: RequestSenderApprovalInput,
+): Promise<void> {
+  const { messagingGroupId, agentGroupId, senderIdentity, senderName, event } =
+    input;
 
   // A stale decline stamp (mg was decline_notify before flipping back to
   // request_approval) occupies the UNIQUE(messaging_group_id, sender_identity)
@@ -97,18 +113,26 @@ export async function requestSenderApproval(input: RequestSenderApprovalInput): 
 
   const originMg = await getMessagingGroup(messagingGroupId);
   const originChannelType = originMg?.channel_type ?? '';
-  const target = await pickApprovalDelivery(approvers, originChannelType, originMg?.instance);
+  const target = await pickApprovalDelivery(
+    approvers,
+    originChannelType,
+    originMg?.instance,
+  );
   if (!target) {
-    log.warn('Unknown-sender approval skipped — no DM channel for any approver', {
-      messagingGroupId,
-      agentGroupId,
-      senderIdentity,
-    });
+    log.warn(
+      'Unknown-sender approval skipped — no DM channel for any approver',
+      {
+        messagingGroupId,
+        agentGroupId,
+        senderIdentity,
+      },
+    );
     return;
   }
 
   const approvalId = generateId();
-  const senderDisplay = senderName && senderName.length > 0 ? senderName : senderIdentity;
+  const senderDisplay =
+    senderName && senderName.length > 0 ? senderName : senderIdentity;
   const originName = originMg?.name ?? `a ${originChannelType} channel`;
 
   const title = '👤 New sender';
@@ -134,9 +158,12 @@ export async function requestSenderApproval(input: RequestSenderApprovalInput): 
     // Without a delivery adapter, the card can't be sent. Log + leave the
     // row in place so the admin can see it via DB or manual tooling; the
     // dedup gate will suppress further cards until it's cleared.
-    log.error('Unknown-sender approval row created but no delivery adapter is wired', {
-      approvalId,
-    });
+    log.error(
+      'Unknown-sender approval row created but no delivery adapter is wired',
+      {
+        approvalId,
+      },
+    );
     return;
   }
 
@@ -219,20 +246,31 @@ export interface DeclineAndNotifyInput {
  * dropped message; dedupe is self-contained here — a persisted decline
  * stamp (pending_sender_approvals shape) suppresses repeats for 24h.
  */
-export async function declineAndNotify(input: DeclineAndNotifyInput): Promise<void> {
-  const { messagingGroupId, agentGroupId, senderIdentity, senderName, event } = input;
+export async function declineAndNotify(
+  input: DeclineAndNotifyInput,
+): Promise<void> {
+  const { messagingGroupId, agentGroupId, senderIdentity, senderName, event } =
+    input;
 
   // Dedupe: at most one decline + FYI per (sender, messaging group) per 24h.
   const senderKey = input.dedupeKey ?? senderIdentity ?? UNKNOWN_SENDER_KEY;
   const stampedAt = await getDeclineStampAt(messagingGroupId, senderKey);
-  if (stampedAt && Date.now() - new Date(stampedAt).getTime() < DECLINE_NOTIFY_DEDUPE_MS) {
-    log.debug('decline_notify deduped — declined within the last 24h', { messagingGroupId, senderIdentity });
+  if (
+    stampedAt &&
+    Date.now() - new Date(stampedAt).getTime() < DECLINE_NOTIFY_DEDUPE_MS
+  ) {
+    log.debug('decline_notify deduped — declined within the last 24h', {
+      messagingGroupId,
+      senderIdentity,
+    });
     return;
   }
 
   const adapter = getDeliveryAdapter();
   if (!adapter) {
-    log.error('decline_notify skipped — no delivery adapter is wired', { messagingGroupId });
+    log.error('decline_notify skipped — no delivery adapter is wired', {
+      messagingGroupId,
+    });
     return;
   }
 
@@ -251,7 +289,9 @@ export async function declineAndNotify(input: DeclineAndNotifyInput): Promise<vo
       original_message: JSON.stringify(event),
     });
   } else {
-    log.debug('decline_notify stamp skipped — no agent groups exist', { messagingGroupId });
+    log.debug('decline_notify stamp skipped — no agent groups exist', {
+      messagingGroupId,
+    });
   }
 
   const originMg = await getMessagingGroup(messagingGroupId);
@@ -260,7 +300,9 @@ export async function declineAndNotify(input: DeclineAndNotifyInput): Promise<vo
   // a per-agent bot identity registered as its own adapter instance
   // answers as itself.
   const owner = await ownerDisplayName();
-  const declineText = input.declineText ?? `I'm ${owner ?? 'my owner'}'s personal agent — I can't help you directly.`;
+  const declineText =
+    input.declineText ??
+    `I'm ${owner ?? 'my owner'}'s personal agent — I can't help you directly.`;
   try {
     await adapter.deliver(
       event.channelType,
@@ -272,25 +314,43 @@ export async function declineAndNotify(input: DeclineAndNotifyInput): Promise<vo
       originMg?.instance ?? event.instance,
     );
   } catch (err) {
-    log.warn('decline_notify: decline delivery failed', { messagingGroupId, err });
+    log.warn('decline_notify: decline delivery failed', {
+      messagingGroupId,
+      err,
+    });
   }
 
   // (b) Owner FYI — informational one-liner through the same approver-DM
   // resolution the card flows use.
   const approvers = await pickApprover(agentGroupId);
   if (approvers.length === 0) {
-    log.warn('decline_notify FYI skipped — no owner or admin configured', { messagingGroupId, senderIdentity });
+    log.warn('decline_notify FYI skipped — no owner or admin configured', {
+      messagingGroupId,
+      senderIdentity,
+    });
     return;
   }
-  const target = await pickApprovalDelivery(approvers, event.channelType, originMg?.instance ?? event.instance);
+  const target = await pickApprovalDelivery(
+    approvers,
+    event.channelType,
+    originMg?.instance ?? event.instance,
+  );
   if (!target) {
-    log.warn('decline_notify FYI skipped — no DM channel for any approver', { messagingGroupId, senderIdentity });
+    log.warn('decline_notify FYI skipped — no DM channel for any approver', {
+      messagingGroupId,
+      senderIdentity,
+    });
     return;
   }
 
-  const senderDisplay = senderName && senderName.length > 0 ? senderName : (senderIdentity ?? 'An unknown sender');
+  const senderDisplay =
+    senderName && senderName.length > 0
+      ? senderName
+      : (senderIdentity ?? 'An unknown sender');
   const who =
-    senderIdentity && senderDisplay !== senderIdentity ? `${senderDisplay} (${senderIdentity})` : senderDisplay;
+    senderIdentity && senderDisplay !== senderIdentity
+      ? `${senderDisplay} (${senderIdentity})`
+      : senderDisplay;
   const fyiText =
     input.fyiText ??
     `FYI: ${who} DMed your agent on ${event.channelType} — I sent a polite decline. Allow them any time with \`ncl members add\`.`;
@@ -310,6 +370,9 @@ export async function declineAndNotify(input: DeclineAndNotifyInput): Promise<vo
       notified: target.userId,
     });
   } catch (err) {
-    log.error('decline_notify: owner FYI delivery failed', { messagingGroupId, err });
+    log.error('decline_notify: owner FYI delivery failed', {
+      messagingGroupId,
+      err,
+    });
   }
 }

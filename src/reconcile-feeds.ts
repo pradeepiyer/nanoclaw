@@ -14,7 +14,9 @@ import { log } from './log.js';
 let enqueue: ((sessionId: string) => void) | null = null;
 
 /** The sweep's hook. Last registration wins; null clears. */
-export function registerReconcileEnqueue(fn: ((sessionId: string) => void) | null): void {
+export function registerReconcileEnqueue(
+  fn: ((sessionId: string) => void) | null,
+): void {
   enqueue = fn;
 }
 

@@ -11,17 +11,44 @@ const res: ResourceDef = {
   idColumn: 'id',
   columns: [
     { name: 'id', type: 'string', description: 'UUID.', generated: true },
-    { name: 'name', type: 'string', description: 'Display name.', required: true, updatable: true },
-    { name: 'size', type: 'string', description: 'Widget size.', enum: ['s', 'm', 'l'], default: 'm' },
+    {
+      name: 'name',
+      type: 'string',
+      description: 'Display name.',
+      required: true,
+      updatable: true,
+    },
+    {
+      name: 'size',
+      type: 'string',
+      description: 'Widget size.',
+      enum: ['s', 'm', 'l'],
+      default: 'm',
+    },
   ],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+  },
   customOperations: {
     ping: {
       access: 'open',
       description: 'Ping a widget.\nLonger prose that only deep help shows.',
       args: [
-        { name: 'target', type: 'string', description: 'Where to ping.', required: true },
-        { name: 'count', type: 'number', description: 'How many times.', default: 1 },
+        {
+          name: 'target',
+          type: 'string',
+          description: 'Where to ping.',
+          required: true,
+        },
+        {
+          name: 'count',
+          type: 'number',
+          description: 'How many times.',
+          default: 1,
+        },
       ],
       examples: ['ncl widgets ping --target prod --count 3'],
       handler: async () => ({}),
@@ -51,9 +78,13 @@ describe('renderVerbHelp — custom operation', () => {
   it('tags non-open access on the usage line', () => {
     const gated: ResourceDef = {
       ...res,
-      customOperations: { ping: { ...res.customOperations!.ping, access: 'approval' } },
+      customOperations: {
+        ping: { ...res.customOperations!.ping, access: 'approval' },
+      },
     };
-    expect(renderVerbHelp(gated, 'ping')).toContain('ncl widgets ping [approval]');
+    expect(renderVerbHelp(gated, 'ping')).toContain(
+      'ncl widgets ping [approval]',
+    );
   });
 });
 

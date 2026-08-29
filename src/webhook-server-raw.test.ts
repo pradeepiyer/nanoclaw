@@ -12,14 +12,21 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import type { Chat } from 'chat';
 
-import { registerWebhookAdapter, registerWebhookHandler, stopWebhookServer } from './webhook-server.js';
+import {
+  registerWebhookAdapter,
+  registerWebhookHandler,
+  stopWebhookServer,
+} from './webhook-server.js';
 
 const PORT = 21000 + Math.floor(Math.random() * 20000);
 
 async function post(path: string, body = '{}'): Promise<globalThis.Response> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await fetch(`http://127.0.0.1:${PORT}/webhook/${path}`, { method: 'POST', body });
+      return await fetch(`http://127.0.0.1:${PORT}/webhook/${path}`, {
+        method: 'POST',
+        body,
+      });
     } catch (err) {
       if (attempt >= 40) throw err;
       await new Promise((r) => setTimeout(r, 50));

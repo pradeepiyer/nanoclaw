@@ -60,8 +60,18 @@ const PLATFORM_ID = 'local';
  * scripts/init-cli-agent.ts has always created.
  */
 const CLI_DEFAULTS: ChannelDefaults = {
-  dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
-  group: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
+  dm: {
+    engageMode: 'pattern',
+    engagePattern: '.',
+    threads: false,
+    unknownSenderPolicy: 'public',
+  },
+  group: {
+    engageMode: 'pattern',
+    engagePattern: '.',
+    threads: false,
+    unknownSenderPolicy: 'public',
+  },
   mentions: 'never',
 };
 
@@ -89,7 +99,10 @@ function createAdapter(): ChannelAdapter {
       } catch (err) {
         const e = err as NodeJS.ErrnoException;
         if (e.code !== 'ENOENT') {
-          log.warn('Failed to unlink stale CLI socket (will try to bind anyway)', { sock, err });
+          log.warn(
+            'Failed to unlink stale CLI socket (will try to bind anyway)',
+            { sock, err },
+          );
         }
       }
 
@@ -138,7 +151,11 @@ function createAdapter(): ChannelAdapter {
       return server !== null;
     },
 
-    async deliver(platformId, _threadId, message: OutboundMessage): Promise<string | undefined> {
+    async deliver(
+      platformId,
+      _threadId,
+      message: OutboundMessage,
+    ): Promise<string | undefined> {
       if (platformId !== PLATFORM_ID) return undefined;
       if (!client) {
         // No live terminal — outbound row is already persisted, so this
@@ -168,7 +185,9 @@ function createAdapter(): ChannelAdapter {
       claimedChatSlot = true;
       if (client && client !== socket) {
         try {
-          client.write(JSON.stringify({ text: '[superseded by a newer client]' }) + '\n');
+          client.write(
+            JSON.stringify({ text: '[superseded by a newer client]' }) + '\n',
+          );
           client.end();
         } catch {
           // swallow
@@ -200,7 +219,11 @@ function createAdapter(): ChannelAdapter {
     });
   }
 
-  async function handleLine(line: string, config: ChannelSetup, claimChatSlot: () => void): Promise<void> {
+  async function handleLine(
+    line: string,
+    config: ChannelSetup,
+    claimChatSlot: () => void,
+  ): Promise<void> {
     let payload: {
       text?: unknown;
       to?: unknown;
@@ -235,7 +258,10 @@ function createAdapter(): ChannelAdapter {
           content: JSON.stringify({
             text: payload.text,
             sender: typeof payload.sender === 'string' ? payload.sender : 'cli',
-            senderId: typeof payload.senderId === 'string' ? payload.senderId : `cli:${PLATFORM_ID}`,
+            senderId:
+              typeof payload.senderId === 'string'
+                ? payload.senderId
+                : `cli:${PLATFORM_ID}`,
           }),
         },
         replyTo: replyTo ?? undefined,
@@ -267,10 +293,16 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
-  function parseAddress(raw: unknown): (DeliveryAddress & { instance?: string }) | null {
+  function parseAddress(
+    raw: unknown,
+  ): (DeliveryAddress & { instance?: string }) | null {
     if (!raw || typeof raw !== 'object') return null;
     const obj = raw as Record<string, unknown>;
-    if (typeof obj.channelType !== 'string' || typeof obj.platformId !== 'string') return null;
+    if (
+      typeof obj.channelType !== 'string' ||
+      typeof obj.platformId !== 'string'
+    )
+      return null;
     const threadId =
       obj.threadId === null || obj.threadId === undefined
         ? null
@@ -284,7 +316,10 @@ function createAdapter(): ChannelAdapter {
       if (INSTANCE_KEY_RE.test(obj.instance)) {
         instance = obj.instance;
       } else {
-        log.warn('CLI: ignoring non-URL-safe to.instance, routing to the default instance', { instance: obj.instance });
+        log.warn(
+          'CLI: ignoring non-URL-safe to.instance, routing to the default instance',
+          { instance: obj.instance },
+        );
       }
     }
     return {
@@ -299,12 +334,22 @@ function createAdapter(): ChannelAdapter {
 }
 
 function extractText(message: OutboundMessage): string | null {
-  const content = message.content as Record<string, unknown> | string | undefined;
+  const content = message.content as
+    | Record<string, unknown>
+    | string
+    | undefined;
   if (typeof content === 'string') return content;
-  if (content && typeof content === 'object' && typeof content.text === 'string') {
+  if (
+    content &&
+    typeof content === 'object' &&
+    typeof content.text === 'string'
+  ) {
     return content.text;
   }
   return null;
 }
 
-registerChannelAdapter('cli', { factory: createAdapter, defaults: CLI_DEFAULTS });
+registerChannelAdapter('cli', {
+  factory: createAdapter,
+  defaults: CLI_DEFAULTS,
+});

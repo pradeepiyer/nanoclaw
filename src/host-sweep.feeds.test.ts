@@ -15,7 +15,9 @@ vi.mock('./reconcile-session.js', () => ({
 }));
 vi.mock('./db/sessions.js', () => ({ getActiveSessions: vi.fn() }));
 vi.mock('./egress-lockdown.js', () => ({ ensureEgressNetwork: vi.fn() }));
-vi.mock('./modules/approvals/index.js', () => ({ sweepAwaitingReasonRejects: vi.fn() }));
+vi.mock('./modules/approvals/index.js', () => ({
+  sweepAwaitingReasonRejects: vi.fn(),
+}));
 vi.mock('./drivers/index.js', () => ({ peekSessionDriver: vi.fn(() => null) }));
 
 import { getActiveSessions } from './db/sessions.js';
@@ -43,7 +45,10 @@ function fakeWatchingDriver(): ReturnType<typeof peekSessionDriver> {
 }
 
 function terminalEvent(sessionId: string): SessionEvent {
-  return { kind: 'terminal', key: { installSlug: 'inst', agentGroupId: 'g-1', sessionId } };
+  return {
+    kind: 'terminal',
+    key: { installSlug: 'inst', agentGroupId: 'g-1', sessionId },
+  };
 }
 
 async function startAndDrainFirstTick(): Promise<void> {
@@ -61,7 +66,10 @@ beforeEach(() => {
   vi.mocked(getActiveSessions).mockReset().mockResolvedValue([]);
 
   sweepCallbacks.length = 0;
-  setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((fn: () => void, ms?: number) => {
+  setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((
+    fn: () => void,
+    ms?: number,
+  ) => {
     if (ms === SWEEP_INTERVAL_MS) {
       sweepCallbacks.push(fn);
       return 0 as unknown as NodeJS.Timeout;
@@ -92,8 +100,14 @@ describe('runtime terminal-event feed', () => {
     vi.mocked(peekSessionDriver).mockReturnValue(fakeWatchingDriver());
     await startAndDrainFirstTick();
 
-    watchHandler!({ kind: 'phase', key: { installSlug: 'inst', agentGroupId: 'g-1', sessionId: 's-9' } });
-    watchHandler!({ kind: 'terminal', key: { installSlug: 'inst', agentGroupId: 'g-1', sessionId: '' } });
+    watchHandler!({
+      kind: 'phase',
+      key: { installSlug: 'inst', agentGroupId: 'g-1', sessionId: 's-9' },
+    });
+    watchHandler!({
+      kind: 'terminal',
+      key: { installSlug: 'inst', agentGroupId: 'g-1', sessionId: '' },
+    });
     await new Promise((resolve) => realSetTimeout(resolve, 20));
     expect(reconcileSession).not.toHaveBeenCalled();
   });
@@ -133,7 +147,9 @@ describe('runtime terminal-event feed', () => {
     release();
     // The adds that landed mid-run collapse into a single dirty rerun.
     await new Promise((resolve) => realSetTimeout(resolve, 30));
-    expect(vi.mocked(reconcileSession).mock.calls.length).toBeLessThanOrEqual(2);
+    expect(vi.mocked(reconcileSession).mock.calls.length).toBeLessThanOrEqual(
+      2,
+    );
   });
 });
 

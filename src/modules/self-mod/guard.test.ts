@@ -14,7 +14,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 import { DockerSessionDriver } from '../../drivers/docker-driver.js';
@@ -46,13 +52,19 @@ afterEach(() => resetSessionDriver(null));
 describe('install_packages gates on the imageBuild capability', () => {
   it('holds for admin approval on a driver that declares imageBuild (docker)', async () => {
     withDocker();
-    const decision = await guard(selfModInstallPackages, { actor: agent, payload: { apt: ['jq'] } });
+    const decision = await guard(selfModInstallPackages, {
+      actor: agent,
+      payload: { apt: ['jq'] },
+    });
     expect(decision.effect).toBe('hold');
   });
 
   it('DENIES at request time on a driver without imageBuild, naming the capability', async () => {
     withoutImageBuild();
-    const decision = await guard(selfModInstallPackages, { actor: agent, payload: { apt: ['jq'] } });
+    const decision = await guard(selfModInstallPackages, {
+      actor: agent,
+      payload: { apt: ['jq'] },
+    });
     expect(decision.effect).toBe('deny');
     // The refusal must name the capability so the agent can explain the
     // refusal instead of retrying a permanent condition.
@@ -65,14 +77,25 @@ describe('install_packages gates on the imageBuild capability', () => {
     // capable driver, replayed after the driver switch. The deny
     // short-circuits before any grant validation, so no DB is consulted and
     // nothing runs.
-    const grant = { approval_id: 'appr-1', action: 'install_packages', payload: '{}' } as unknown as PendingApproval;
-    const decision = await guard(selfModInstallPackages, { actor: agent, payload: { apt: ['jq'] }, grant });
+    const grant = {
+      approval_id: 'appr-1',
+      action: 'install_packages',
+      payload: '{}',
+    } as unknown as PendingApproval;
+    const decision = await guard(selfModInstallPackages, {
+      actor: agent,
+      payload: { apt: ['jq'] },
+      grant,
+    });
     expect(decision.effect).toBe('deny');
   });
 
   it('still refuses non-agent callers on a capable driver', async () => {
     withDocker();
-    const decision = await guard(selfModInstallPackages, { actor: { kind: 'host' }, payload: {} });
+    const decision = await guard(selfModInstallPackages, {
+      actor: { kind: 'host' },
+      payload: {},
+    });
     expect(decision.effect).toBe('deny');
   });
 });
@@ -83,7 +106,10 @@ describe('add_mcp_server needs no rebuild and must not inherit the gate', () => 
     // Wiring an MCP server is a DB write + container kill; the next wake
     // realizes it with no image change. Gating it on imageBuild would
     // silently strip a real capability from every group on such a driver.
-    const decision = await guard(selfModAddMcpServer, { actor: agent, payload: { name: 'srv' } });
+    const decision = await guard(selfModAddMcpServer, {
+      actor: agent,
+      payload: { name: 'srv' },
+    });
     expect(decision.effect).toBe('hold');
   });
 });

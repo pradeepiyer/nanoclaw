@@ -12,7 +12,13 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 import {
@@ -26,7 +32,10 @@ import {
 // Imported from the registry module, not the barrel that re-exports it: this is
 // the entry point an overlay reaches for, and it has to work without the
 // selection module having been evaluated first.
-import { listSessionDriverKinds, registerSessionDriver } from './driver-registry.js';
+import {
+  listSessionDriverKinds,
+  registerSessionDriver,
+} from './driver-registry.js';
 import { log } from '../log.js';
 import type { MountPolicy, SessionDriver } from './types.js';
 
@@ -42,7 +51,10 @@ function writeEnv(contents: string): void {
  * Registration is permanent by design (a duplicate is a wiring bug, so there is
  * no unregister to reach for). Each case therefore claims a kind of its own.
  */
-function registerFake(seen: MountPolicy[] = []): { kind: string; seen: MountPolicy[] } {
+function registerFake(seen: MountPolicy[] = []): {
+  kind: string;
+  seen: MountPolicy[];
+} {
   const kind = `fake-${++uniqueKind}`;
   registerSessionDriver(kind, (policy) => {
     seen.push(policy);
@@ -90,13 +102,17 @@ describe('configuredDriverKind', () => {
 
   it('lets the process environment win over .env', () => {
     writeEnv('NANOCLAW_RUNTIME_DRIVER=vm\n');
-    expect(configuredDriverKind({ NANOCLAW_RUNTIME_DRIVER: 'docker' })).toBe('docker');
+    expect(configuredDriverKind({ NANOCLAW_RUNTIME_DRIVER: 'docker' })).toBe(
+      'docker',
+    );
   });
 
   it('reports the configured value verbatim instead of correcting it', () => {
     // Selection does not decide what is legitimate; the registry does. Anything
     // that "corrects" a value here is a silent fallback wearing a hat.
-    expect(configuredDriverKind({ NANOCLAW_RUNTIME_DRIVER: 'firecracker' })).toBe('firecracker');
+    expect(
+      configuredDriverKind({ NANOCLAW_RUNTIME_DRIVER: 'firecracker' }),
+    ).toBe('firecracker');
     expect(log.warn).not.toHaveBeenCalled();
   });
 });
@@ -113,11 +129,15 @@ describe('createSessionDriver', () => {
     // `[^\n]*` anchoring is the point: all three facts must be in the FIRST
     // line, because that is the line a log aggregator shows.
     const selecting = (): unknown => createSessionDriver('vm');
-    expect(selecting).toThrow(/^[^\n]*NANOCLAW_RUNTIME_DRIVER[^\n]*'vm'[^\n]*installed: /);
+    expect(selecting).toThrow(
+      /^[^\n]*NANOCLAW_RUNTIME_DRIVER[^\n]*'vm'[^\n]*installed: /,
+    );
     // The list is what the registry actually holds, not a literal: an overlay
     // adds kinds, and a test that hard-coded `docker` would fail on a tree
     // where the message is doing its job.
-    expect(selecting).toThrow(`installed: ${listSessionDriverKinds().join(', ')}`);
+    expect(selecting).toThrow(
+      `installed: ${listSessionDriverKinds().join(', ')}`,
+    );
     expect(selecting).toThrow(/install the driver skill or unset the variable/);
   });
 
@@ -125,14 +145,20 @@ describe('createSessionDriver', () => {
     // `=dcoker` silently running docker is the same failure as `=vm` silently
     // running docker: a host configured for one runtime running another.
     const selecting = (): unknown => createSessionDriver('dcoker');
-    expect(selecting).toThrow(/^[^\n]*NANOCLAW_RUNTIME_DRIVER[^\n]*'dcoker'[^\n]*installed: /);
-    expect(selecting).toThrow(`installed: ${listSessionDriverKinds().join(', ')}`);
+    expect(selecting).toThrow(
+      /^[^\n]*NANOCLAW_RUNTIME_DRIVER[^\n]*'dcoker'[^\n]*installed: /,
+    );
+    expect(selecting).toThrow(
+      `installed: ${listSessionDriverKinds().join(', ')}`,
+    );
     expect(log.info).not.toHaveBeenCalled();
   });
 
   it('resolves a kind once a driver registers it, and hands it the resolved policy', () => {
     const { kind, seen } = registerFake();
-    const driver = createSessionDriver(kind, { materialsRoot: '/srv/override' });
+    const driver = createSessionDriver(kind, {
+      materialsRoot: '/srv/override',
+    });
     expect(driver.kind).toBe(kind);
     expect(seen).toHaveLength(1);
     expect(seen[0]?.materialsRoot).toBe('/srv/override');
@@ -151,7 +177,9 @@ describe('createSessionDriver', () => {
 
   it('refuses to let two registrations claim one kind', () => {
     const { kind } = registerFake();
-    expect(() => registerSessionDriver(kind, () => createSessionDriver('docker'))).toThrow(/already registered/);
+    expect(() =>
+      registerSessionDriver(kind, () => createSessionDriver('docker')),
+    ).toThrow(/already registered/);
   });
 
   it('logs the boot marker an operator uses to tell a crash loop from a healthy start', () => {
@@ -203,12 +231,20 @@ describe('mountPolicy', () => {
     // admit the central DB as a mountable "surface".
     const policy = mountPolicy({});
     expect(policy.surfaceRoots).toHaveLength(3);
-    expect(policy.surfaceRoots.every((root) => root.includes(`${path.sep}container${path.sep}`))).toBe(true);
-    expect(policy.surfaceRoots.some((root) => root === policy.dataRoot)).toBe(false);
+    expect(
+      policy.surfaceRoots.every((root) =>
+        root.includes(`${path.sep}container${path.sep}`),
+      ),
+    ).toBe(true);
+    expect(policy.surfaceRoots.some((root) => root === policy.dataRoot)).toBe(
+      false,
+    );
     // Named, not just counted: nothing mounts container/CLAUDE.md any more, so
     // the only thing keeping an operator additionalMount of it read-only is its
     // presence here. A bare length check would be "fixed" by editing the number.
-    expect(policy.surfaceRoots).toContain(path.join(process.cwd(), 'container', 'CLAUDE.md'));
+    expect(policy.surfaceRoots).toContain(
+      path.join(process.cwd(), 'container', 'CLAUDE.md'),
+    );
   });
 });
 

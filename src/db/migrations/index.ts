@@ -64,7 +64,10 @@ export interface MigrationRunOptions {
  * independent modules may reuse local migration names without colliding.
  */
 export type ModuleMigrationName = `module:${string}:${string}`;
-export type ModuleMigration = (Omit<PortableMigration, 'name'> | Omit<SqliteOnlyMigration, 'name'>) & {
+export type ModuleMigration = (
+  | Omit<PortableMigration, 'name'>
+  | Omit<SqliteOnlyMigration, 'name'>
+) & {
   name: ModuleMigrationName;
 };
 
@@ -102,7 +105,8 @@ export const migrations: Migration[] = [
  * barrel uses explicit side-effect imports.
  */
 const moduleMigrations: Migration[] = [];
-const MODULE_MIGRATION_NAME_RE = /^module:[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*$/;
+const MODULE_MIGRATION_NAME_RE =
+  /^module:[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*$/;
 
 export function registerMigration(migration: ModuleMigration): void {
   if (!MODULE_MIGRATION_NAME_RE.test(migration.name)) {
@@ -110,7 +114,11 @@ export function registerMigration(migration: ModuleMigration): void {
       `Module migration "${migration.name}" must use "module:<module-id>:<migration-id>" and remain stable after release`,
     );
   }
-  if ([...migrations, ...moduleMigrations].some((candidate) => candidate.name === migration.name)) {
+  if (
+    [...migrations, ...moduleMigrations].some(
+      (candidate) => candidate.name === migration.name,
+    )
+  ) {
     throw new Error(`Migration "${migration.name}" already registered`);
   }
   moduleMigrations.push(migration);
@@ -131,7 +139,12 @@ interface FkViolation {
 }
 
 const fkIdentity = (v: FkViolation): string =>
-  JSON.stringify({ table: v.table, rowid: v.rowid, parent: v.parent, fkid: v.fkid });
+  JSON.stringify({
+    table: v.table,
+    rowid: v.rowid,
+    parent: v.parent,
+    fkid: v.fkid,
+  });
 
 export async function runMigrations(
   db: DbDriver,
@@ -147,9 +160,15 @@ export async function runMigrations(
 
   if (mode === 'validate') {
     if (!(await db.hasTable('schema_version'))) {
-      throw new Error('Central DB schema is not initialized; run `pnpm run migrate` with the migration role');
+      throw new Error(
+        'Central DB schema is not initialized; run `pnpm run migrate` with the migration role',
+      );
     }
-    const applied = new Set((await db.all<{ name: string }>('SELECT name FROM schema_version')).map((row) => row.name));
+    const applied = new Set(
+      (await db.all<{ name: string }>('SELECT name FROM schema_version')).map(
+        (row) => row.name,
+      ),
+    );
     const pending = list.filter((migration) => !applied.has(migration.name));
     if (pending.length > 0) {
       throw new Error(
@@ -176,7 +195,11 @@ export async function runMigrations(
     // the Migration object as an ordering hint within the barrel array;
     // the stored `version` column is auto-assigned at insert time as an
     // applied-order number.
-    const applied = new Set((await db.all<{ name: string }>('SELECT name FROM schema_version')).map((row) => row.name));
+    const applied = new Set(
+      (await db.all<{ name: string }>('SELECT name FROM schema_version')).map(
+        (row) => row.name,
+      ),
+    );
     const pending = list.filter((migration) => !applied.has(migration.name));
     if (pending.length === 0) return;
 
@@ -184,16 +207,24 @@ export async function runMigrations(
     for (const migration of pending) await applyMigration(db, migration);
   };
 
-  if (db.migrationHooks?.withMigrationLock) await db.migrationHooks.withMigrationLock(migrate);
+  if (db.migrationHooks?.withMigrationLock)
+    await db.migrationHooks.withMigrationLock(migrate);
   else await migrate();
 }
 
-async function applyMigration(db: DbDriver, migration: Migration): Promise<void> {
+async function applyMigration(
+  db: DbDriver,
+  migration: Migration,
+): Promise<void> {
   const override = db.migrationHooks?.migrationOverrides?.get(migration.name);
   const sqliteOnly = override ? false : migration.sqliteOnly === true;
-  const disableForeignKeys = override ? false : migration.disableForeignKeys === true;
+  const disableForeignKeys = override
+    ? false
+    : migration.disableForeignKeys === true;
   if ((sqliteOnly || disableForeignKeys) && db.dialect !== 'sqlite') {
-    throw new Error(`Migration "${migration.name}" is SQLite-only; port it or provide a backend migration override`);
+    throw new Error(
+      `Migration "${migration.name}" is SQLite-only; port it or provide a backend migration override`,
+    );
   }
 
   const raw = sqliteOnly || disableForeignKeys ? sqliteRaw(db) : null;
@@ -207,26 +238,37 @@ async function applyMigration(db: DbDriver, migration: Migration): Promise<void>
       // Snapshot violations BEFORE up() runs: live DBs can carry latent
       // FK orphans. A migration must fail only for violations it introduces.
       const preexisting = disableForeignKeys
-        ? new Set((raw!.pragma('foreign_key_check') as FkViolation[]).map(fkIdentity))
+        ? new Set(
+            (raw!.pragma('foreign_key_check') as FkViolation[]).map(fkIdentity),
+          )
         : null;
       if (override) await override.up(db);
       else if (migration.sqliteOnly) await migration.up(raw!);
       else await migration.up(db);
       if (disableForeignKeys && preexisting) {
         const violations = raw!.pragma('foreign_key_check') as FkViolation[];
-        const introduced = violations.filter((violation) => !preexisting.has(fkIdentity(violation)));
+        const introduced = violations.filter(
+          (violation) => !preexisting.has(fkIdentity(violation)),
+        );
         const carried = violations.length - introduced.length;
         if (carried > 0) {
-          log.warn('Pre-existing FK violations carried through migration (not introduced by it)', {
-            migration: migration.name,
-            count: carried,
-          });
+          log.warn(
+            'Pre-existing FK violations carried through migration (not introduced by it)',
+            {
+              migration: migration.name,
+              count: carried,
+            },
+          );
         }
         if (introduced.length > 0) {
-          throw new Error(`migration ${migration.name} left FK violations: ${JSON.stringify(introduced.slice(0, 5))}`);
+          throw new Error(
+            `migration ${migration.name} left FK violations: ${JSON.stringify(introduced.slice(0, 5))}`,
+          );
         }
       }
-      const next = (await db.get<{ v: number }>('SELECT COALESCE(MAX(version), 0) + 1 AS v FROM schema_version'))!.v;
+      const next = (await db.get<{ v: number }>(
+        'SELECT COALESCE(MAX(version), 0) + 1 AS v FROM schema_version',
+      ))!.v;
       await db.run(
         'INSERT INTO schema_version (version, name, applied) VALUES (?, ?, ?)',
         next,

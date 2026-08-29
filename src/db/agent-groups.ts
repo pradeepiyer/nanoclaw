@@ -9,12 +9,19 @@ export async function createAgentGroup(group: AgentGroup): Promise<void> {
   );
 }
 
-export async function getAgentGroup(id: string): Promise<AgentGroup | undefined> {
+export async function getAgentGroup(
+  id: string,
+): Promise<AgentGroup | undefined> {
   return getDb().get<AgentGroup>('SELECT * FROM agent_groups WHERE id = ?', id);
 }
 
-export async function getAgentGroupByFolder(folder: string): Promise<AgentGroup | undefined> {
-  return getDb().get<AgentGroup>('SELECT * FROM agent_groups WHERE folder = ?', folder);
+export async function getAgentGroupByFolder(
+  folder: string,
+): Promise<AgentGroup | undefined> {
+  return getDb().get<AgentGroup>(
+    'SELECT * FROM agent_groups WHERE folder = ?',
+    folder,
+  );
 }
 
 export async function getAllAgentGroups(): Promise<AgentGroup[]> {
@@ -36,7 +43,10 @@ export async function updateAgentGroup(
   }
   if (fields.length === 0) return;
 
-  await getDb().run(`UPDATE agent_groups SET ${fields.join(', ')} WHERE id = @id`, values);
+  await getDb().run(
+    `UPDATE agent_groups SET ${fields.join(', ')} WHERE id = @id`,
+    values,
+  );
 }
 
 export async function deleteAgentGroup(id: string): Promise<void> {

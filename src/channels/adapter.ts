@@ -8,7 +8,11 @@
 /** Passed to the adapter at setup time. */
 export interface ChannelSetup {
   /** Called when an inbound message arrives from the platform. */
-  onInbound(platformId: string, threadId: string | null, message: InboundMessage): void | Promise<void>;
+  onInbound(
+    platformId: string,
+    threadId: string | null,
+    message: InboundMessage,
+  ): void | Promise<void>;
 
   /**
    * Called by admin-transport adapters (CLI) that want to route a message to
@@ -172,7 +176,11 @@ export interface ChannelContextDefaults {
    * unknown sender in-channel and sends the owner a one-line FYI — no
    * approval card; access grants stay explicit (`ncl members add`).
    */
-  unknownSenderPolicy: 'strict' | 'request_approval' | 'decline_notify' | 'public';
+  unknownSenderPolicy:
+    | 'strict'
+    | 'request_approval'
+    | 'decline_notify'
+    | 'public';
 }
 
 /**
@@ -227,7 +235,11 @@ export interface ChannelAdapter {
   isConnected(): boolean;
 
   // Outbound delivery — returns the platform message ID if available
-  deliver(platformId: string, threadId: string | null, message: OutboundMessage): Promise<string | undefined>;
+  deliver(
+    platformId: string,
+    threadId: string | null,
+    message: OutboundMessage,
+  ): Promise<string | undefined>;
 
   // Optional
   setTyping?(
@@ -238,7 +250,9 @@ export interface ChannelAdapter {
   ): Promise<void>;
   syncConversations?(): Promise<ConversationInfo[]>;
   /** Resolve conversation type and human-readable metadata for host UI. */
-  resolveConversation?(platformId: string): Promise<ResolvedConversation | null>;
+  resolveConversation?(
+    platformId: string,
+  ): Promise<ResolvedConversation | null>;
   /** Legacy name-only resolver for adapters without richer conversation metadata. */
   resolveChannelName?(platformId: string): Promise<string | null>;
 
@@ -252,7 +266,11 @@ export interface ChannelAdapter {
    * everyone else omits it and callers no-op via optional chaining
    * (setThreadTitle in channel-registry.ts).
    */
-  setThreadTitle?(platformId: string, threadId: string, title: string): Promise<void>;
+  setThreadTitle?(
+    platformId: string,
+    threadId: string,
+    title: string,
+  ): Promise<void>;
   setSuggestedPrompts?(
     platformId: string,
     prompts: Array<{ title: string; message: string }>,
@@ -298,7 +316,10 @@ export interface ChannelAdapter {
 }
 
 /** Factory function that creates a channel adapter (returns null if credentials missing). */
-export type ChannelAdapterFactory = () => ChannelAdapter | Promise<ChannelAdapter> | null;
+export type ChannelAdapterFactory = () =>
+  | ChannelAdapter
+  | Promise<ChannelAdapter>
+  | null;
 
 /** Registration entry for a channel adapter. */
 export interface ChannelRegistration {
@@ -312,7 +333,11 @@ export interface ChannelRegistration {
    */
   defaults?: ChannelDefaults;
   containerConfig?: {
-    mounts?: Array<{ hostPath: string; containerPath: string; readonly: boolean }>;
+    mounts?: Array<{
+      hostPath: string;
+      containerPath: string;
+      readonly: boolean;
+    }>;
     env?: Record<string, string>;
   };
 }

@@ -21,7 +21,12 @@ vi.mock('../../container-runner.js', () => ({
 
 const TEST_DIR = '/tmp/nanoclaw-test-cli-tasks';
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from '../../db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from '../../db/index.js';
 import {
   createSession,
   findSessionByAgentGroup,
@@ -30,7 +35,11 @@ import {
   taskThreadId,
   updateSession,
 } from '../../db/sessions.js';
-import { initSessionFolder, sessionDir, withMailboxSession } from '../../session-manager.js';
+import {
+  initSessionFolder,
+  sessionDir,
+  withMailboxSession,
+} from '../../session-manager.js';
 import { inboundDbPath, outboundDbPath } from '../../mailbox/sqlite/paths.js';
 import { dispatch } from '../dispatch.js';
 import { formatTasksTable } from '../format-tasks.js';
@@ -44,7 +53,13 @@ function now(): string {
 }
 
 async function createGroup(id: string): Promise<void> {
-  await createAgentGroup({ id, name: id, folder: id, agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id,
+    name: id,
+    folder: id,
+    agent_provider: null,
+    created_at: now(),
+  });
 }
 
 async function createChatSession(group: string, id: string): Promise<void> {
@@ -63,7 +78,12 @@ async function createChatSession(group: string, id: string): Promise<void> {
 }
 
 function agentCtx(group = 'ag-1', session = 'chat-1'): CallerContext {
-  return { caller: 'agent', agentGroupId: group, sessionId: session, messagingGroupId: 'mg-1' };
+  return {
+    caller: 'agent',
+    agentGroupId: group,
+    sessionId: session,
+    messagingGroupId: 'mg-1',
+  };
 }
 
 describe('tasks CLI resource', () => {
@@ -88,14 +108,21 @@ describe('tasks CLI resource', () => {
       {
         id: 'req-1',
         command: 'tasks-create',
-        args: { prompt: 'send a briefing', process_after: '2026-01-15T09:00:00Z' },
+        args: {
+          prompt: 'send a briefing',
+          process_after: '2026-01-15T09:00:00Z',
+        },
       },
       agentCtx(),
     );
 
     expect(resp.ok).toBe(true);
     if (!resp.ok) return;
-    const created = resp.data as { series_id: string; session_id: string; status: string };
+    const created = resp.data as {
+      series_id: string;
+      session_id: string;
+      status: string;
+    };
     expect(created.status).toBe('pending');
     expect(created.session_id).not.toBe('chat-1');
 
@@ -104,14 +131,26 @@ describe('tasks CLI resource', () => {
     const taskSession = sessions.find((s) => s.id === created.session_id);
     expect(taskSession?.thread_id).toBe(taskThreadId(created.series_id));
 
-    const chatDb = new Database(inboundDbPath('ag-1', 'chat-1'), { readonly: true });
-    expect(chatDb.prepare("SELECT COUNT(*) AS count FROM messages_in WHERE kind = 'task'").get()).toEqual({
+    const chatDb = new Database(inboundDbPath('ag-1', 'chat-1'), {
+      readonly: true,
+    });
+    expect(
+      chatDb
+        .prepare(
+          "SELECT COUNT(*) AS count FROM messages_in WHERE kind = 'task'",
+        )
+        .get(),
+    ).toEqual({
       count: 0,
     });
     chatDb.close();
 
-    const systemDb = new Database(inboundDbPath('ag-1', created.session_id), { readonly: true });
-    const row = systemDb.prepare("SELECT content FROM messages_in WHERE kind = 'task'").get() as { content: string };
+    const systemDb = new Database(inboundDbPath('ag-1', created.session_id), {
+      readonly: true,
+    });
+    const row = systemDb
+      .prepare("SELECT content FROM messages_in WHERE kind = 'task'")
+      .get() as { content: string };
     const content = JSON.parse(row.content);
     expect(content).toMatchObject({ originSessionId: 'chat-1' });
     expect(content.prompt).toBe('send a briefing');
@@ -124,18 +163,27 @@ describe('tasks CLI resource', () => {
       {
         id: 'c',
         command: 'tasks-create',
-        args: { prompt: 'x', name: 'briefing', process_after: '2999-01-01T00:00:00Z' },
+        args: {
+          prompt: 'x',
+          name: 'briefing',
+          process_after: '2999-01-01T00:00:00Z',
+        },
       },
       agentCtx(),
     );
-    const resp = await dispatch({ id: 'l', command: 'tasks-list', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: 'l', command: 'tasks-list', args: {} },
+      agentCtx(),
+    );
     expect(resp.ok).toBe(true);
     if (!resp.ok) return;
     // Red-on-delete guard for the dispatch wiring: the host renders format-tasks
     // once and ships it as `human`, so the Bun container prints the aligned
     // table instead of a raw column dump (it cannot import the host formatter).
     expect(resp.human).toBeDefined();
-    expect(resp.human).toMatch(/SERIES\s+SCHEDULE\s+RUNS\s+FAILED\s+LAST RUN\s+NEXT RUN/);
+    expect(resp.human).toMatch(
+      /SERIES\s+SCHEDULE\s+RUNS\s+FAILED\s+LAST RUN\s+NEXT RUN/,
+    );
     expect(resp.human).toContain('briefing-');
   });
 
@@ -155,31 +203,51 @@ describe('tasks CLI resource', () => {
     const missingDir = sessionDir('ag-1', missingSession);
     expect(fs.existsSync(missingDir)).toBe(false);
 
-    const list = await dispatch({ id: 'missing-list', command: 'tasks-list', args: {} }, agentCtx());
+    const list = await dispatch(
+      { id: 'missing-list', command: 'tasks-list', args: {} },
+      agentCtx(),
+    );
     expect(list.ok).toBe(true);
     if (list.ok) expect(list.data).toEqual([]);
 
-    const get = await dispatch({ id: 'missing-get', command: 'tasks-get', args: { id: 'missing-series' } }, agentCtx());
+    const get = await dispatch(
+      {
+        id: 'missing-get',
+        command: 'tasks-get',
+        args: { id: 'missing-series' },
+      },
+      agentCtx(),
+    );
     expect(get.ok).toBe(false);
     expect(fs.existsSync(missingDir)).toBe(false);
   });
 
   it('recurrence more frequent than 4x/day is refused with the quota warning', async () => {
     const resp = await dispatch(
-      { id: 'c', command: 'tasks-create', args: { prompt: 'x', name: 'spam', recurrence: '*/2 * * * *' } },
+      {
+        id: 'c',
+        command: 'tasks-create',
+        args: { prompt: 'x', name: 'spam', recurrence: '*/2 * * * *' },
+      },
       agentCtx(),
     );
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
       expect(resp.error.message).toContain('this task has not been scheduled');
       expect(resp.error.message).toContain('ncl tasks create --help');
-      expect(resp.error.message).toContain('--dangerously-override-recurrence-limit');
+      expect(resp.error.message).toContain(
+        '--dangerously-override-recurrence-limit',
+      );
     }
   });
 
   it('exactly 4 fires/day passes; the override flag bypasses the limit', async () => {
     const four = await dispatch(
-      { id: 'c4', command: 'tasks-create', args: { prompt: 'x', name: 'four', recurrence: '0 0,6,12,18 * * *' } },
+      {
+        id: 'c4',
+        command: 'tasks-create',
+        args: { prompt: 'x', name: 'four', recurrence: '0 0,6,12,18 * * *' },
+      },
       agentCtx(),
     );
     expect(four.ok).toBe(true);
@@ -188,7 +256,12 @@ describe('tasks CLI resource', () => {
       {
         id: 'co',
         command: 'tasks-create',
-        args: { prompt: 'x', name: 'fast', recurrence: '*/30 * * * *', dangerously_override_recurrence_limit: true },
+        args: {
+          prompt: 'x',
+          name: 'fast',
+          recurrence: '*/30 * * * *',
+          dangerously_override_recurrence_limit: true,
+        },
       },
       agentCtx(),
     );
@@ -215,14 +288,22 @@ describe('tasks CLI resource', () => {
     if (!scripted.ok) return;
     const seriesId = (scripted.data as { series_id: string }).series_id;
     const upd = await dispatch(
-      { id: 'us', command: 'tasks-update', args: { id: seriesId, recurrence: '*/5 * * * *' } },
+      {
+        id: 'us',
+        command: 'tasks-update',
+        args: { id: seriesId, recurrence: '*/5 * * * *' },
+      },
       agentCtx(),
     );
     expect(upd.ok).toBe(true);
 
     // …but clearing the script in the same update re-arms the guard.
     const cleared = await dispatch(
-      { id: 'uc', command: 'tasks-update', args: { id: seriesId, recurrence: '*/5 * * * *', script: 'none' } },
+      {
+        id: 'uc',
+        command: 'tasks-update',
+        args: { id: seriesId, recurrence: '*/5 * * * *', script: 'none' },
+      },
       agentCtx(),
     );
     expect(cleared.ok).toBe(false);
@@ -230,7 +311,11 @@ describe('tasks CLI resource', () => {
 
   it('the limit also guards update --recurrence (no create-slow-then-update bypass)', async () => {
     const created = await dispatch(
-      { id: 'c', command: 'tasks-create', args: { prompt: 'x', name: 'sneak', recurrence: '0 9 * * *' } },
+      {
+        id: 'c',
+        command: 'tasks-create',
+        args: { prompt: 'x', name: 'sneak', recurrence: '0 9 * * *' },
+      },
       agentCtx(),
     );
     expect(created.ok).toBe(true);
@@ -238,16 +323,24 @@ describe('tasks CLI resource', () => {
     const seriesId = (created.data as { series_id: string }).series_id;
 
     const upd = await dispatch(
-      { id: 'u', command: 'tasks-update', args: { id: seriesId, recurrence: '* * * * *' } },
+      {
+        id: 'u',
+        command: 'tasks-update',
+        args: { id: seriesId, recurrence: '* * * * *' },
+      },
       agentCtx(),
     );
     expect(upd.ok).toBe(false);
-    if (!upd.ok) expect(upd.error.message).toContain('this task has not been scheduled');
+    if (!upd.ok)
+      expect(upd.error.message).toContain('this task has not been scheduled');
   });
 
   it('tasks create --help carries the script contract and the frequency-limit caveat', async () => {
     // --help and `tasks help create` render the same deep verb help.
-    const resp = await dispatch({ id: 'h', command: 'tasks-create', args: { help: true } }, agentCtx());
+    const resp = await dispatch(
+      { id: 'h', command: 'tasks-create', args: { help: true } },
+      agentCtx(),
+    );
     expect(resp.ok).toBe(true);
     if (resp.ok) {
       const text = resp.data as string;
@@ -261,7 +354,10 @@ describe('tasks CLI resource', () => {
       {
         id: 'req-1',
         command: 'tasks-create',
-        args: { prompt: 'send a briefing', process_after: '2026-01-15T09:00:00Z' },
+        args: {
+          prompt: 'send a briefing',
+          process_after: '2026-01-15T09:00:00Z',
+        },
       },
       agentCtx(),
     );
@@ -287,7 +383,11 @@ describe('tasks CLI resource', () => {
       {
         id: 'rn',
         command: 'tasks-create',
-        args: { prompt: 'x', name: 'Morning Joke!!', process_after: '2999-01-01T00:00:00Z' },
+        args: {
+          prompt: 'x',
+          name: 'Morning Joke!!',
+          process_after: '2999-01-01T00:00:00Z',
+        },
       },
       agentCtx('ag-1', 'chat-1'),
     );
@@ -300,17 +400,27 @@ describe('tasks CLI resource', () => {
 
   it('no name yields a t-<hex> id', async () => {
     const r = await dispatch(
-      { id: 'rnn', command: 'tasks-create', args: { prompt: 'x', process_after: '2999-01-01T00:00:00Z' } },
+      {
+        id: 'rnn',
+        command: 'tasks-create',
+        args: { prompt: 'x', process_after: '2999-01-01T00:00:00Z' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect((r.data as { series_id: string }).series_id).toMatch(/^t-[0-9a-f]{6}$/);
+    expect((r.data as { series_id: string }).series_id).toMatch(
+      /^t-[0-9a-f]{6}$/,
+    );
   });
 
   it('recurring create derives the first run from the cron grid when --process-after is omitted', async () => {
     const r = await dispatch(
-      { id: 'rec', command: 'tasks-create', args: { prompt: 'x', name: 'nightly', recurrence: '0 9 * * 1-5' } },
+      {
+        id: 'rec',
+        command: 'tasks-create',
+        args: { prompt: 'x', name: 'nightly', recurrence: '0 9 * * 1-5' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(r.ok).toBe(true);
@@ -326,7 +436,11 @@ describe('tasks CLI resource', () => {
 
   it('one-shot create still requires --process-after (nothing to derive it from)', async () => {
     const r = await dispatch(
-      { id: 'os', command: 'tasks-create', args: { prompt: 'x', name: 'once' } },
+      {
+        id: 'os',
+        command: 'tasks-create',
+        args: { prompt: 'x', name: 'once' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(r.ok).toBe(false);
@@ -338,34 +452,56 @@ describe('tasks CLI resource', () => {
       {
         id: 'c',
         command: 'tasks-create',
-        args: { prompt: 'x', name: 'pingable', process_after: '2999-01-01T00:00:00Z' },
+        args: {
+          prompt: 'x',
+          name: 'pingable',
+          process_after: '2999-01-01T00:00:00Z',
+        },
       },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const { series_id, session_id } = created.data as { series_id: string; session_id: string };
+    const { series_id, session_id } = created.data as {
+      series_id: string;
+      session_id: string;
+    };
 
-    const run = await dispatch({ id: 'r', command: 'tasks-run', args: { id: series_id } }, agentCtx('ag-1', 'chat-1'));
+    const run = await dispatch(
+      { id: 'r', command: 'tasks-run', args: { id: series_id } },
+      agentCtx('ag-1', 'chat-1'),
+    );
     expect(run.ok).toBe(true);
     if (!run.ok) return;
-    const fired = run.data as { series_id: string; row_id: string; status: string };
+    const fired = run.data as {
+      series_id: string;
+      row_id: string;
+      status: string;
+    };
     expect(fired.series_id).toBe(series_id);
     expect(fired.row_id).not.toBe(series_id);
     expect(fired.status).toBe('pending');
 
-    const db = new Database(inboundDbPath('ag-1', session_id), { readonly: true });
+    const db = new Database(inboundDbPath('ag-1', session_id), {
+      readonly: true,
+    });
     const pending = db
       .prepare(
         "SELECT id, recurrence, process_after FROM messages_in WHERE kind = 'task' AND status = 'pending' AND series_id = ?",
       )
-      .all(series_id) as Array<{ id: string; recurrence: string | null; process_after: string }>;
+      .all(series_id) as Array<{
+      id: string;
+      recurrence: string | null;
+      process_after: string;
+    }>;
     db.close();
     // Original scheduled row + the new run-now occurrence both still pending.
     expect(pending).toHaveLength(2);
     const runRow = pending.find((p) => p.id === fired.row_id);
     expect(runRow?.recurrence).toBeNull(); // never re-armed into a phantom series
-    expect(new Date(runRow!.process_after).getTime()).toBeLessThanOrEqual(Date.now());
+    expect(new Date(runRow!.process_after).getTime()).toBeLessThanOrEqual(
+      Date.now(),
+    );
   });
 
   it('run snapshots the updated schedule instead of an older in-flight occurrence', async () => {
@@ -373,24 +509,43 @@ describe('tasks CLI resource', () => {
       {
         id: 'c-snapshot',
         command: 'tasks-create',
-        args: { prompt: 'old', name: 'snapshot', process_after: '2999-01-01T00:00:00Z' },
+        args: {
+          prompt: 'old',
+          name: 'snapshot',
+          process_after: '2999-01-01T00:00:00Z',
+        },
       },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const { series_id, session_id } = created.data as { series_id: string; session_id: string };
+    const { series_id, session_id } = created.data as {
+      series_id: string;
+      session_id: string;
+    };
 
-    await dispatch({ id: 'r-old', command: 'tasks-run', args: { id: series_id } }, agentCtx('ag-1', 'chat-1'));
     await dispatch(
-      { id: 'u-new', command: 'tasks-update', args: { id: series_id, prompt: 'new' } },
+      { id: 'r-old', command: 'tasks-run', args: { id: series_id } },
+      agentCtx('ag-1', 'chat-1'),
+    );
+    await dispatch(
+      {
+        id: 'u-new',
+        command: 'tasks-update',
+        args: { id: series_id, prompt: 'new' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
 
-    const listed = await dispatch({ id: 'l-new', command: 'tasks-list', args: {} }, agentCtx('ag-1', 'chat-1'));
+    const listed = await dispatch(
+      { id: 'l-new', command: 'tasks-list', args: {} },
+      agentCtx('ag-1', 'chat-1'),
+    );
     expect(listed.ok).toBe(true);
     if (!listed.ok) return;
-    expect((listed.data as Array<{ row_id: string; prompt: string }>)[0]).toMatchObject({
+    expect(
+      (listed.data as Array<{ row_id: string; prompt: string }>)[0],
+    ).toMatchObject({
       row_id: series_id,
       prompt: 'new',
     });
@@ -402,9 +557,13 @@ describe('tasks CLI resource', () => {
     expect(rerun.ok).toBe(true);
     if (!rerun.ok) return;
 
-    const db = new Database(inboundDbPath('ag-1', session_id), { readonly: true });
+    const db = new Database(inboundDbPath('ag-1', session_id), {
+      readonly: true,
+    });
     const prompt = db
-      .prepare("SELECT json_extract(content, '$.prompt') AS prompt FROM messages_in WHERE id = ?")
+      .prepare(
+        "SELECT json_extract(content, '$.prompt') AS prompt FROM messages_in WHERE id = ?",
+      )
       .get((rerun.data as { row_id: string }).row_id) as { prompt: string };
     db.close();
     expect(prompt.prompt).toBe('new');
@@ -421,18 +580,29 @@ describe('tasks CLI resource', () => {
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    const d = r.data as { origin_session_id: string | null; created_at: string };
+    const d = r.data as {
+      origin_session_id: string | null;
+      created_at: string;
+    };
     expect(d.origin_session_id).toBe('chat-1'); // the session that created it
     expect(d.created_at).toBeTruthy();
   });
 
   it('each task gets its own isolated session, and list fans out across them', async () => {
     const a = await dispatch(
-      { id: 'r-a', command: 'tasks-create', args: { prompt: 'task A', process_after: '2026-01-15T09:00:00Z' } },
+      {
+        id: 'r-a',
+        command: 'tasks-create',
+        args: { prompt: 'task A', process_after: '2026-01-15T09:00:00Z' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
     const b = await dispatch(
-      { id: 'r-b', command: 'tasks-create', args: { prompt: 'task B', process_after: '2026-01-15T09:00:00Z' } },
+      {
+        id: 'r-b',
+        command: 'tasks-create',
+        args: { prompt: 'task B', process_after: '2026-01-15T09:00:00Z' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(a.ok && b.ok).toBe(true);
@@ -444,10 +614,15 @@ describe('tasks CLI resource', () => {
     expect(ta.session_id).not.toBe(tb.session_id);
 
     // list (no --session) fans out across every task session in the group.
-    const list = await dispatch({ id: 'r-l', command: 'tasks-list', args: {} }, agentCtx('ag-1', 'chat-1'));
+    const list = await dispatch(
+      { id: 'r-l', command: 'tasks-list', args: {} },
+      agentCtx('ag-1', 'chat-1'),
+    );
     expect(list.ok).toBe(true);
     if (!list.ok) return;
-    const ids = (list.data as Array<{ series_id: string }>).map((t) => t.series_id);
+    const ids = (list.data as Array<{ series_id: string }>).map(
+      (t) => t.series_id,
+    );
     expect(ids).toContain(ta.series_id);
     expect(ids).toContain(tb.series_id);
   });
@@ -457,13 +632,20 @@ describe('tasks CLI resource', () => {
       {
         id: 'r-agg',
         command: 'tasks-create',
-        args: { prompt: 'brain digest', recurrence: '0 9 * * *', 'process-after': '2026-01-15T09:05:00Z' },
+        args: {
+          prompt: 'brain digest',
+          recurrence: '0 9 * * *',
+          'process-after': '2026-01-15T09:05:00Z',
+        },
       },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const { session_id, series_id } = created.data as { session_id: string; series_id: string };
+    const { session_id, series_id } = created.data as {
+      session_id: string;
+      series_id: string;
+    };
 
     // Seed three completed fires for this series into its own session inbound.db.
     const db = new Database(inboundDbPath('ag-1', session_id));
@@ -476,10 +658,15 @@ describe('tasks CLI resource', () => {
     ins.run('run-3', 104, series_id, '2026-01-15T09:04:00Z');
     db.close();
 
-    const list = await dispatch({ id: 'r-agg-l', command: 'tasks-list', args: {} }, agentCtx('ag-1', 'chat-1'));
+    const list = await dispatch(
+      { id: 'r-agg-l', command: 'tasks-list', args: {} },
+      agentCtx('ag-1', 'chat-1'),
+    );
     expect(list.ok).toBe(true);
     if (!list.ok) return;
-    const row = (list.data as Array<Record<string, unknown>>).find((t) => t.series_id === series_id);
+    const row = (list.data as Array<Record<string, unknown>>).find(
+      (t) => t.series_id === series_id,
+    );
     expect(row).toBeDefined();
     expect(row?.runs).toBe(3);
     expect(row?.last_run).toBe('2026-01-15T09:04:00.000Z'); // max completed process_after
@@ -496,39 +683,64 @@ describe('tasks CLI resource', () => {
   describe('a due task makes the system session wakeable', () => {
     it('countDueMessages sees a past task and ignores a future one', async () => {
       const created = await dispatch(
-        { id: 'r-due', command: 'tasks-create', args: { prompt: 'run me', 'process-after': '2020-01-01T00:00:00Z' } },
+        {
+          id: 'r-due',
+          command: 'tasks-create',
+          args: { prompt: 'run me', 'process-after': '2020-01-01T00:00:00Z' },
+        },
         agentCtx('ag-1', 'chat-1'),
       );
       expect(created.ok).toBe(true);
       if (!created.ok) return;
       const systemId = (created.data as { session_id: string }).session_id;
 
-      expect(await withMailboxSession('ag-1', systemId, (mailbox) => mailbox.countDueMessages())).toBe(1);
+      expect(
+        await withMailboxSession('ag-1', systemId, (mailbox) =>
+          mailbox.countDueMessages(),
+        ),
+      ).toBe(1);
 
       // A far-future task in the same system session is not yet due.
       const future = await dispatch(
-        { id: 'r-fut', command: 'tasks-create', args: { prompt: 'later', 'process-after': '2999-01-01T00:00:00Z' } },
+        {
+          id: 'r-fut',
+          command: 'tasks-create',
+          args: { prompt: 'later', 'process-after': '2999-01-01T00:00:00Z' },
+        },
         agentCtx('ag-1', 'chat-1'),
       );
       expect(future.ok).toBe(true);
 
-      expect(await withMailboxSession('ag-1', systemId, (mailbox) => mailbox.countDueMessages())).toBe(1);
+      expect(
+        await withMailboxSession('ag-1', systemId, (mailbox) =>
+          mailbox.countDueMessages(),
+        ),
+      ).toBe(1);
     });
   });
 
   describe('append-log', () => {
-    const logFile = (folder: string, series: string) => `${TEST_DIR}/groups/${folder}/tasks/${series}.md`;
+    const logFile = (folder: string, series: string) =>
+      `${TEST_DIR}/groups/${folder}/tasks/${series}.md`;
 
     it('writes a host-timestamped line to the run log and creates the file (explicit --id)', async () => {
       const resp = await dispatch(
-        { id: 'al-1', command: 'tasks-append-log', args: { id: 'my-task-1', msg: 'did the thing; it worked' } },
+        {
+          id: 'al-1',
+          command: 'tasks-append-log',
+          args: { id: 'my-task-1', msg: 'did the thing; it worked' },
+        },
         agentCtx('ag-1', 'chat-1'),
       );
       expect(resp.ok).toBe(true);
       if (!resp.ok) return;
-      const content = fs.readFileSync(logFile('ag-1', 'my-task-1'), 'utf8').trim();
+      const content = fs
+        .readFileSync(logFile('ag-1', 'my-task-1'), 'utf8')
+        .trim();
       // Local-time stamp (formatLocalStamp): "YYYY-MM-DD HH:mm".
-      expect(content).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} — did the thing; it worked$/);
+      expect(content).toMatch(
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2} — did the thing; it worked$/,
+      );
     });
 
     it('derives the series from the caller task session when --id is omitted', async () => {
@@ -536,23 +748,36 @@ describe('tasks CLI resource', () => {
         {
           id: 'al-c',
           command: 'tasks-create',
-          args: { name: 'derive-me', prompt: 'x', 'process-after': '2999-01-01T00:00:00Z' },
+          args: {
+            name: 'derive-me',
+            prompt: 'x',
+            'process-after': '2999-01-01T00:00:00Z',
+          },
         },
         agentCtx('ag-1', 'chat-1'),
       );
       expect(created.ok).toBe(true);
       if (!created.ok) return;
-      const { series_id, session_id } = created.data as { series_id: string; session_id: string };
+      const { series_id, session_id } = created.data as {
+        series_id: string;
+        session_id: string;
+      };
 
       // The fire runs INSIDE that task session, so no --id is needed.
       const resp = await dispatch(
-        { id: 'al-2', command: 'tasks-append-log', args: { msg: 'auto-derived run' } },
+        {
+          id: 'al-2',
+          command: 'tasks-append-log',
+          args: { msg: 'auto-derived run' },
+        },
         agentCtx('ag-1', session_id),
       );
       expect(resp.ok).toBe(true);
       if (!resp.ok) return;
       expect((resp.data as { series: string }).series).toBe(series_id);
-      expect(fs.readFileSync(logFile('ag-1', series_id), 'utf8')).toContain('auto-derived run');
+      expect(fs.readFileSync(logFile('ag-1', series_id), 'utf8')).toContain(
+        'auto-derived run',
+      );
     });
 
     it('requires --msg', async () => {
@@ -580,21 +805,34 @@ describe('tasks CLI resource', () => {
       {
         id: 'del-c',
         command: 'tasks-create',
-        args: { name: 'delete-me', prompt: 'x', 'process-after': '2999-01-01T00:00:00Z' },
+        args: {
+          name: 'delete-me',
+          prompt: 'x',
+          'process-after': '2999-01-01T00:00:00Z',
+        },
       },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const { series_id, session_id } = created.data as { series_id: string; session_id: string };
+    const { series_id, session_id } = created.data as {
+      series_id: string;
+      session_id: string;
+    };
 
     await dispatch(
-      { id: 'del-log', command: 'tasks-append-log', args: { id: series_id, msg: 'history' } },
+      {
+        id: 'del-log',
+        command: 'tasks-append-log',
+        args: { id: series_id, msg: 'history' },
+      },
       agentCtx('ag-1', 'chat-1'),
     );
     const outbound = new Database(outboundDbPath('ag-1', session_id));
     outbound
-      .prepare('INSERT INTO processing_ack (message_id, status, status_changed) VALUES (?, ?, ?)')
+      .prepare(
+        'INSERT INTO processing_ack (message_id, status, status_changed) VALUES (?, ?, ?)',
+      )
       .run(series_id, 'completed', now());
     outbound.close();
 
@@ -622,16 +860,25 @@ describe('tasks CLI resource', () => {
       {
         id: 'retry-c',
         command: 'tasks-create',
-        args: { name: 'retry-delete', prompt: 'x', 'process-after': '2999-01-01T00:00:00Z' },
+        args: {
+          name: 'retry-delete',
+          prompt: 'x',
+          'process-after': '2999-01-01T00:00:00Z',
+        },
       },
       agentCtx('ag-1', 'chat-1'),
     );
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const { series_id, session_id } = created.data as { series_id: string; session_id: string };
+    const { series_id, session_id } = created.data as {
+      series_id: string;
+      session_id: string;
+    };
     await updateSession(session_id, { status: 'closed' });
 
-    vi.spyOn(getAgentMailbox(), 'destroy').mockRejectedValueOnce(new Error('mailbox unavailable'));
+    vi.spyOn(getAgentMailbox(), 'destroy').mockRejectedValueOnce(
+      new Error('mailbox unavailable'),
+    );
     const failed = await dispatch(
       { id: 'retry-del-1', command: 'tasks-delete', args: { id: series_id } },
       agentCtx('ag-1', 'chat-1'),
@@ -639,7 +886,9 @@ describe('tasks CLI resource', () => {
     expect(failed.ok).toBe(false);
     expect(await getSession(session_id)).toBeDefined();
     await expect(
-      withMailboxSession('ag-1', session_id, (mailbox) => mailbox.getTask(series_id)),
+      withMailboxSession('ag-1', session_id, (mailbox) =>
+        mailbox.getTask(series_id),
+      ),
     ).resolves.toBeDefined();
 
     const retried = await dispatch(
@@ -664,13 +913,16 @@ describe('formatTasksTable', () => {
       status: 'pending',
       log: 'tasks/task-5bbe082a.md',
       created_at: '2026-01-15T08:05:30Z', // 1h before now
-      prompt: 'You are NanoClaw, wired into the company brain, your job this run is to read it',
+      prompt:
+        'You are NanoClaw, wired into the company brain, your job this run is to read it',
     },
   ];
 
   it('renders an aligned table with run history', () => {
     const lines = formatTasksTable(rows, now).split('\n');
-    expect(lines[0]).toMatch(/SERIES\s+SCHEDULE\s+RUNS\s+FAILED\s+LAST RUN\s+NEXT RUN\s+STATUS\s+AGE\s+PROMPT/);
+    expect(lines[0]).toMatch(
+      /SERIES\s+SCHEDULE\s+RUNS\s+FAILED\s+LAST RUN\s+NEXT RUN\s+STATUS\s+AGE\s+PROMPT/,
+    );
     expect(lines[1]).toContain('1h'); // AGE column — created 1h ago
     expect(lines[1]).toContain('task-5bbe082a-6298-4699'); // FULL series id — copy-pasteable into `tasks get --id`
     expect(lines[1]).toContain('* * * * *');
@@ -704,7 +956,10 @@ describe('deep verb help (ncl tasks help create)', () => {
   it('resolves through the dispatcher fallback and renders the full contract + examples', async () => {
     // Side-effect import mirrors the CLI server boot: registers <plural>-help.
     await import('../commands/index.js');
-    const resp = await dispatch({ id: 'h1', command: 'tasks-help-create', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: 'h1', command: 'tasks-help-create', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -717,7 +972,10 @@ describe('deep verb help (ncl tasks help create)', () => {
 
   it('rejects an unknown verb with a pointer back to resource help', async () => {
     await import('../commands/index.js');
-    const resp = await dispatch({ id: 'h2', command: 'tasks-help-frobnicate', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: 'h2', command: 'tasks-help-frobnicate', args: {} },
+      { caller: 'host' },
+    );
     expect(resp.ok).toBe(false);
   });
 });

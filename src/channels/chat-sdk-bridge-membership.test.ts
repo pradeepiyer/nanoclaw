@@ -13,7 +13,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adapter, Chat } from 'chat';
 
 import { log } from '../log.js';
-import { createChatSdkBridge, setMembershipHandler, type MembershipEvent } from './chat-sdk-bridge.js';
+import {
+  createChatSdkBridge,
+  setMembershipHandler,
+  type MembershipEvent,
+} from './chat-sdk-bridge.js';
 
 vi.mock('../webhook-server.js', () => ({
   registerWebhookAdapter: vi.fn(),
@@ -39,7 +43,9 @@ function lastRegisteredChat(): Chat {
 }
 
 /** Drive a Chat process* dispatcher and await its internal task. */
-async function dispatch(fire: (options: { waitUntil: (p: Promise<unknown>) => void }) => void): Promise<void> {
+async function dispatch(
+  fire: (options: { waitUntil: (p: Promise<unknown>) => void }) => void,
+): Promise<void> {
   let task: Promise<unknown> | undefined;
   fire({
     waitUntil: (p) => {
@@ -69,12 +75,21 @@ describe('setMembershipHandler', () => {
     });
 
     const adapter = stubAdapter('alpha');
-    const bridge = createChatSdkBridge({ adapter, instance: 'alpha-two', supportsThreads: true });
+    const bridge = createChatSdkBridge({
+      adapter,
+      instance: 'alpha-two',
+      supportsThreads: true,
+    });
     await bridge.setup(hostConfig);
 
     await dispatch((options) =>
       lastRegisteredChat().processMemberJoinedChannel(
-        { adapter, channelId: 'C0ROOM1', userId: 'U0NEW', inviterId: 'U0OWNER' },
+        {
+          adapter,
+          channelId: 'C0ROOM1',
+          userId: 'U0NEW',
+          inviterId: 'U0OWNER',
+        },
         options,
       ),
     );
@@ -102,11 +117,20 @@ describe('setMembershipHandler', () => {
     await bridge.setup(hostConfig);
 
     await dispatch((options) =>
-      lastRegisteredChat().processMemberJoinedChannel({ adapter, channelId: 'C2', userId: 'U2' }, options),
+      lastRegisteredChat().processMemberJoinedChannel(
+        { adapter, channelId: 'C2', userId: 'U2' },
+        options,
+      ),
     );
 
     expect(events).toEqual([
-      { instance: 'bravo', channelType: 'bravo', channelId: 'C2', userId: 'U2', inviterId: undefined },
+      {
+        instance: 'bravo',
+        channelType: 'bravo',
+        channelId: 'C2',
+        userId: 'U2',
+        inviterId: undefined,
+      },
     ]);
     await bridge.teardown();
   });
@@ -124,7 +148,10 @@ describe('setMembershipHandler', () => {
     // No handler registered for 'charlie' → dispatch is a silent no-op.
     await expect(
       dispatch((options) =>
-        lastRegisteredChat().processMemberJoinedChannel({ adapter, channelId: 'C3', userId: 'U3' }, options),
+        lastRegisteredChat().processMemberJoinedChannel(
+          { adapter, channelId: 'C3', userId: 'U3' },
+          options,
+        ),
       ),
     ).resolves.toBeUndefined();
     expect(wrongEvents).toEqual([]);
@@ -141,14 +168,19 @@ describe('setMembershipHandler', () => {
     setMembershipHandler('delta', (event) => {
       second.push(event);
     });
-    expect(warn).toHaveBeenCalledWith('Membership handler overwritten', { channelType: 'delta' });
+    expect(warn).toHaveBeenCalledWith('Membership handler overwritten', {
+      channelType: 'delta',
+    });
 
     const adapter = stubAdapter('delta');
     const bridge = createChatSdkBridge({ adapter, supportsThreads: true });
     await bridge.setup(hostConfig);
 
     await dispatch((options) =>
-      lastRegisteredChat().processMemberJoinedChannel({ adapter, channelId: 'C4', userId: 'U4' }, options),
+      lastRegisteredChat().processMemberJoinedChannel(
+        { adapter, channelId: 'C4', userId: 'U4' },
+        options,
+      ),
     );
 
     expect(first).toEqual([]);
@@ -166,7 +198,10 @@ describe('setMembershipHandler', () => {
 
     await expect(
       dispatch((options) =>
-        lastRegisteredChat().processMemberJoinedChannel({ adapter, channelId: 'C5', userId: 'U5' }, options),
+        lastRegisteredChat().processMemberJoinedChannel(
+          { adapter, channelId: 'C5', userId: 'U5' },
+          options,
+        ),
       ),
     ).resolves.toBeUndefined();
     await bridge.teardown();
@@ -182,7 +217,10 @@ describe('setMembershipHandler', () => {
 
     await expect(
       dispatch((options) =>
-        lastRegisteredChat().processMemberJoinedChannel({ adapter, channelId: 'C6', userId: 'U6' }, options),
+        lastRegisteredChat().processMemberJoinedChannel(
+          { adapter, channelId: 'C6', userId: 'U6' },
+          options,
+        ),
       ),
     ).resolves.toBeUndefined();
     // Let the rejected handler promise settle (its .catch logs the error).

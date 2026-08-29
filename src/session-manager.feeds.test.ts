@@ -6,11 +6,17 @@ import fs from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./config.js', async () => {
-  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
+  const actual =
+    await vi.importActual<typeof import('./config.js')>('./config.js');
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-mail-feed' };
 });
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from './db/index.js';
 import { createSession } from './db/sessions.js';
 import { registerReconcileEnqueue } from './reconcile-feeds.js';
 import { initSessionFolder, writeSessionMessage } from './session-manager.js';

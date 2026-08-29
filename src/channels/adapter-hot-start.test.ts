@@ -11,7 +11,10 @@ import type { ChannelAdapter, ChannelSetup } from './adapter.js';
 
 /** Fake adapter recording every setup() config so tests can assert identity
  *  with the object the captured setupFn produced. */
-function createFakeAdapter(channelType: string, instance?: string): ChannelAdapter & { setupConfigs: ChannelSetup[] } {
+function createFakeAdapter(
+  channelType: string,
+  instance?: string,
+): ChannelAdapter & { setupConfigs: ChannelSetup[] } {
   const setupConfigs: ChannelSetup[] = [];
   return {
     name: instance ?? channelType,
@@ -65,7 +68,9 @@ describe('startChannelAdapter (hot-start seam)', () => {
 
   it('throws before initChannelAdapters has run', async () => {
     const reg = await import('./channel-registry.js');
-    reg.registerChannelAdapter('slack-hot', { factory: () => createFakeAdapter('slack', 'slack-hot') });
+    reg.registerChannelAdapter('slack-hot', {
+      factory: () => createFakeAdapter('slack', 'slack-hot'),
+    });
 
     await expect(reg.startChannelAdapter('slack-hot')).rejects.toThrow(
       'startChannelAdapter: initChannelAdapters has not run',
@@ -103,7 +108,9 @@ describe('startChannelAdapter (hot-start seam)', () => {
     reg.registerChannelAdapter('slack-hot', { factory: () => adapter });
 
     await expect(reg.startChannelAdapter('slack-hot')).resolves.toBe('started');
-    await expect(reg.startChannelAdapter('slack-hot')).resolves.toBe('already-active');
+    await expect(reg.startChannelAdapter('slack-hot')).resolves.toBe(
+      'already-active',
+    );
     expect(adapter.setupConfigs).toHaveLength(1);
   });
 
@@ -112,7 +119,9 @@ describe('startChannelAdapter (hot-start seam)', () => {
     await reg.initChannelAdapters(createSetupFn().setupFn);
     reg.registerChannelAdapter('slack-nocreds', { factory: () => null });
 
-    await expect(reg.startChannelAdapter('slack-nocreds')).resolves.toBe('no-credentials');
+    await expect(reg.startChannelAdapter('slack-nocreds')).resolves.toBe(
+      'no-credentials',
+    );
     expect(reg.getChannelAdapterExact('slack-nocreds')).toBeUndefined();
   });
 

@@ -33,10 +33,19 @@ vi.mock('../../config.js', async () => {
 
 const TEST_DIR = '/tmp/nanoclaw-test-cli-groups';
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup, getDb } from '../../db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  getDb,
+} from '../../db/index.js';
 import { createSession } from '../../db/sessions.js';
 import { dispatch } from '../dispatch.js';
-import { ensureContainerConfig, getContainerConfig } from '../../db/container-configs.js';
+import {
+  ensureContainerConfig,
+  getContainerConfig,
+} from '../../db/container-configs.js';
 import { restartAgentGroupContainers } from '../../container-restart.js';
 // Side-effect import: registers the `groups-*` commands (including delete).
 import './groups.js';
@@ -67,11 +76,19 @@ describe('groups CLI delete cascades dependent rows (#2525)', () => {
     vi.mocked(restartAgentGroupContainers).mockResolvedValueOnce(3);
 
     const response = await dispatch(
-      { id: 'req-restart', command: 'groups-restart', args: { id: 'ag-restart' } },
+      {
+        id: 'req-restart',
+        command: 'groups-restart',
+        args: { id: 'ag-restart' },
+      },
       { caller: 'host' },
     );
 
-    expect(response).toEqual({ id: 'req-restart', ok: true, data: { restarted: 3, rebuilt: false } });
+    expect(response).toEqual({
+      id: 'req-restart',
+      ok: true,
+      data: { restarted: 3, rebuilt: false },
+    });
   });
 
   it('deletes a group with sessions, destinations, approvals, members, roles, and wirings', async () => {
@@ -80,7 +97,13 @@ describe('groups CLI delete cascades dependent rows (#2525)', () => {
     const MGID = 'mg-1';
     const UID = 'tg:42';
 
-    await createAgentGroup({ id: GID, name: 'victim', folder: 'victim', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: GID,
+      name: 'victim',
+      folder: 'victim',
+      agent_provider: null,
+      created_at: now(),
+    });
     await createSession({
       id: SID,
       agent_group_id: GID,
@@ -185,10 +208,18 @@ describe('groups CLI delete cascades dependent rows (#2525)', () => {
       now(),
     );
 
-    const resp = await dispatch({ id: 'req-del', command: 'groups-delete', args: { id: GID } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: 'req-del', command: 'groups-delete', args: { id: GID } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
-    const data = (resp as { ok: true; data: { deleted: string; removed: Record<string, number> } }).data;
+    const data = (
+      resp as {
+        ok: true;
+        data: { deleted: string; removed: Record<string, number> };
+      }
+    ).data;
     expect(data.deleted).toBe(GID);
     expect(data.removed).toMatchObject({
       sessions: 1,
@@ -205,30 +236,100 @@ describe('groups CLI delete cascades dependent rows (#2525)', () => {
     });
 
     // The group and every dependent row must be gone.
-    expect(await count('SELECT COUNT(*) AS c FROM agent_groups WHERE id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM sessions WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM pending_questions WHERE session_id = ?', SID)).toBe(0);
     expect(
-      await count('SELECT COUNT(*) AS c FROM pending_approvals WHERE agent_group_id = ? OR session_id = ?', GID, SID),
+      await count('SELECT COUNT(*) AS c FROM agent_groups WHERE id = ?', GID),
     ).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM agent_destinations WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM pending_sender_approvals WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM pending_channel_approvals WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM messaging_group_agents WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM agent_group_members WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM user_roles WHERE agent_group_id = ?', GID)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM container_configs WHERE agent_group_id = ?', GID)).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM sessions WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM pending_questions WHERE session_id = ?',
+        SID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM pending_approvals WHERE agent_group_id = ? OR session_id = ?',
+        GID,
+        SID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM agent_destinations WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM pending_sender_approvals WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM pending_channel_approvals WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM messaging_group_agents WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM agent_group_members WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM user_roles WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM container_configs WHERE agent_group_id = ?',
+        GID,
+      ),
+    ).toBe(0);
 
     // Unrelated tables untouched.
-    expect(await count('SELECT COUNT(*) AS c FROM users WHERE id = ?', UID)).toBe(1);
-    expect(await count('SELECT COUNT(*) AS c FROM messaging_groups WHERE id = ?', MGID)).toBe(1);
+    expect(
+      await count('SELECT COUNT(*) AS c FROM users WHERE id = ?', UID),
+    ).toBe(1);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM messaging_groups WHERE id = ?',
+        MGID,
+      ),
+    ).toBe(1);
   });
 
   it('removes polymorphic agent_destinations that point at the deleted group', async () => {
     const A = 'ag-a';
     const B = 'ag-b';
-    await createAgentGroup({ id: A, name: 'a', folder: 'a', agent_provider: null, created_at: now() });
-    await createAgentGroup({ id: B, name: 'b', folder: 'b', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: A,
+      name: 'a',
+      folder: 'a',
+      agent_provider: null,
+      created_at: now(),
+    });
+    await createAgentGroup({
+      id: B,
+      name: 'b',
+      folder: 'b',
+      agent_provider: null,
+      created_at: now(),
+    });
 
     const db = getDb();
 
@@ -243,27 +344,51 @@ describe('groups CLI delete cascades dependent rows (#2525)', () => {
       now(),
     );
 
-    const resp = await dispatch({ id: 'req-del-a', command: 'groups-delete', args: { id: A } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: 'req-del-a', command: 'groups-delete', args: { id: A } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
-    const data = (resp as { ok: true; data: { removed: Record<string, number> } }).data;
+    const data = (
+      resp as { ok: true; data: { removed: Record<string, number> } }
+    ).data;
     expect(data.removed.agent_destinations_pointing).toBe(1);
 
     // A is gone, B remains, and B's stale destination is cleaned up.
-    expect(await count('SELECT COUNT(*) AS c FROM agent_groups WHERE id = ?', A)).toBe(0);
-    expect(await count('SELECT COUNT(*) AS c FROM agent_groups WHERE id = ?', B)).toBe(1);
-    expect(await count('SELECT COUNT(*) AS c FROM agent_destinations WHERE agent_group_id = ?', B)).toBe(0);
+    expect(
+      await count('SELECT COUNT(*) AS c FROM agent_groups WHERE id = ?', A),
+    ).toBe(0);
+    expect(
+      await count('SELECT COUNT(*) AS c FROM agent_groups WHERE id = ?', B),
+    ).toBe(1);
+    expect(
+      await count(
+        'SELECT COUNT(*) AS c FROM agent_destinations WHERE agent_group_id = ?',
+        B,
+      ),
+    ).toBe(0);
   });
 
   it('returns a handler error for an unknown group id', async () => {
     const resp = await dispatch(
-      { id: 'req-missing', command: 'groups-delete', args: { id: 'ag-does-not-exist' } },
+      {
+        id: 'req-missing',
+        command: 'groups-delete',
+        args: { id: 'ag-does-not-exist' },
+      },
       { caller: 'host' },
     );
 
     expect(resp.ok).toBe(false);
-    expect((resp as { ok: false; error: { code: string; message: string } }).error.code).toBe('handler-error');
-    expect((resp as { ok: false; error: { code: string; message: string } }).error.message).toMatch(/not found/i);
+    expect(
+      (resp as { ok: false; error: { code: string; message: string } }).error
+        .code,
+    ).toBe('handler-error');
+    expect(
+      (resp as { ok: false; error: { code: string; message: string } }).error
+        .message,
+    ).toMatch(/not found/i);
   });
 });
 
@@ -280,29 +405,60 @@ describe('groups config add-mount / remove-mount (host-only)', () => {
 
   it('adds a mount idempotently and removes it (host caller)', async () => {
     const GID = 'ag-mount';
-    await createAgentGroup({ id: GID, name: 'm', folder: 'm', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: GID,
+      name: 'm',
+      folder: 'm',
+      agent_provider: null,
+      created_at: now(),
+    });
     await ensureContainerConfig(GID);
-    const args = { id: GID, host: '/data/.gmail-mcp', container: '/home/node/.gmail-mcp', ro: true };
+    const args = {
+      id: GID,
+      host: '/data/.gmail-mcp',
+      container: '/home/node/.gmail-mcp',
+      ro: true,
+    };
 
-    const add = await dispatch({ id: 'r1', command: 'groups-config-add-mount', args }, { caller: 'host' });
+    const add = await dispatch(
+      { id: 'r1', command: 'groups-config-add-mount', args },
+      { caller: 'host' },
+    );
     expect(add.ok).toBe(true);
-    expect(JSON.parse((await getContainerConfig(GID))!.additional_mounts)).toEqual([
-      { hostPath: '/data/.gmail-mcp', containerPath: '/home/node/.gmail-mcp', readonly: true },
+    expect(
+      JSON.parse((await getContainerConfig(GID))!.additional_mounts),
+    ).toEqual([
+      {
+        hostPath: '/data/.gmail-mcp',
+        containerPath: '/home/node/.gmail-mcp',
+        readonly: true,
+      },
     ]);
 
     // idempotent: a second add does not duplicate
-    await dispatch({ id: 'r2', command: 'groups-config-add-mount', args }, { caller: 'host' });
-    expect(JSON.parse((await getContainerConfig(GID))!.additional_mounts)).toHaveLength(1);
+    await dispatch(
+      { id: 'r2', command: 'groups-config-add-mount', args },
+      { caller: 'host' },
+    );
+    expect(
+      JSON.parse((await getContainerConfig(GID))!.additional_mounts),
+    ).toHaveLength(1);
 
     const rm = await dispatch(
       {
         id: 'r3',
         command: 'groups-config-remove-mount',
-        args: { id: GID, host: '/data/.gmail-mcp', container: '/home/node/.gmail-mcp' },
+        args: {
+          id: GID,
+          host: '/data/.gmail-mcp',
+          container: '/home/node/.gmail-mcp',
+        },
       },
       { caller: 'host' },
     );
     expect(rm.ok).toBe(true);
-    expect(JSON.parse((await getContainerConfig(GID))!.additional_mounts)).toEqual([]);
+    expect(
+      JSON.parse((await getContainerConfig(GID))!.additional_mounts),
+    ).toEqual([]);
   });
 });

@@ -16,7 +16,9 @@ vi.mock('./reconcile-session.js', () => ({
 }));
 vi.mock('./db/sessions.js', () => ({ getActiveSessions: vi.fn() }));
 vi.mock('./egress-lockdown.js', () => ({ ensureEgressNetwork: vi.fn() }));
-vi.mock('./modules/approvals/index.js', () => ({ sweepAwaitingReasonRejects: vi.fn() }));
+vi.mock('./modules/approvals/index.js', () => ({
+  sweepAwaitingReasonRejects: vi.fn(),
+}));
 
 import { getActiveSessions } from './db/sessions.js';
 import { ensureEgressNetwork } from './egress-lockdown.js';
@@ -59,10 +61,15 @@ beforeEach(() => {
     });
   vi.mocked(getActiveSessions)
     .mockReset()
-    .mockResolvedValue([{ id: 's-1' }, { id: 's-2' }] as Awaited<ReturnType<typeof getActiveSessions>>);
+    .mockResolvedValue([{ id: 's-1' }, { id: 's-2' }] as Awaited<
+      ReturnType<typeof getActiveSessions>
+    >);
 
   sweepCallbacks.length = 0;
-  setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((fn: () => void, ms?: number) => {
+  setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((
+    fn: () => void,
+    ms?: number,
+  ) => {
     if (ms === SWEEP_INTERVAL_MS) {
       sweepCallbacks.push(fn);
       return 0 as unknown as NodeJS.Timeout;
@@ -81,7 +88,12 @@ describe('sweep over the workqueue', () => {
     await runSweepTick();
 
     expect(reconcileSession).toHaveBeenCalledTimes(2);
-    expect(order).toEqual(['egress', 'session:s-1', 'session:s-2', 'approvals']);
+    expect(order).toEqual([
+      'egress',
+      'session:s-1',
+      'session:s-2',
+      'approvals',
+    ]);
 
     await runSweepTick();
     expect(reconcileSession).toHaveBeenCalledTimes(4);

@@ -18,7 +18,9 @@ import { isUniqueViolation } from './errors.js';
 
 // ── Messaging Groups ──
 
-export async function createMessagingGroup(group: MessagingGroup): Promise<void> {
+export async function createMessagingGroup(
+  group: MessagingGroup,
+): Promise<void> {
   await getDb().run(
     `INSERT INTO messaging_groups (id, channel_type, platform_id, instance, name, is_group, unknown_sender_policy, created_at)
        VALUES (@id, @channel_type, @platform_id, @instance, @name, @is_group, @unknown_sender_policy, @created_at)`,
@@ -27,7 +29,9 @@ export async function createMessagingGroup(group: MessagingGroup): Promise<void>
 }
 
 /** Router-only idempotent insert for concurrent first messages. */
-export async function createMessagingGroupIfAbsent(group: MessagingGroup): Promise<boolean> {
+export async function createMessagingGroupIfAbsent(
+  group: MessagingGroup,
+): Promise<boolean> {
   const result = await getDb().run(
     `INSERT INTO messaging_groups (id, channel_type, platform_id, instance, name, is_group, unknown_sender_policy, created_at)
        VALUES (@id, @channel_type, @platform_id, @instance, @name, @is_group, @unknown_sender_policy, @created_at)
@@ -37,8 +41,13 @@ export async function createMessagingGroupIfAbsent(group: MessagingGroup): Promi
   return result.changes > 0;
 }
 
-export async function getMessagingGroup(id: string): Promise<MessagingGroup | undefined> {
-  return getDb().get<MessagingGroup>('SELECT * FROM messaging_groups WHERE id = ?', id);
+export async function getMessagingGroup(
+  id: string,
+): Promise<MessagingGroup | undefined> {
+  return getDb().get<MessagingGroup>(
+    'SELECT * FROM messaging_groups WHERE id = ?',
+    id,
+  );
 }
 
 /**
@@ -152,7 +161,9 @@ export async function getMessagingGroupWithAgentCount(
 }
 
 export async function getAllMessagingGroups(): Promise<MessagingGroup[]> {
-  return getDb().all<MessagingGroup>('SELECT * FROM messaging_groups ORDER BY name');
+  return getDb().all<MessagingGroup>(
+    'SELECT * FROM messaging_groups ORDER BY name',
+  );
 }
 
 /**
@@ -161,13 +172,20 @@ export async function getAllMessagingGroups(): Promise<MessagingGroup[]> {
  * stays the semantic platform key. No live caller today; if a caller needs
  * a single instance's rows, filter on `mg.instance`.
  */
-export async function getMessagingGroupsByChannel(channelType: string): Promise<MessagingGroup[]> {
-  return getDb().all<MessagingGroup>('SELECT * FROM messaging_groups WHERE channel_type = ?', channelType);
+export async function getMessagingGroupsByChannel(
+  channelType: string,
+): Promise<MessagingGroup[]> {
+  return getDb().all<MessagingGroup>(
+    'SELECT * FROM messaging_groups WHERE channel_type = ?',
+    channelType,
+  );
 }
 
 export async function updateMessagingGroup(
   id: string,
-  updates: Partial<Pick<MessagingGroup, 'name' | 'is_group' | 'unknown_sender_policy'>>,
+  updates: Partial<
+    Pick<MessagingGroup, 'name' | 'is_group' | 'unknown_sender_policy'>
+  >,
 ): Promise<void> {
   const fields: string[] = [];
   const values: Record<string, unknown> = { id };
@@ -180,7 +198,10 @@ export async function updateMessagingGroup(
   }
   if (fields.length === 0) return;
 
-  await getDb().run(`UPDATE messaging_groups SET ${fields.join(', ')} WHERE id = @id`, values);
+  await getDb().run(
+    `UPDATE messaging_groups SET ${fields.join(', ')} WHERE id = @id`,
+    values,
+  );
 }
 
 export async function deleteMessagingGroup(id: string): Promise<void> {
@@ -197,8 +218,15 @@ export async function deleteMessagingGroup(id: string): Promise<void> {
  * Passing null unsets the flag (used by tests or a future "unblock channel"
  * admin command).
  */
-export async function setMessagingGroupDeniedAt(id: string, deniedAt: string | null): Promise<void> {
-  await getDb().run('UPDATE messaging_groups SET denied_at = ? WHERE id = ?', deniedAt, id);
+export async function setMessagingGroupDeniedAt(
+  id: string,
+  deniedAt: string | null,
+): Promise<void> {
+  await getDb().run(
+    'UPDATE messaging_groups SET denied_at = ? WHERE id = ?',
+    deniedAt,
+    id,
+  );
 }
 
 /**
@@ -208,8 +236,15 @@ export async function setMessagingGroupDeniedAt(id: string, deniedAt: string | n
  * delivery/typing should skip the row until the bot rejoins. Passing null
  * clears the flag (rejoin), restoring the room with zero re-setup.
  */
-export async function setMessagingGroupDetachedAt(id: string, detachedAt: string | null): Promise<void> {
-  await getDb().run('UPDATE messaging_groups SET detached_at = ? WHERE id = ?', detachedAt, id);
+export async function setMessagingGroupDetachedAt(
+  id: string,
+  detachedAt: string | null,
+): Promise<void> {
+  await getDb().run(
+    'UPDATE messaging_groups SET detached_at = ? WHERE id = ?',
+    detachedAt,
+    id,
+  );
 }
 
 /** True when the bot has left this conversation (detached_at set). The check
@@ -237,7 +272,9 @@ export async function isMessagingGroupDetached(id: string): Promise<boolean> {
  * a numeric suffix to break collisions within the agent's namespace. This
  * mirrors the backfill logic in migration 004.
  */
-export async function createMessagingGroupAgent(mga: MessagingGroupAgent): Promise<void> {
+export async function createMessagingGroupAgent(
+  mga: MessagingGroupAgent,
+): Promise<void> {
   await getDb().run(
     `INSERT INTO messaging_group_agents (
          id, messaging_group_id, agent_group_id,
@@ -257,7 +294,11 @@ export async function createMessagingGroupAgent(mga: MessagingGroupAgent): Promi
   // (better-sqlite3 rejects missing named params). Omitted/NULL = column
   // stays NULL = inherit the channel declaration at fanout time.
   if (mga.threads !== undefined && mga.threads !== null) {
-    await getDb().run('UPDATE messaging_group_agents SET threads = ? WHERE id = ?', mga.threads, mga.id);
+    await getDb().run(
+      'UPDATE messaging_group_agents SET threads = ? WHERE id = ?',
+      mga.threads,
+      mga.id,
+    );
   }
 
   await ensureAgentDestinationForWiring(mga);
@@ -287,7 +328,9 @@ export async function createMessagingGroupAgent(mga: MessagingGroupAgent): Promi
  * process and need the refresh to happen immediately, explicitly call the
  * module's `writeDestinations(mga.agent_group_id, <sessionId>)` afterwards.
  */
-export async function ensureAgentDestinationForWiring(mga: MessagingGroupAgent): Promise<void> {
+export async function ensureAgentDestinationForWiring(
+  mga: MessagingGroupAgent,
+): Promise<void> {
   // Guarded: when the agent-to-agent module isn't installed the table
   // doesn't exist — skip silently. Without the module, the ACL check in
   // delivery is also skipped (same guard), so channel sends still work.
@@ -296,11 +339,17 @@ export async function ensureAgentDestinationForWiring(mga: MessagingGroupAgent):
   const mg = await getMessagingGroup(mga.messaging_group_id);
   if (!mg) return;
 
-  const base = normalizeName(mg.name || `${mg.channel_type}-${mga.messaging_group_id.slice(0, 8)}`);
+  const base = normalizeName(
+    mg.name || `${mg.channel_type}-${mga.messaging_group_id.slice(0, 8)}`,
+  );
   let localName = base;
   let suffix = 2;
   for (;;) {
-    const existing = await getDestinationByTarget(mga.agent_group_id, 'channel', mga.messaging_group_id);
+    const existing = await getDestinationByTarget(
+      mga.agent_group_id,
+      'channel',
+      mga.messaging_group_id,
+    );
     if (existing) return;
     try {
       // The nested transaction is a savepoint when the wiring itself is being
@@ -324,7 +373,9 @@ export async function ensureAgentDestinationForWiring(mga: MessagingGroupAgent):
   }
 }
 
-export async function getMessagingGroupAgents(messagingGroupId: string): Promise<MessagingGroupAgent[]> {
+export async function getMessagingGroupAgents(
+  messagingGroupId: string,
+): Promise<MessagingGroupAgent[]> {
   return getDb().all<MessagingGroupAgent>(
     'SELECT * FROM messaging_group_agents WHERE messaging_group_id = ? ORDER BY priority DESC, id',
     messagingGroupId,
@@ -342,8 +393,13 @@ export async function getMessagingGroupAgentByPair(
   );
 }
 
-export async function getMessagingGroupAgent(id: string): Promise<MessagingGroupAgent | undefined> {
-  return getDb().get<MessagingGroupAgent>('SELECT * FROM messaging_group_agents WHERE id = ?', id);
+export async function getMessagingGroupAgent(
+  id: string,
+): Promise<MessagingGroupAgent | undefined> {
+  return getDb().get<MessagingGroupAgent>(
+    'SELECT * FROM messaging_group_agents WHERE id = ?',
+    id,
+  );
 }
 
 export async function updateMessagingGroupAgent(
@@ -372,7 +428,10 @@ export async function updateMessagingGroupAgent(
   }
   if (fields.length === 0) return;
 
-  await getDb().run(`UPDATE messaging_group_agents SET ${fields.join(', ')} WHERE id = @id`, values);
+  await getDb().run(
+    `UPDATE messaging_group_agents SET ${fields.join(', ')} WHERE id = @id`,
+    values,
+  );
 }
 
 export async function deleteMessagingGroupAgent(id: string): Promise<void> {
@@ -380,7 +439,9 @@ export async function deleteMessagingGroupAgent(id: string): Promise<void> {
 }
 
 /** Get all messaging groups wired to an agent group (reverse lookup). */
-export async function getMessagingGroupsByAgentGroup(agentGroupId: string): Promise<MessagingGroup[]> {
+export async function getMessagingGroupsByAgentGroup(
+  agentGroupId: string,
+): Promise<MessagingGroup[]> {
   return getDb().all<MessagingGroup>(
     `SELECT mg.* FROM messaging_groups mg
        JOIN messaging_group_agents mga ON mga.messaging_group_id = mg.id

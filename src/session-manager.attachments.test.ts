@@ -23,13 +23,23 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./config.js', async () => {
-  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
+  const actual =
+    await vi.importActual<typeof import('./config.js')>('./config.js');
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-saveatt-gap' };
 });
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from './db/index.js';
 import { createSession } from './db/sessions.js';
-import { initSessionFolder, sessionDir, writeSessionMessage } from './session-manager.js';
+import {
+  initSessionFolder,
+  sessionDir,
+  writeSessionMessage,
+} from './session-manager.js';
 import type { Session } from './types.js';
 
 const TEST_DIR = '/tmp/nanoclaw-test-saveatt-gap';
@@ -47,7 +57,13 @@ beforeEach(async () => {
   const db = await initTestDb();
   await runMigrations(db);
 
-  await createAgentGroup({ id: AG, name: 'SaveAtt', folder: 'saveatt', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: AG,
+    name: 'SaveAtt',
+    folder: 'saveatt',
+    agent_provider: null,
+    created_at: now(),
+  });
   const sess: Session = {
     id: SESS,
     agent_group_id: AG,
@@ -81,7 +97,12 @@ describe('extractAttachmentFiles — inbox-root symlink containment (#2828 sibli
 
     const content = JSON.stringify({
       text: 'see attached',
-      attachments: [{ name: 'pwn.txt', data: Buffer.from('attacker-bytes').toString('base64') }],
+      attachments: [
+        {
+          name: 'pwn.txt',
+          data: Buffer.from('attacker-bytes').toString('base64'),
+        },
+      ],
     });
 
     await writeSessionMessage(AG, SESS, {

@@ -33,7 +33,8 @@ export interface AllowedRoot {
 // mtime. A changed or fixed file is picked up on the next call (no restart),
 // and a parse error is never cached permanently — one bad edit blocks mounts
 // only until the file is fixed.
-let cache: { path: string; mtimeMs: number; allowlist: MountAllowlist } | null = null;
+let cache: { path: string; mtimeMs: number; allowlist: MountAllowlist } | null =
+  null;
 
 /**
  * Default blocked patterns - paths that should never be mounted.
@@ -95,17 +96,21 @@ const DEFAULT_BLOCKED_PATTERNS = [
  */
 function normalizeRoot(root: Record<string, unknown>): AllowedRoot {
   const rootPath = typeof root.path === 'string' ? root.path : '';
-  const description = typeof root.description === 'string' ? root.description : undefined;
+  const description =
+    typeof root.description === 'string' ? root.description : undefined;
 
   let allowReadWrite: boolean;
   if (typeof root.allowReadWrite === 'boolean') {
     allowReadWrite = root.allowReadWrite;
   } else if (typeof root.readOnly === 'boolean') {
     allowReadWrite = !root.readOnly;
-    log.warn('Mount allowlist root uses "readOnly" — translating to allowReadWrite', {
-      root: rootPath,
-      readOnly: root.readOnly,
-    });
+    log.warn(
+      'Mount allowlist root uses "readOnly" — translating to allowReadWrite',
+      {
+        root: rootPath,
+        readOnly: root.readOnly,
+      },
+    );
   } else {
     allowReadWrite = false;
   }
@@ -137,7 +142,11 @@ export function loadMountAllowlist(): MountAllowlist | null {
   // Serve from cache only while the same file is unchanged since the last
   // successful load. Any edit (including fixing a previously broken file) bumps
   // the mtime and is picked up on the next call.
-  if (cache !== null && cache.path === MOUNT_ALLOWLIST_PATH && cache.mtimeMs === stat.mtimeMs) {
+  if (
+    cache !== null &&
+    cache.path === MOUNT_ALLOWLIST_PATH &&
+    cache.mtimeMs === stat.mtimeMs
+  ) {
     return cache.allowlist;
   }
 
@@ -159,15 +168,25 @@ export function loadMountAllowlist(): MountAllowlist | null {
     // read-only is decided per-root. Do NOT throw: a hard reject would fail
     // closed and brick all mounts on a standard install.
     if ('nonMainReadOnly' in raw) {
-      log.warn('Mount allowlist has unsupported top-level "nonMainReadOnly" key — ignoring (read-only is per-root)', {
-        path: MOUNT_ALLOWLIST_PATH,
-      });
+      log.warn(
+        'Mount allowlist has unsupported top-level "nonMainReadOnly" key — ignoring (read-only is per-root)',
+        {
+          path: MOUNT_ALLOWLIST_PATH,
+        },
+      );
     }
 
-    const allowedRoots = (raw.allowedRoots as Array<Record<string, unknown>>).map(normalizeRoot);
+    const allowedRoots = (
+      raw.allowedRoots as Array<Record<string, unknown>>
+    ).map(normalizeRoot);
 
     // Merge with default blocked patterns
-    const blockedPatterns = [...new Set([...DEFAULT_BLOCKED_PATTERNS, ...(raw.blockedPatterns as string[])])];
+    const blockedPatterns = [
+      ...new Set([
+        ...DEFAULT_BLOCKED_PATTERNS,
+        ...(raw.blockedPatterns as string[]),
+      ]),
+    ];
 
     const allowlist: MountAllowlist = { allowedRoots, blockedPatterns };
 
@@ -183,10 +202,13 @@ export function loadMountAllowlist(): MountAllowlist | null {
     // Do NOT poison the cache — a corrupt edit blocks mounts only until it's
     // fixed, then the next call re-reads and recovers.
     cache = null;
-    log.error('Failed to load mount allowlist - additional mounts will be BLOCKED', {
-      path: MOUNT_ALLOWLIST_PATH,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    log.error(
+      'Failed to load mount allowlist - additional mounts will be BLOCKED',
+      {
+        path: MOUNT_ALLOWLIST_PATH,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
     return null;
   }
 }
@@ -227,7 +249,10 @@ function getRealPath(p: string): string | null {
  * "may this path be named as a mount?" and never "is anything blocked inside
  * it?". See the note on {@link DEFAULT_BLOCKED_PATTERNS}.
  */
-function matchesBlockedPattern(realPath: string, blockedPatterns: string[]): string | null {
+function matchesBlockedPattern(
+  realPath: string,
+  blockedPatterns: string[],
+): string | null {
   const pathParts = realPath.split(path.sep);
 
   for (const pattern of blockedPatterns) {
@@ -250,7 +275,10 @@ function matchesBlockedPattern(realPath: string, blockedPatterns: string[]): str
 /**
  * Check if a real path is under an allowed root
  */
-function findAllowedRoot(realPath: string, allowedRoots: AllowedRoot[]): AllowedRoot | null {
+function findAllowedRoot(
+  realPath: string,
+  allowedRoots: AllowedRoot[],
+): AllowedRoot | null {
   for (const root of allowedRoots) {
     const expandedRoot = expandPath(root.path);
     const realRoot = getRealPath(expandedRoot);
@@ -343,7 +371,10 @@ export function validateMount(mount: AdditionalMount): MountValidationResult {
   }
 
   // Check against blocked patterns
-  const blockedMatch = matchesBlockedPattern(realPath, allowlist.blockedPatterns);
+  const blockedMatch = matchesBlockedPattern(
+    realPath,
+    allowlist.blockedPatterns,
+  );
   if (blockedMatch !== null) {
     return {
       allowed: false,

@@ -35,7 +35,9 @@ export const migration016: Migration = {
   disableForeignKeys: true,
   up: (db: Database.Database) => {
     // Idempotency guard per the 012 pattern.
-    const cols = db.prepare("PRAGMA table_info('messaging_groups')").all() as Array<{ name: string }>;
+    const cols = db
+      .prepare("PRAGMA table_info('messaging_groups')")
+      .all() as Array<{ name: string }>;
     if (cols.some((c) => c.name === 'instance')) return;
 
     db.exec(`

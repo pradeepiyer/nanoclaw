@@ -31,9 +31,18 @@ vi.mock('./container-runner.js', () => ({
   killContainer: vi.fn(),
 }));
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+} from './db/index.js';
 import { createSession } from './db/sessions.js';
-import { isContainerRunning, killContainer, wakeContainer } from './container-runner.js';
+import {
+  isContainerRunning,
+  killContainer,
+  wakeContainer,
+} from './container-runner.js';
 import { startHostSweep, stopHostSweep } from './host-sweep.js';
 import { log } from './log.js';
 import { getAgentMailbox } from './mailbox/index.js';
@@ -53,10 +62,9 @@ function now(): string {
 
 function seedStaleClaim(messageId: string, ageMs: number): void {
   const db = new Database(outboundDbPath(AG, SESS));
-  db.prepare("INSERT INTO processing_ack (message_id, status, status_changed) VALUES (?, 'processing', ?)").run(
-    messageId,
-    new Date(Date.now() - ageMs).toISOString(),
-  );
+  db.prepare(
+    "INSERT INTO processing_ack (message_id, status, status_changed) VALUES (?, 'processing', ?)",
+  ).run(messageId, new Date(Date.now() - ageMs).toISOString());
   db.close();
 }
 
@@ -93,7 +101,8 @@ beforeEach(async () => {
     // a wake claims the session at a fresh incarnation (claimed_at = now),
     // then the container reports running.
     .mockImplementation(async () => {
-      const { getSessionClaim, tryClaimSession } = await import('./db/coordination.js');
+      const { getSessionClaim, tryClaimSession } =
+        await import('./db/coordination.js');
       const current = await getSessionClaim(SESS);
       await tryClaimSession({
         sessionId: SESS,
@@ -106,7 +115,10 @@ beforeEach(async () => {
     });
 
   sweepCallbacks.length = 0;
-  setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((fn: () => void, ms?: number) => {
+  setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((
+    fn: () => void,
+    ms?: number,
+  ) => {
     if (ms === SWEEP_INTERVAL_MS) {
       sweepCallbacks.push(fn);
       return 0 as unknown as NodeJS.Timeout;
@@ -119,7 +131,13 @@ beforeEach(async () => {
 
   const db = await initTestDb();
   await runMigrations(db);
-  await createAgentGroup({ id: AG, name: 'Test Agent', folder: 'test-agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: AG,
+    name: 'Test Agent',
+    folder: 'test-agent',
+    agent_provider: null,
+    created_at: now(),
+  });
   await createSession({
     id: SESS,
     agent_group_id: AG,
@@ -135,7 +153,12 @@ beforeEach(async () => {
 
   // A due message (wakes the container) + a stale claim from a previous crash
   // (would trip claim-stuck if the SLA check ran on the wake tick).
-  await writeSessionMessage(AG, SESS, { id: 'm-1', kind: 'chat', timestamp: now(), content: '{"text":"hi"}' });
+  await writeSessionMessage(AG, SESS, {
+    id: 'm-1',
+    kind: 'chat',
+    timestamp: now(),
+    content: '{"text":"hi"}',
+  });
   seedStaleClaim('m-1', 2 * 60 * 60 * 1000); // claimed 2h ago
 });
 
@@ -162,7 +185,9 @@ describe('host sweep incarnation-gated grace period', () => {
 
   it('logs mailbox failures with session context and retries on a later tick', async () => {
     const err = new Error('mailbox unavailable');
-    const sessionSpy = vi.spyOn(getAgentMailbox(), 'session').mockRejectedValueOnce(err);
+    const sessionSpy = vi
+      .spyOn(getAgentMailbox(), 'session')
+      .mockRejectedValueOnce(err);
     const logSpy = vi.spyOn(log, 'error').mockImplementation(() => {});
 
     try {

@@ -14,9 +14,18 @@ vi.mock('../../config.js', async () => {
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-typing' };
 });
 
-import { setTypingAdapter, startTypingRefresh, stopTypingRefresh } from './index.js';
+import {
+  setTypingAdapter,
+  startTypingRefresh,
+  stopTypingRefresh,
+} from './index.js';
 
-type Call = { channelType: string; platformId: string; threadId: string | null; instance?: string };
+type Call = {
+  channelType: string;
+  platformId: string;
+  threadId: string | null;
+  instance?: string;
+};
 
 function captureAdapter() {
   const calls: Call[] = [];
@@ -40,7 +49,14 @@ afterEach(() => {
 describe('startTypingRefresh — instance forwarding', () => {
   it('immediate tick passes the instance to the adapter', async () => {
     const calls = captureAdapter();
-    startTypingRefresh('sess-1', 'ag-1', 'slack', 'slack:C1', null, 'slack-tester');
+    startTypingRefresh(
+      'sess-1',
+      'ag-1',
+      'slack',
+      'slack:C1',
+      null,
+      'slack-tester',
+    );
     await vi.advanceTimersByTimeAsync(0);
     expect(calls).toHaveLength(1);
     expect(calls[0]).toEqual({
@@ -53,7 +69,14 @@ describe('startTypingRefresh — instance forwarding', () => {
 
   it('interval ticks inside the grace window pass the stored entry instance', async () => {
     const calls = captureAdapter();
-    startTypingRefresh('sess-1', 'ag-1', 'slack', 'slack:C1', 'T1', 'slack-tester');
+    startTypingRefresh(
+      'sess-1',
+      'ag-1',
+      'slack',
+      'slack:C1',
+      'T1',
+      'slack-tester',
+    );
     await vi.advanceTimersByTimeAsync(0);
     calls.length = 0;
 
@@ -69,12 +92,26 @@ describe('startTypingRefresh — instance forwarding', () => {
 
   it('re-trigger on an active session passes (and stores) the new instance', async () => {
     const calls = captureAdapter();
-    startTypingRefresh('sess-1', 'ag-1', 'slack', 'slack:C1', null, 'slack-tester');
+    startTypingRefresh(
+      'sess-1',
+      'ag-1',
+      'slack',
+      'slack:C1',
+      null,
+      'slack-tester',
+    );
     await vi.advanceTimersByTimeAsync(0);
     calls.length = 0;
 
     // Second call for the same session: immediate tick with the new value.
-    startTypingRefresh('sess-1', 'ag-1', 'slack', 'slack:C1', null, 'slack-worker');
+    startTypingRefresh(
+      'sess-1',
+      'ag-1',
+      'slack',
+      'slack:C1',
+      null,
+      'slack-worker',
+    );
     await vi.advanceTimersByTimeAsync(0);
     expect(calls).toHaveLength(1);
     expect(calls[0].instance).toBe('slack-worker');
@@ -88,7 +125,14 @@ describe('startTypingRefresh — instance forwarding', () => {
 
   it('re-trigger with a changed address updates the whole entry — interval ticks stay self-consistent', async () => {
     const calls = captureAdapter();
-    startTypingRefresh('sess-1', 'ag-1', 'slack', 'slack:C1', 'T1', 'slack-tester');
+    startTypingRefresh(
+      'sess-1',
+      'ag-1',
+      'slack',
+      'slack:C1',
+      'T1',
+      'slack-tester',
+    );
     await vi.advanceTimersByTimeAsync(0);
     calls.length = 0;
 

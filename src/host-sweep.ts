@@ -17,7 +17,10 @@ import { peekSessionDriver } from './drivers/index.js';
 import type { SessionWatch } from './drivers/types.js';
 import { log } from './log.js';
 import { registerReconcileEnqueue } from './reconcile-feeds.js';
-import { createReconcileQueue, type InProcessReconcileQueue } from './reconcile-queue.js';
+import {
+  createReconcileQueue,
+  type InProcessReconcileQueue,
+} from './reconcile-queue.js';
 import { reconcileSession } from './reconcile-session.js';
 import { sessionKey } from './reconcile.js';
 
@@ -61,7 +64,9 @@ function armRuntimeWatch(): void {
       feedEnqueue(event.key.sessionId);
     });
   } catch (err) {
-    log.warn('Runtime watch feed unavailable — the resync floor covers it', { err });
+    log.warn('Runtime watch feed unavailable — the resync floor covers it', {
+      err,
+    });
   }
   /* eslint-enable no-catch-all/no-catch-all */
 }
@@ -90,7 +95,8 @@ export function startHostSweep(): void {
       // MODULE-HOOK:approvals-reason-sweep:start
       'singleton:approvals-scan': async () => {
         try {
-          const { sweepAwaitingReasonRejects } = await import('./modules/approvals/index.js');
+          const { sweepAwaitingReasonRejects } =
+            await import('./modules/approvals/index.js');
           await sweepAwaitingReasonRejects();
         } catch (err) {
           log.error('Reject-with-reason sweep failed', { err });

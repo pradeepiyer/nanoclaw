@@ -16,11 +16,16 @@ registerResource({
   scopeField: 'agent_group_id',
   columns: [
     { name: 'id', type: 'string', description: 'UUID.', generated: true },
-    { name: 'agent_group_id', type: 'string', description: 'Agent group this session runs.' },
+    {
+      name: 'agent_group_id',
+      type: 'string',
+      description: 'Agent group this session runs.',
+    },
     {
       name: 'messaging_group_id',
       type: 'string',
-      description: 'Messaging group this session serves. Null for agent-shared sessions.',
+      description:
+        'Messaging group this session serves. Null for agent-shared sessions.',
     },
     {
       name: 'thread_id',
@@ -45,8 +50,17 @@ registerResource({
         '"running" — container alive and polling. "stopped" — container exited; the sweep will restart it automatically when due messages arrive. "idle" — reserved, currently unused.',
       enum: ['running', 'idle', 'stopped'],
     },
-    { name: 'last_active', type: 'string', description: 'Last message or heartbeat. Used for stale detection.' },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'last_active',
+      type: 'string',
+      description: 'Last message or heartbeat. Used for stale detection.',
+    },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
   operations: { list: 'open', get: 'open' },
   customOperations: {
@@ -59,9 +73,16 @@ registerResource({
         'with ISO timestamps and uncapped text. Use after `ncl sessions list` to ' +
         'catch up fully on another conversation of your agent group (you only ever see your own ' +
         "group's sessions).",
-      examples: [`# Catch up on another session of your group:\nncl sessions history sess-1751234-abc123 --limit 100`],
+      examples: [
+        `# Catch up on another session of your group:\nncl sessions history sess-1751234-abc123 --limit 100`,
+      ],
       args: [
-        { name: 'id', type: 'string', description: 'Session id (from `ncl sessions list`).', required: true },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Session id (from `ncl sessions list`).',
+          required: true,
+        },
         {
           name: 'limit',
           type: 'number',

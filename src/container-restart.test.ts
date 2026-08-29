@@ -7,19 +7,26 @@ vi.mock('./log.js', () => ({
 }));
 
 const mockIsContainerRunning = vi.fn<(id: string) => boolean>();
-const mockKillContainer = vi.fn<(id: string, reason: string, onExit?: () => void) => void>();
+const mockKillContainer =
+  vi.fn<(id: string, reason: string, onExit?: () => void) => void>();
 const mockWakeContainer = vi.fn();
 vi.mock('./container-runner.js', () => ({
-  isContainerRunning: (...args: unknown[]) => mockIsContainerRunning(args[0] as string),
+  isContainerRunning: (...args: unknown[]) =>
+    mockIsContainerRunning(args[0] as string),
   killContainer: (...args: unknown[]) =>
-    mockKillContainer(args[0] as string, args[1] as string, args[2] as (() => void) | undefined),
+    mockKillContainer(
+      args[0] as string,
+      args[1] as string,
+      args[2] as (() => void) | undefined,
+    ),
   wakeContainer: (...args: unknown[]) => mockWakeContainer(...args),
 }));
 
 const mockGetSessionsByAgentGroup = vi.fn();
 const mockGetSession = vi.fn();
 vi.mock('./db/sessions.js', () => ({
-  getSessionsByAgentGroup: (...args: unknown[]) => mockGetSessionsByAgentGroup(...args),
+  getSessionsByAgentGroup: (...args: unknown[]) =>
+    mockGetSessionsByAgentGroup(...args),
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }));
 
@@ -51,7 +58,10 @@ function makeSession(id: string, agentGroupId: string, status = 'active') {
 
 describe('restartAgentGroupContainers', () => {
   it('skips sessions without a running container', async () => {
-    mockGetSessionsByAgentGroup.mockReturnValue([makeSession('s1', 'g1'), makeSession('s2', 'g1')]);
+    mockGetSessionsByAgentGroup.mockReturnValue([
+      makeSession('s1', 'g1'),
+      makeSession('s2', 'g1'),
+    ]);
     mockIsContainerRunning.mockReturnValue(false);
 
     const count = await restartAgentGroupContainers('g1', 'test');
@@ -62,7 +72,9 @@ describe('restartAgentGroupContainers', () => {
   });
 
   it('skips non-active sessions', async () => {
-    mockGetSessionsByAgentGroup.mockReturnValue([makeSession('s1', 'g1', 'closed')]);
+    mockGetSessionsByAgentGroup.mockReturnValue([
+      makeSession('s1', 'g1', 'closed'),
+    ]);
     mockIsContainerRunning.mockReturnValue(true);
 
     const count = await restartAgentGroupContainers('g1', 'test');
@@ -72,7 +84,10 @@ describe('restartAgentGroupContainers', () => {
   });
 
   it('kills running containers and returns count', async () => {
-    mockGetSessionsByAgentGroup.mockReturnValue([makeSession('s1', 'g1'), makeSession('s2', 'g1')]);
+    mockGetSessionsByAgentGroup.mockReturnValue([
+      makeSession('s1', 'g1'),
+      makeSession('s2', 'g1'),
+    ]);
     mockIsContainerRunning.mockImplementation((id) => id === 's1');
 
     const count = await restartAgentGroupContainers('g1', 'test');
@@ -100,7 +115,8 @@ describe('restartAgentGroupContainers', () => {
 
     // Should write an on-wake message
     expect(mockWriteSessionMessage).toHaveBeenCalledTimes(1);
-    const [agentGroupId, sessionId, msg] = mockWriteSessionMessage.mock.calls[0];
+    const [agentGroupId, sessionId, msg] =
+      mockWriteSessionMessage.mock.calls[0];
     expect(agentGroupId).toBe('g1');
     expect(sessionId).toBe('s1');
     expect(msg.onWake).toBe(true);
@@ -125,7 +141,9 @@ describe('restartAgentGroupContainers', () => {
     onExit();
 
     expect(mockGetSession).toHaveBeenCalledWith('s1');
-    await vi.waitFor(() => expect(mockWakeContainer).toHaveBeenCalledWith(freshSession));
+    await vi.waitFor(() =>
+      expect(mockWakeContainer).toHaveBeenCalledWith(freshSession),
+    );
   });
 
   it('onExit callback does not wake if session no longer exists', async () => {
@@ -142,10 +160,17 @@ describe('restartAgentGroupContainers', () => {
   });
 
   it('handles multiple running sessions with wake message', async () => {
-    mockGetSessionsByAgentGroup.mockReturnValue([makeSession('s1', 'g1'), makeSession('s2', 'g1')]);
+    mockGetSessionsByAgentGroup.mockReturnValue([
+      makeSession('s1', 'g1'),
+      makeSession('s2', 'g1'),
+    ]);
     mockIsContainerRunning.mockReturnValue(true);
 
-    const count = await restartAgentGroupContainers('g1', 'test', 'Config updated.');
+    const count = await restartAgentGroupContainers(
+      'g1',
+      'test',
+      'Config updated.',
+    );
 
     expect(count).toBe(2);
     expect(mockKillContainer).toHaveBeenCalledTimes(2);

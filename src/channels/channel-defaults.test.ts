@@ -4,12 +4,21 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import type { ChannelAdapter, ChannelDefaults, ChannelSetup } from './adapter.js';
+import type {
+  ChannelAdapter,
+  ChannelDefaults,
+  ChannelSetup,
+} from './adapter.js';
 import type { MessagingGroup } from '../types.js';
 
 function makeDefaults(marker: string, threads = true): ChannelDefaults {
   return {
-    dm: { engageMode: 'pattern', engagePattern: marker, threads, unknownSenderPolicy: 'public' },
+    dm: {
+      engageMode: 'pattern',
+      engagePattern: marker,
+      threads,
+      unknownSenderPolicy: 'public',
+    },
     group: { engageMode: 'mention', threads, unknownSenderPolicy: 'strict' },
     mentions: 'platform',
   };
@@ -17,7 +26,11 @@ function makeDefaults(marker: string, threads = true): ChannelDefaults {
 
 function makeAdapter(
   channelType: string,
-  opts: { instance?: string; supportsThreads?: boolean; defaults?: ChannelDefaults } = {},
+  opts: {
+    instance?: string;
+    supportsThreads?: boolean;
+    defaults?: ChannelDefaults;
+  } = {},
 ): ChannelAdapter {
   return {
     name: opts.instance ?? channelType,
@@ -71,7 +84,8 @@ describe('getChannelDefaults — tiered lookup', () => {
     const reg = await import('./channel-registry.js');
     const decl = makeDefaults('named-instance');
     reg.registerChannelAdapter('slack-tester', {
-      factory: () => makeAdapter('slack', { instance: 'slack-tester', defaults: decl }),
+      factory: () =>
+        makeAdapter('slack', { instance: 'slack-tester', defaults: decl }),
     });
     await reg.initChannelAdapters(mockSetup);
 
@@ -96,7 +110,10 @@ describe('getChannelDefaults — tiered lookup', () => {
     reg.registerChannelAdapter('slack-tester', {
       factory: () => makeAdapter('slack', { instance: 'slack-tester' }),
     });
-    reg.registerChannelAdapter('slack', { factory: () => null, defaults: decl });
+    reg.registerChannelAdapter('slack', {
+      factory: () => null,
+      defaults: decl,
+    });
     await reg.initChannelAdapters(mockSetup);
 
     expect(reg.getChannelDefaults('slack-tester')).toBe(decl);
@@ -108,12 +125,17 @@ describe('getChannelDefaults — tiered lookup', () => {
     // Nothing live at all: the named instance's factory returned null and its
     // registration has no declaration — only mg.channel_type can bridge.
     reg.registerChannelAdapter('slack-tester', { factory: () => null });
-    reg.registerChannelAdapter('slack', { factory: () => null, defaults: decl });
+    reg.registerChannelAdapter('slack', {
+      factory: () => null,
+      defaults: decl,
+    });
     await reg.initChannelAdapters(mockSetup);
 
     expect(reg.getChannelDefaults('slack-tester', 'slack')).toBe(decl);
     // Without the hint there is no instance→channelType mapping in the registry.
-    expect(reg.getChannelDefaults('slack-tester')).toEqual(reg.fallbackChannelDefaults(false));
+    expect(reg.getChannelDefaults('slack-tester')).toEqual(
+      reg.fallbackChannelDefaults(false),
+    );
   });
 
   it('uses the live adapter supportsThreads for the fallback tier', async () => {
@@ -123,12 +145,16 @@ describe('getChannelDefaults — tiered lookup', () => {
     });
     await reg.initChannelAdapters(mockSetup);
 
-    expect(reg.getChannelDefaults('mock')).toEqual(reg.fallbackChannelDefaults(true));
+    expect(reg.getChannelDefaults('mock')).toEqual(
+      reg.fallbackChannelDefaults(true),
+    );
   });
 
   it('unknown channel type resolves the conservative fallback', async () => {
     const reg = await import('./channel-registry.js');
-    expect(reg.getChannelDefaults('no-such-channel')).toEqual(reg.fallbackChannelDefaults(false));
+    expect(reg.getChannelDefaults('no-such-channel')).toEqual(
+      reg.fallbackChannelDefaults(false),
+    );
   });
 });
 
@@ -140,8 +166,17 @@ describe('fallbackChannelDefaults — behavior-faithful values', () => {
   it('reproduces trunk behavior for undeclared adapters', async () => {
     const { fallbackChannelDefaults } = await import('./channel-registry.js');
     expect(fallbackChannelDefaults(true)).toEqual({
-      dm: { engageMode: 'pattern', engagePattern: '.', threads: true, unknownSenderPolicy: 'request_approval' },
-      group: { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'request_approval' },
+      dm: {
+        engageMode: 'pattern',
+        engagePattern: '.',
+        threads: true,
+        unknownSenderPolicy: 'request_approval',
+      },
+      group: {
+        engageMode: 'mention-sticky',
+        threads: true,
+        unknownSenderPolicy: 'request_approval',
+      },
       mentions: 'platform',
     });
     // threads track the raw capability in BOTH contexts so NULL-inherit
@@ -172,8 +207,18 @@ describe('resolveWiringDefaults', () => {
 
   it('substitutes {name} with the regex-escaped agent group name', async () => {
     const { resolveWiringDefaults } = await withDeclaration({
-      dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
-      group: { engageMode: 'pattern', engagePattern: '\\b{name}\\b', threads: false, unknownSenderPolicy: 'strict' },
+      dm: {
+        engageMode: 'pattern',
+        engagePattern: '.',
+        threads: false,
+        unknownSenderPolicy: 'public',
+      },
+      group: {
+        engageMode: 'pattern',
+        engagePattern: '\\b{name}\\b',
+        threads: false,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'dm-only',
     });
 
@@ -196,30 +241,54 @@ describe('resolveWiringDefaults', () => {
 
   it('keeps both \\b boundaries for a plain word name and produces a matching regex', async () => {
     const { resolveWiringDefaults } = await withDeclaration({
-      dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
-      group: { engageMode: 'pattern', engagePattern: '\\b{name}\\b', threads: false, unknownSenderPolicy: 'strict' },
+      dm: {
+        engageMode: 'pattern',
+        engagePattern: '.',
+        threads: false,
+        unknownSenderPolicy: 'public',
+      },
+      group: {
+        engageMode: 'pattern',
+        engagePattern: '\\b{name}\\b',
+        threads: false,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'dm-only',
     });
 
     const word = resolveWiringDefaults('mock', true, 'Andy');
     expect(word.engage_pattern).toBe('\\bAndy\\b');
     expect(new RegExp(word.engage_pattern!).test('@Andy status')).toBe(true);
-    expect(new RegExp(word.engage_pattern!).test('@Andyboy status')).toBe(false);
+    expect(new RegExp(word.engage_pattern!).test('@Andyboy status')).toBe(
+      false,
+    );
 
     // Trailing non-word char: '@Andy (backup) status' must still engage.
     const punct = resolveWiringDefaults('mock', true, 'Andy (backup)');
-    expect(new RegExp(punct.engage_pattern!).test('@Andy (backup) status')).toBe(true);
+    expect(
+      new RegExp(punct.engage_pattern!).test('@Andy (backup) status'),
+    ).toBe(true);
 
     // Leading non-word char: the leading \b is dropped instead.
     const lead = resolveWiringDefaults('mock', true, '!Nano');
     expect(lead.engage_pattern).toBe('!Nano\\b');
-    expect(new RegExp(lead.engage_pattern!).test('hey !Nano status')).toBe(true);
+    expect(new RegExp(lead.engage_pattern!).test('hey !Nano status')).toBe(
+      true,
+    );
   });
 
   it('coerces mention-sticky to mention when the context threads=false', async () => {
     const { resolveWiringDefaults } = await withDeclaration({
-      dm: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'strict' },
-      group: { engageMode: 'mention-sticky', threads: false, unknownSenderPolicy: 'strict' },
+      dm: {
+        engageMode: 'mention',
+        threads: false,
+        unknownSenderPolicy: 'strict',
+      },
+      group: {
+        engageMode: 'mention-sticky',
+        threads: false,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'platform',
     });
 
@@ -233,8 +302,16 @@ describe('resolveWiringDefaults', () => {
 
   it('keeps mention-sticky when the context threads=true', async () => {
     const { resolveWiringDefaults } = await withDeclaration({
-      dm: { engageMode: 'mention', threads: true, unknownSenderPolicy: 'strict' },
-      group: { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'strict' },
+      dm: {
+        engageMode: 'mention',
+        threads: true,
+        unknownSenderPolicy: 'strict',
+      },
+      group: {
+        engageMode: 'mention-sticky',
+        threads: true,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'platform',
     });
 
@@ -248,12 +325,22 @@ describe('resolveWiringDefaults', () => {
 
   it('throws on a pattern-mode declaration without a pattern', async () => {
     const { resolveWiringDefaults } = await withDeclaration({
-      dm: { engageMode: 'pattern', threads: false, unknownSenderPolicy: 'public' },
-      group: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'strict' },
+      dm: {
+        engageMode: 'pattern',
+        threads: false,
+        unknownSenderPolicy: 'public',
+      },
+      group: {
+        engageMode: 'mention',
+        threads: false,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'platform',
     });
 
-    expect(() => resolveWiringDefaults('mock', false, 'Andy')).toThrow(/without an engagePattern/);
+    expect(() => resolveWiringDefaults('mock', false, 'Andy')).toThrow(
+      /without an engagePattern/,
+    );
   });
 
   it("a declared per-thread sessionMode always derives the threads=1 stamp (the field can't disagree)", async () => {
@@ -265,7 +352,11 @@ describe('resolveWiringDefaults', () => {
         sessionMode: 'per-thread',
         unknownSenderPolicy: 'public',
       },
-      group: { engageMode: 'mention', threads: true, unknownSenderPolicy: 'strict' },
+      group: {
+        engageMode: 'mention',
+        threads: true,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'platform',
     });
 
@@ -310,43 +401,77 @@ describe('validateEngageAgainstChannel — per-thread/threads coherence (ncl upd
 
   async function withDeclaration(defaults?: ChannelDefaults) {
     const reg = await import('./channel-registry.js');
-    reg.registerChannelAdapter('mock', { factory: () => null, ...(defaults ? { defaults } : {}) });
+    reg.registerChannelAdapter('mock', {
+      factory: () => null,
+      ...(defaults ? { defaults } : {}),
+    });
     return import('./channel-defaults.js');
   }
 
   const dmThreadsFalse: ChannelDefaults = {
-    dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
-    group: { engageMode: 'mention', threads: true, unknownSenderPolicy: 'strict' },
+    dm: {
+      engageMode: 'pattern',
+      engagePattern: '.',
+      threads: false,
+      unknownSenderPolicy: 'public',
+    },
+    group: {
+      engageMode: 'mention',
+      threads: true,
+      unknownSenderPolicy: 'strict',
+    },
     mentions: 'platform',
   };
 
   it("rejects session_mode 'per-thread' when the inherited (NULL) thread policy resolves off", async () => {
-    const { validateEngageAgainstChannel } = await withDeclaration(dmThreadsFalse);
+    const { validateEngageAgainstChannel } =
+      await withDeclaration(dmThreadsFalse);
 
-    expect(() => validateEngageAgainstChannel({ session_mode: 'per-thread' }, makeMg('mock'))).toThrow(
-      /session_mode 'per-thread' requires honored thread ids/,
-    );
+    expect(() =>
+      validateEngageAgainstChannel(
+        { session_mode: 'per-thread' },
+        makeMg('mock'),
+      ),
+    ).toThrow(/session_mode 'per-thread' requires honored thread ids/);
   });
 
   it("rejects an explicit threads=false alongside session_mode 'per-thread' even on a threads:true context", async () => {
-    const { validateEngageAgainstChannel } = await withDeclaration(dmThreadsFalse);
+    const { validateEngageAgainstChannel } =
+      await withDeclaration(dmThreadsFalse);
 
     expect(() =>
-      validateEngageAgainstChannel({ session_mode: 'per-thread', threads: 0 }, makeMg('mock', true)),
+      validateEngageAgainstChannel(
+        { session_mode: 'per-thread', threads: 0 },
+        makeMg('mock', true),
+      ),
     ).toThrow(/explicit threads=false/);
   });
 
   it('accepts per-thread when the pairing is coherent (explicit threads=1, or a threads:true context)', async () => {
-    const { validateEngageAgainstChannel } = await withDeclaration(dmThreadsFalse);
+    const { validateEngageAgainstChannel } =
+      await withDeclaration(dmThreadsFalse);
 
     // Explicit stamp beats the false dm inherit.
     expect(() =>
-      validateEngageAgainstChannel({ session_mode: 'per-thread', threads: 1 }, makeMg('mock')),
+      validateEngageAgainstChannel(
+        { session_mode: 'per-thread', threads: 1 },
+        makeMg('mock'),
+      ),
     ).not.toThrow();
     // Group context inherits threads: true.
-    expect(() => validateEngageAgainstChannel({ session_mode: 'per-thread' }, makeMg('mock', true))).not.toThrow();
+    expect(() =>
+      validateEngageAgainstChannel(
+        { session_mode: 'per-thread' },
+        makeMg('mock', true),
+      ),
+    ).not.toThrow();
     // Non-per-thread modes are untouched by the check.
-    expect(() => validateEngageAgainstChannel({ session_mode: 'shared', threads: 0 }, makeMg('mock'))).not.toThrow();
+    expect(() =>
+      validateEngageAgainstChannel(
+        { session_mode: 'shared', threads: 0 },
+        makeMg('mock'),
+      ),
+    ).not.toThrow();
   });
 
   it('stays lenient on the inherit arm for undeclared (stale) adapters, but still rejects an explicit threads=false', async () => {
@@ -355,10 +480,18 @@ describe('validateEngageAgainstChannel — per-thread/threads coherence (ncl upd
     // The conservative fallback declaration has threads:false, but rejecting
     // on it would wrongly block offline-managed wirings — mirror the mention
     // checks' hasDeclaredChannelDefaults gate.
-    expect(() => validateEngageAgainstChannel({ session_mode: 'per-thread' }, makeMg('mock'))).not.toThrow();
-    expect(() => validateEngageAgainstChannel({ session_mode: 'per-thread', threads: 0 }, makeMg('mock'))).toThrow(
-      /session_mode 'per-thread' requires honored thread ids/,
-    );
+    expect(() =>
+      validateEngageAgainstChannel(
+        { session_mode: 'per-thread' },
+        makeMg('mock'),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      validateEngageAgainstChannel(
+        { session_mode: 'per-thread', threads: 0 },
+        makeMg('mock'),
+      ),
+    ).toThrow(/session_mode 'per-thread' requires honored thread ids/);
   });
 });
 
@@ -376,12 +509,22 @@ describe('resolveUnknownSenderPolicy', () => {
     reg.registerChannelAdapter('mock', {
       factory: () => null,
       defaults: {
-        dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
-        group: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'strict' },
+        dm: {
+          engageMode: 'pattern',
+          engagePattern: '.',
+          threads: false,
+          unknownSenderPolicy: 'public',
+        },
+        group: {
+          engageMode: 'mention',
+          threads: false,
+          unknownSenderPolicy: 'strict',
+        },
         mentions: 'platform',
       },
     });
-    const { resolveUnknownSenderPolicy } = await import('./channel-defaults.js');
+    const { resolveUnknownSenderPolicy } =
+      await import('./channel-defaults.js');
 
     expect(resolveUnknownSenderPolicy('mock', false)).toBe('public');
     expect(resolveUnknownSenderPolicy('mock', true)).toBe('strict');
@@ -393,8 +536,17 @@ describe('resolveThreadPolicy', () => {
     vi.resetModules();
     const { resolveThreadPolicy } = await import('./channel-defaults.js');
     const decl: ChannelDefaults = {
-      dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'strict' },
-      group: { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'strict' },
+      dm: {
+        engageMode: 'pattern',
+        engagePattern: '.',
+        threads: false,
+        unknownSenderPolicy: 'strict',
+      },
+      group: {
+        engageMode: 'mention-sticky',
+        threads: true,
+        unknownSenderPolicy: 'strict',
+      },
       mentions: 'platform',
     };
 

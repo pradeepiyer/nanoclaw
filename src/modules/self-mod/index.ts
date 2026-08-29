@@ -24,7 +24,10 @@
  * system messages with these actions, but delivery logs "Unknown system
  * action" and drops them. Admin never sees a card; nothing changes.
  */
-import { reenterGuardedDeliveryAction, registerDeliveryAction } from '../../delivery.js';
+import {
+  reenterGuardedDeliveryAction,
+  registerDeliveryAction,
+} from '../../delivery.js';
 import { notifyAgent, registerApprovalHandler } from '../approvals/index.js';
 import { applyAddMcpServer, applyInstallPackages } from './apply.js';
 import { selfModAddMcpServer, selfModInstallPackages } from './guard.js';
@@ -39,14 +42,22 @@ registerDeliveryAction('install_packages', applyInstallPackages, {
   guardAction: selfModInstallPackages,
   precheck: validateInstallPackages,
   requestHold: requestInstallPackagesHold,
-  onDeny: (_content, session, reason) => notifyAgent(session, `install_packages denied: ${reason}`),
+  onDeny: (_content, session, reason) =>
+    notifyAgent(session, `install_packages denied: ${reason}`),
 });
 registerDeliveryAction('add_mcp_server', applyAddMcpServer, {
   guardAction: selfModAddMcpServer,
   precheck: validateAddMcpServer,
   requestHold: requestAddMcpServerHold,
-  onDeny: (_content, session, reason) => notifyAgent(session, `add_mcp_server denied: ${reason}`),
+  onDeny: (_content, session, reason) =>
+    notifyAgent(session, `add_mcp_server denied: ${reason}`),
 });
 
-registerApprovalHandler('install_packages', reenterGuardedDeliveryAction('install_packages'));
-registerApprovalHandler('add_mcp_server', reenterGuardedDeliveryAction('add_mcp_server'));
+registerApprovalHandler(
+  'install_packages',
+  reenterGuardedDeliveryAction('install_packages'),
+);
+registerApprovalHandler(
+  'add_mcp_server',
+  reenterGuardedDeliveryAction('add_mcp_server'),
+);

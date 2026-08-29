@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Migration, ModuleMigration, ModuleMigrationName } from './index.js';
+import type {
+  Migration,
+  ModuleMigration,
+  ModuleMigrationName,
+} from './index.js';
 
 let closeCurrentDb: (() => Promise<void>) | undefined;
 
@@ -9,7 +13,11 @@ afterEach(async () => {
   closeCurrentDb = undefined;
 });
 
-function testMigration(name: string, table = name.replace(/[^a-zA-Z0-9_]/g, '_'), version = 999): Migration {
+function testMigration(
+  name: string,
+  table = name.replace(/[^a-zA-Z0-9_]/g, '_'),
+  version = 999,
+): Migration {
   return {
     version,
     name,
@@ -19,7 +27,11 @@ function testMigration(name: string, table = name.replace(/[^a-zA-Z0-9_]/g, '_')
   };
 }
 
-function testModuleMigration(name: ModuleMigrationName, table?: string, version?: number): ModuleMigration {
+function testModuleMigration(
+  name: ModuleMigrationName,
+  table?: string,
+  version?: number,
+): ModuleMigration {
   return testMigration(name, table, version) as ModuleMigration;
 }
 
@@ -38,19 +50,35 @@ async function freshTestDb() {
 describe('module migration registry', () => {
   it('keeps built-ins first and module migrations in registration order regardless of version', async () => {
     const registry = await freshRegistry();
-    const first = testModuleMigration('module:test-first:create-state', undefined, Number.MAX_SAFE_INTEGER);
-    const second = testModuleMigration('module:test-second:create-state', undefined, 0);
+    const first = testModuleMigration(
+      'module:test-first:create-state',
+      undefined,
+      Number.MAX_SAFE_INTEGER,
+    );
+    const second = testModuleMigration(
+      'module:test-second:create-state',
+      undefined,
+      0,
+    );
 
     registry.registerMigration(first);
     registry.registerMigration(second);
 
-    expect(registry.getRegisteredMigrations()).toEqual([...registry.migrations, first, second]);
+    expect(registry.getRegisteredMigrations()).toEqual([
+      ...registry.migrations,
+      first,
+      second,
+    ]);
   });
 
   it('reserves the module namespace away from built-in migrations', async () => {
     const registry = await freshRegistry();
 
-    expect(registry.migrations.every((migration) => !migration.name.startsWith('module:'))).toBe(true);
+    expect(
+      registry.migrations.every(
+        (migration) => !migration.name.startsWith('module:'),
+      ),
+    ).toBe(true);
   });
 
   it('rejects an unqualified module migration name at runtime', async () => {
@@ -64,25 +92,43 @@ describe('module migration registry', () => {
 
   it('rejects duplicate module migration names', async () => {
     const registry = await freshRegistry();
-    registry.registerMigration(testModuleMigration('module:test-owner:duplicate', 'test_module_duplicate_first'));
+    registry.registerMigration(
+      testModuleMigration(
+        'module:test-owner:duplicate',
+        'test_module_duplicate_first',
+      ),
+    );
 
     expect(() =>
-      registry.registerMigration(testModuleMigration('module:test-owner:duplicate', 'test_module_duplicate_second')),
+      registry.registerMigration(
+        testModuleMigration(
+          'module:test-owner:duplicate',
+          'test_module_duplicate_second',
+        ),
+      ),
     ).toThrow('Migration "module:test-owner:duplicate" already registered');
   });
 
   it('applies and records registered migrations with the default run', async () => {
     const registry = await freshRegistry();
     const db = await freshTestDb();
-    registry.registerMigration(testModuleMigration('module:test-owner:applied', 'test_module_applied'));
+    registry.registerMigration(
+      testModuleMigration('module:test-owner:applied', 'test_module_applied'),
+    );
 
     await registry.runMigrations(db);
 
-    expect(await db.get("SELECT name FROM schema_version WHERE name = 'module:test-owner:applied'")).toEqual({
+    expect(
+      await db.get(
+        "SELECT name FROM schema_version WHERE name = 'module:test-owner:applied'",
+      ),
+    ).toEqual({
       name: 'module:test-owner:applied',
     });
     expect(
-      await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'test_module_applied'"),
+      await db.get(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'test_module_applied'",
+      ),
     ).toEqual({ name: 'test_module_applied' });
   });
 
@@ -90,13 +136,22 @@ describe('module migration registry', () => {
     const registry = await freshRegistry();
     const db = await freshTestDb();
     const explicit = testMigration('test-explicit-only');
-    registry.registerMigration(testModuleMigration('module:test-owner:not-selected', 'test_module_not_selected'));
+    registry.registerMigration(
+      testModuleMigration(
+        'module:test-owner:not-selected',
+        'test_module_not_selected',
+      ),
+    );
 
     await registry.runMigrations(db, [explicit]);
 
-    expect(await db.all('SELECT name FROM schema_version ORDER BY version')).toEqual([{ name: 'test-explicit-only' }]);
     expect(
-      await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'test_module_not_selected'"),
+      await db.all('SELECT name FROM schema_version ORDER BY version'),
+    ).toEqual([{ name: 'test-explicit-only' }]);
+    expect(
+      await db.get(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'test_module_not_selected'",
+      ),
     ).toBeUndefined();
   });
 });
@@ -106,7 +161,9 @@ describe('migration runner modes and hooks', () => {
     const registry = await freshRegistry();
     const db = await freshTestDb();
 
-    await expect(registry.runMigrations(db, [], { mode: 'validate' })).rejects.toThrow('pnpm run migrate');
+    await expect(
+      registry.runMigrations(db, [], { mode: 'validate' }),
+    ).rejects.toThrow('pnpm run migrate');
     expect(await db.hasTable('schema_version')).toBe(false);
   });
 
@@ -117,8 +174,12 @@ describe('migration runner modes and hooks', () => {
     const second = testMigration('test-mode-second');
 
     await registry.runMigrations(db, [first], { mode: 'migrate' });
-    await expect(registry.runMigrations(db, [first, second], { mode: 'validate' })).rejects.toThrow('test-mode-second');
-    await expect(registry.runMigrations(db, [first], { mode: 'validate' })).resolves.toBeUndefined();
+    await expect(
+      registry.runMigrations(db, [first, second], { mode: 'validate' }),
+    ).rejects.toThrow('test-mode-second');
+    await expect(
+      registry.runMigrations(db, [first], { mode: 'validate' }),
+    ).resolves.toBeUndefined();
   });
 
   it('runs bootstrap, overrides, and the migration lock hook', async () => {
@@ -137,7 +198,9 @@ describe('migration runner modes and hooks', () => {
               name: 'sqlite-original',
               async up(driver: typeof db) {
                 calls.push('override');
-                await driver.exec('CREATE TABLE override_won (id TEXT PRIMARY KEY)');
+                await driver.exec(
+                  'CREATE TABLE override_won (id TEXT PRIMARY KEY)',
+                );
               },
             },
           ],
@@ -169,7 +232,9 @@ describe('migration runner modes and hooks', () => {
     const db = await freshTestDb();
     Object.defineProperty(db, 'dialect', { value: 'remote' });
 
-    await expect(registry.runMigrations(db, [], { mode: 'auto' })).rejects.toThrow('pnpm run migrate');
+    await expect(
+      registry.runMigrations(db, [], { mode: 'auto' }),
+    ).rejects.toThrow('pnpm run migrate');
     expect(await db.hasTable('schema_version')).toBe(false);
   });
 
@@ -186,8 +251,8 @@ describe('migration runner modes and hooks', () => {
       },
     };
 
-    await expect(registry.runMigrations(db, [sqliteOnly], { mode: 'migrate' })).rejects.toThrow(
-      'port it or provide a backend migration override',
-    );
+    await expect(
+      registry.runMigrations(db, [sqliteOnly], { mode: 'migrate' }),
+    ).rejects.toThrow('port it or provide a backend migration override');
   });
 });

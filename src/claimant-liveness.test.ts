@@ -9,7 +9,10 @@
 import os from 'os';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import type { SupervisedHandle, SupervisedSnapshot } from './drivers/session-events.js';
+import type {
+  SupervisedHandle,
+  SupervisedSnapshot,
+} from './drivers/session-events.js';
 
 const snapshots: SupervisedSnapshot[] = [];
 vi.mock('./drivers/index.js', () => ({
@@ -21,16 +24,36 @@ vi.mock('./drivers/index.js', () => ({
   isSessionEventsDriver: () => false,
 }));
 
-import { adoptRunningSessions, isContainerRunning, killContainer } from './container-runner.js';
-import { getSessionClaim, registerHostInstance, tryClaimSession } from './db/coordination.js';
-import { startHostInstanceLease, stopHostInstanceLease } from './host-instance.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup, createSession } from './db/index.js';
+import {
+  adoptRunningSessions,
+  isContainerRunning,
+  killContainer,
+} from './container-runner.js';
+import {
+  getSessionClaim,
+  registerHostInstance,
+  tryClaimSession,
+} from './db/coordination.js';
+import {
+  startHostInstanceLease,
+  stopHostInstanceLease,
+} from './host-instance.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  createSession,
+} from './db/index.js';
 
 function now(offsetMs = 0): string {
   return new Date(Date.now() + offsetMs).toISOString();
 }
 
-function fakeRunningHandle(sessionId: string, name: string): SupervisedSnapshot {
+function fakeRunningHandle(
+  sessionId: string,
+  name: string,
+): SupervisedSnapshot {
   const handle = {
     key: { installSlug: 'test-install', agentGroupId: 'ag-1', sessionId },
     name,
@@ -81,8 +104,18 @@ afterEach(async () => {
 
 describe('claimant liveness', () => {
   it('refuses to take over a claim held by a live peer host', async () => {
-    await registerHostInstance({ instanceId: 'peer-live', installId: 'x', now: now(), leaseExpiresAt: now(90_000) });
-    await tryClaimSession({ sessionId: 'sess-1', instanceId: 'peer-live', expectedIncarnation: 0, now: now() });
+    await registerHostInstance({
+      instanceId: 'peer-live',
+      installId: 'x',
+      now: now(),
+      leaseExpiresAt: now(90_000),
+    });
+    await tryClaimSession({
+      sessionId: 'sess-1',
+      instanceId: 'peer-live',
+      expectedIncarnation: 0,
+      now: now(),
+    });
 
     snapshots.push(fakeRunningHandle('sess-1', 'container-theirs'));
     const { adopted, stopped } = await adoptRunningSessions();
@@ -102,7 +135,12 @@ describe('claimant liveness', () => {
       now: now(-120_000),
       leaseExpiresAt: now(-30_000),
     });
-    await tryClaimSession({ sessionId: 'sess-1', instanceId: 'peer-dead', expectedIncarnation: 0, now: now() });
+    await tryClaimSession({
+      sessionId: 'sess-1',
+      instanceId: 'peer-dead',
+      expectedIncarnation: 0,
+      now: now(),
+    });
 
     snapshots.push(fakeRunningHandle('sess-1', 'container-orphaned'));
     const { adopted } = await adoptRunningSessions();
@@ -114,7 +152,12 @@ describe('claimant liveness', () => {
   });
 
   it('takes over when the claimant id is unknown to host_instances', async () => {
-    await tryClaimSession({ sessionId: 'sess-1', instanceId: 'legacy-host:42', expectedIncarnation: 0, now: now() });
+    await tryClaimSession({
+      sessionId: 'sess-1',
+      instanceId: 'legacy-host:42',
+      expectedIncarnation: 0,
+      now: now(),
+    });
 
     snapshots.push(fakeRunningHandle('sess-1', 'container-legacy'));
     const { adopted } = await adoptRunningSessions();
@@ -126,8 +169,18 @@ describe('claimant liveness', () => {
   it('re-claims its own held claim without a liveness refusal', async () => {
     // Our own fallback id, registered live — self re-claim must not be
     // refused even though the holder is a live instance.
-    await registerHostInstance({ instanceId: FALLBACK_ID, installId: 'x', now: now(), leaseExpiresAt: now(90_000) });
-    await tryClaimSession({ sessionId: 'sess-1', instanceId: FALLBACK_ID, expectedIncarnation: 0, now: now() });
+    await registerHostInstance({
+      instanceId: FALLBACK_ID,
+      installId: 'x',
+      now: now(),
+      leaseExpiresAt: now(90_000),
+    });
+    await tryClaimSession({
+      sessionId: 'sess-1',
+      instanceId: FALLBACK_ID,
+      expectedIncarnation: 0,
+      now: now(),
+    });
 
     snapshots.push(fakeRunningHandle('sess-1', 'container-ours'));
     const { adopted } = await adoptRunningSessions();

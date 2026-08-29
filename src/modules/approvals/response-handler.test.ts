@@ -10,7 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initTestDb, closeDb, runMigrations } from '../../db/index.js';
 import { createAgentGroup } from '../../db/agent-groups.js';
-import { createSession, createPendingApproval, getPendingApproval } from '../../db/sessions.js';
+import {
+  createSession,
+  createPendingApproval,
+  getPendingApproval,
+} from '../../db/sessions.js';
 import { upsertUser } from '../permissions/db/users.js';
 import { grantRole } from '../permissions/db/user-roles.js';
 
@@ -30,12 +34,19 @@ function now() {
 }
 
 beforeEach(async () => {
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
 
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: now(),
+  });
   await createSession({
     id: 'sess-1',
     agent_group_id: 'ag-1',
@@ -51,7 +62,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 describe('approval response authorization', () => {
@@ -87,7 +99,12 @@ describe('approval response authorization', () => {
   });
 
   it('allows an owner/admin click to dispatch the registered approval handler', async () => {
-    await upsertUser({ id: 'telegram:owner', kind: 'telegram', display_name: 'Owner', created_at: now() });
+    await upsertUser({
+      id: 'telegram:owner',
+      kind: 'telegram',
+      display_name: 'Owner',
+      created_at: now(),
+    });
     await grantRole({
       user_id: 'telegram:owner',
       role: 'owner',
@@ -123,12 +140,19 @@ describe('approval response authorization', () => {
 
     expect(claimed).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ userId: 'telegram:owner' }));
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'telegram:owner' }),
+    );
     expect(await getPendingApproval('appr-2')).toBeUndefined();
   });
 
   it('lets only one concurrent approval response run the action handler', async () => {
-    await upsertUser({ id: 'telegram:owner-race', kind: 'telegram', display_name: 'Owner', created_at: now() });
+    await upsertUser({
+      id: 'telegram:owner-race',
+      kind: 'telegram',
+      display_name: 'Owner',
+      created_at: now(),
+    });
     await grantRole({
       user_id: 'telegram:owner-race',
       role: 'owner',

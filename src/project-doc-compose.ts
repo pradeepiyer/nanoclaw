@@ -19,7 +19,10 @@ import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { parseSkillSelection, sanitizeStoredMcpServers } from './container-config.js';
+import {
+  parseSkillSelection,
+  sanitizeStoredMcpServers,
+} from './container-config.js';
 import { getContainerConfig } from './db/container-configs.js';
 import { readGroupPersona } from './group-persona.js';
 import { log } from './log.js';
@@ -84,7 +87,12 @@ const BASE_DOC_SECTION = 'NanoClaw Runtime Contract';
 const NCL_DEPENDENT_MODULES = new Set(['cli', 'scheduling']);
 
 // Resolved at call time (process.cwd() = project root) so tests can swap cwd.
-const MCP_TOOLS_HOST_SUBPATH = path.join('container', 'agent-runner', 'src', 'mcp-tools');
+const MCP_TOOLS_HOST_SUBPATH = path.join(
+  'container',
+  'agent-runner',
+  'src',
+  'mcp-tools',
+);
 const SKILLS_HOST_SUBPATH = path.join('container', 'skills');
 
 /**
@@ -94,13 +102,20 @@ const SKILLS_HOST_SUBPATH = path.join('container', 'skills');
  * Reads nothing the agent can author except `instructions.prepend.md`, which
  * `readGroupPersona` opens with O_NOFOLLOW.
  */
-export async function composeGroupProjectDoc(group: AgentGroup, groupDir: string, spec: ProjectDocSpec): Promise<void> {
+export async function composeGroupProjectDoc(
+  group: AgentGroup,
+  groupDir: string,
+  spec: ProjectDocSpec,
+): Promise<void> {
   if (!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
 
   const configRow = await getContainerConfig(group.id);
   // Re-validated rather than cast: these `instructions` strings are the only
   // stored, agent-influenced text copied verbatim into the system prompt.
-  const mcpServers = sanitizeStoredMcpServers(configRow ? JSON.parse(configRow.mcp_servers) : {}, group.name);
+  const mcpServers = sanitizeStoredMcpServers(
+    configRow ? JSON.parse(configRow.mcp_servers) : {},
+    group.name,
+  );
   const selectedSkills = parseSkillSelection(configRow?.skills, group.name);
 
   const sections: ProjectDocSection[] = [];
@@ -141,7 +156,11 @@ export async function composeGroupProjectDoc(group: AgentGroup, groupDir: string
       if (!match) continue;
       const moduleName = match[1];
       if (cliDisabled && NCL_DEPENDENT_MODULES.has(moduleName)) continue;
-      push(`NanoClaw Module: ${moduleName}`, fs.readFileSync(path.join(mcpToolsHostDir, entry), 'utf-8'), true);
+      push(
+        `NanoClaw Module: ${moduleName}`,
+        fs.readFileSync(path.join(mcpToolsHostDir, entry), 'utf-8'),
+        true,
+      );
     }
   }
 
@@ -152,10 +171,19 @@ export async function composeGroupProjectDoc(group: AgentGroup, groupDir: string
   const skillsHostDir = path.join(process.cwd(), SKILLS_HOST_SUBPATH);
   if (fs.existsSync(skillsHostDir)) {
     for (const skillName of fs.readdirSync(skillsHostDir).sort()) {
-      if (selectedSkills !== 'all' && !selectedSkills.includes(skillName)) continue;
-      const hostFragment = path.join(skillsHostDir, skillName, 'instructions.md');
+      if (selectedSkills !== 'all' && !selectedSkills.includes(skillName))
+        continue;
+      const hostFragment = path.join(
+        skillsHostDir,
+        skillName,
+        'instructions.md',
+      );
       if (!fs.existsSync(hostFragment)) continue;
-      push(`NanoClaw Skill: ${skillName}`, fs.readFileSync(hostFragment, 'utf-8'), true);
+      push(
+        `NanoClaw Skill: ${skillName}`,
+        fs.readFileSync(hostFragment, 'utf-8'),
+        true,
+      );
     }
   }
 
@@ -165,7 +193,9 @@ export async function composeGroupProjectDoc(group: AgentGroup, groupDir: string
   }
 
   const content =
-    spec.maxBytes === undefined ? render(sections) : fitToCap(sections, spec.maxBytes, spec.fileName, group.name);
+    spec.maxBytes === undefined
+      ? render(sections)
+      : fitToCap(sections, spec.maxBytes, spec.fileName, group.name);
   writeAtomic(path.join(groupDir, spec.fileName), content);
 }
 
@@ -185,7 +215,12 @@ function render(sections: ProjectDocSection[]): string {
  * error level, and say so in the document itself. Persona, base document and
  * the provider's own blocks are never droppable.
  */
-function fitToCap(sections: ProjectDocSection[], maxBytes: number, fileName: string, groupName: string): string {
+function fitToCap(
+  sections: ProjectDocSection[],
+  maxBytes: number,
+  fileName: string,
+  groupName: string,
+): string {
   const dropped: string[] = [];
   const renderWithNotice = (): string => {
     const parts = [...sections];
@@ -205,7 +240,11 @@ function fitToCap(sections: ProjectDocSection[], maxBytes: number, fileName: str
   while (Buffer.byteLength(content, 'utf-8') > maxBytes) {
     const [largest] = sections
       .filter((s) => s.droppable)
-      .sort((a, b) => Buffer.byteLength(block(b), 'utf-8') - Buffer.byteLength(block(a), 'utf-8'));
+      .sort(
+        (a, b) =>
+          Buffer.byteLength(block(b), 'utf-8') -
+          Buffer.byteLength(block(a), 'utf-8'),
+      );
     if (!largest) break; // Only core left — write oversized rather than brick the group.
     sections.splice(sections.indexOf(largest), 1);
     dropped.push(largest.name);
@@ -214,16 +253,22 @@ function fitToCap(sections: ProjectDocSection[], maxBytes: number, fileName: str
 
   const bytes = Buffer.byteLength(content, 'utf-8');
   const sectionBytes = (): { section: string; bytes: number }[] =>
-    sections.map((s) => ({ section: s.name, bytes: Buffer.byteLength(block(s), 'utf-8') }));
+    sections.map((s) => ({
+      section: s.name,
+      bytes: Buffer.byteLength(block(s), 'utf-8'),
+    }));
   if (dropped.length > 0) {
-    log.error('Project document exceeded its size cap — dropped the largest instruction sections', {
-      file: fileName,
-      group: groupName,
-      bytes,
-      maxBytes,
-      dropped,
-      sections: sectionBytes(),
-    });
+    log.error(
+      'Project document exceeded its size cap — dropped the largest instruction sections',
+      {
+        file: fileName,
+        group: groupName,
+        bytes,
+        maxBytes,
+        dropped,
+        sections: sectionBytes(),
+      },
+    );
     return content;
   }
   // One warning while there is still headroom, so pressure is visible before

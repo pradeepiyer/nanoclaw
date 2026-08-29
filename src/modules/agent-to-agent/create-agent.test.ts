@@ -44,13 +44,19 @@ const {
   mockWriteDestinations: vi.fn(),
   mockNotifyWrite: vi.fn(),
   liveApprovals: new Map<string, import('../../types.js').PendingApproval>(),
-  approvalHandlers: new Map<string, (ctx: Record<string, unknown>) => Promise<void>>(),
+  approvalHandlers: new Map<
+    string,
+    (ctx: Record<string, unknown>) => Promise<void>
+  >(),
 }));
 
 vi.mock('../approvals/index.js', () => ({
   requestApproval: (...a: unknown[]) => mockRequestApproval(...a),
   notifyAgent: vi.fn(),
-  registerApprovalHandler: (action: string, handler: (ctx: Record<string, unknown>) => Promise<void>) => {
+  registerApprovalHandler: (
+    action: string,
+    handler: (ctx: Record<string, unknown>) => Promise<void>,
+  ) => {
     approvalHandlers.set(action, handler);
   },
 }));
@@ -59,7 +65,13 @@ vi.mock('../../db/container-configs.js', () => ({
   ensureContainerConfig: () => {},
 }));
 vi.mock('../../db/agent-groups.js', () => ({
-  getAgentGroup: (id: string) => ({ id, name: id.toUpperCase(), folder: id, agent_provider: null, created_at: '' }),
+  getAgentGroup: (id: string) => ({
+    id,
+    name: id.toUpperCase(),
+    folder: id,
+    agent_provider: null,
+    created_at: '',
+  }),
   getAgentGroupByFolder: () => undefined,
   createAgentGroup: (...a: unknown[]) => mockCreateAgentGroup(...a),
 }));
@@ -110,7 +122,10 @@ async function runCreateAgent(content: Record<string, unknown>): Promise<void> {
   await wrapped!(content, SESSION);
 }
 
-function liveGrant(approvalId: string, payload: Record<string, unknown>): PendingApproval {
+function liveGrant(
+  approvalId: string,
+  payload: Record<string, unknown>,
+): PendingApproval {
   const row = {
     approval_id: approvalId,
     session_id: SESSION.id,
@@ -158,7 +173,10 @@ describe('create_agent — guard-based authorization (wrapped delivery action)',
     // passed to initGroupFilesystem, which stamps the child's config row.
     // Red-on-delete: dropping the inheritance lets the child fall through to the
     // instance default instead of codex.
-    mockGetContainerConfig.mockReturnValue({ cli_scope: 'global', provider: 'codex' });
+    mockGetContainerConfig.mockReturnValue({
+      cli_scope: 'global',
+      provider: 'codex',
+    });
 
     await runCreateAgent({ name: 'Scout', instructions: 'help' });
 
@@ -187,7 +205,9 @@ describe('create_agent — guard-based authorization (wrapped delivery action)',
     await runCreateAgent({ name: 'Scout', instructions: 'help' });
 
     expect(mockRequestApproval).toHaveBeenCalledTimes(1);
-    expect(mockRequestApproval.mock.calls[0][0]).toMatchObject({ action: 'create_agent' });
+    expect(mockRequestApproval.mock.calls[0][0]).toMatchObject({
+      action: 'create_agent',
+    });
     expect(mockCreateAgentGroup).not.toHaveBeenCalled();
     expect(mockInitGroupFilesystem).not.toHaveBeenCalled();
   });
@@ -225,12 +245,16 @@ describe('create_agent — guard-based authorization (wrapped delivery action)',
     // `ncl groups delete` leaves behind. The dedupe loop must treat disk
     // presence as taken and mint scout-2, never adopt the residue.
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'global' });
-    fs.mkdirSync(path.join(A2A_TEST_ROOT, 'groups', 'scout'), { recursive: true });
+    fs.mkdirSync(path.join(A2A_TEST_ROOT, 'groups', 'scout'), {
+      recursive: true,
+    });
     try {
       await runCreateAgent({ name: 'Scout', instructions: 'help' });
 
       expect(mockCreateAgentGroup).toHaveBeenCalledTimes(1);
-      expect(mockCreateAgentGroup.mock.calls[0][0]).toMatchObject({ folder: 'scout-2' });
+      expect(mockCreateAgentGroup.mock.calls[0][0]).toMatchObject({
+        folder: 'scout-2',
+      });
     } finally {
       fs.rmSync(A2A_TEST_ROOT, { recursive: true, force: true });
     }
@@ -245,7 +269,13 @@ describe('create_agent — approved replay (grant-carrying re-entry)', () => {
 
     const continuation = approvalHandlers.get('create_agent');
     expect(continuation).toBeDefined();
-    await continuation!({ session: SESSION, payload, approval, userId: 'telegram:admin', notify: vi.fn() });
+    await continuation!({
+      session: SESSION,
+      payload,
+      approval,
+      userId: 'telegram:admin',
+      notify: vi.fn(),
+    });
 
     expect(mockCreateAgentGroup).toHaveBeenCalledTimes(1);
     expect(mockRequestApproval).not.toHaveBeenCalled(); // no second card

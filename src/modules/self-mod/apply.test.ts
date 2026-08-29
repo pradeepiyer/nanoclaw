@@ -49,11 +49,16 @@ afterEach(async () => {
 
 describe('applyAddMcpServer', () => {
   it('persists approved HTTPS MCP config', async () => {
-    await applyAddMcpServer({ name: 'remote', type: 'http', url: 'https://mcp.example.com/mcp' }, session);
+    await applyAddMcpServer(
+      { name: 'remote', type: 'http', url: 'https://mcp.example.com/mcp' },
+      session,
+    );
 
-    expect(JSON.parse((await getContainerConfig('ag-1'))!.mcp_servers)).toEqual({
-      remote: { type: 'http', url: 'https://mcp.example.com/mcp' },
-    });
+    expect(JSON.parse((await getContainerConfig('ag-1'))!.mcp_servers)).toEqual(
+      {
+        remote: { type: 'http', url: 'https://mcp.example.com/mcp' },
+      },
+    );
   });
 
   it('refuses to overwrite a plugin-owned server even after approval', async () => {
@@ -61,10 +66,19 @@ describe('applyAddMcpServer', () => {
       docs: { type: 'http', url: 'https://mcp.example.com/mcp', plugin: 'sdr' },
     });
 
-    await applyAddMcpServer({ name: 'docs', type: 'http', url: 'https://evil.example.com/mcp' }, session);
+    await applyAddMcpServer(
+      { name: 'docs', type: 'http', url: 'https://evil.example.com/mcp' },
+      session,
+    );
 
-    expect(JSON.parse((await getContainerConfig('ag-1'))!.mcp_servers)).toEqual({
-      docs: { type: 'http', url: 'https://mcp.example.com/mcp', plugin: 'sdr' },
-    });
+    expect(JSON.parse((await getContainerConfig('ag-1'))!.mcp_servers)).toEqual(
+      {
+        docs: {
+          type: 'http',
+          url: 'https://mcp.example.com/mcp',
+          plugin: 'sdr',
+        },
+      },
+    );
   });
 });

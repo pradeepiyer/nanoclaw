@@ -17,7 +17,13 @@ import type { CallerContext } from './frame.js';
  * consumed by both dispatch enforcement and `ncl help` filtering, so the
  * agent is never shown a resource the gate would reject (or vice versa).
  */
-export const GROUP_SCOPE_RESOURCES = new Set(['groups', 'sessions', 'destinations', 'members', 'tasks']);
+export const GROUP_SCOPE_RESOURCES = new Set([
+  'groups',
+  'sessions',
+  'destinations',
+  'members',
+  'tasks',
+]);
 
 export type Access = 'open' | 'approval' | 'hidden';
 
@@ -78,14 +84,19 @@ export function register<TArgs, TData>(def: CommandDef<TArgs, TData>): void {
   // Declaration is registration: every command gets a guard-catalog entry
   // derived from its own definition, in the same call that registers it — a
   // command cannot exist without a guard, and dispatch consults it by value.
-  commandGuards.set(def.name, defineGuardedAction(commandGuardSpec(def as CommandDef)));
+  commandGuards.set(
+    def.name,
+    defineGuardedAction(commandGuardSpec(def as CommandDef)),
+  );
 }
 
 /** The guard defined for a registered command — total for anything register() accepted. */
 export function commandGuard(name: string): GuardedAction {
   const g = commandGuards.get(name);
   if (!g) {
-    throw new Error(`CLI command "${name}" has no guard — was it registered through register()?`);
+    throw new Error(
+      `CLI command "${name}" has no guard — was it registered through register()?`,
+    );
   }
   return g;
 }

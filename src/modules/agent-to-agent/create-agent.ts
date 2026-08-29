@@ -17,7 +17,11 @@
 import path from 'path';
 
 import { GROUPS_DIR } from '../../config.js';
-import { createAgentGroup, getAgentGroup, getAgentGroupByFolder } from '../../db/agent-groups.js';
+import {
+  createAgentGroup,
+  getAgentGroup,
+  getAgentGroupByFolder,
+} from '../../db/agent-groups.js';
 import { getContainerConfig } from '../../db/container-configs.js';
 import { getSession } from '../../db/sessions.js';
 import { requestWake } from '../../request-wake.js';
@@ -27,7 +31,11 @@ import { log } from '../../log.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import type { AgentGroup, Session } from '../../types.js';
 import { requestApproval } from '../approvals/index.js';
-import { createDestination, getDestinationByName, normalizeName } from './db/agent-destinations.js';
+import {
+  createDestination,
+  getDestinationByName,
+  normalizeName,
+} from './db/agent-destinations.js';
 import { writeDestinations } from './write-destinations.js';
 
 async function notifyAgent(session: Session, text: string): Promise<void> {
@@ -45,24 +53,37 @@ async function notifyAgent(session: Session, text: string): Promise<void> {
 }
 
 /** Guard precheck: malformed requests are answered without ever creating a hold. */
-export async function validateCreateAgent(content: Record<string, unknown>, session: Session): Promise<boolean> {
+export async function validateCreateAgent(
+  content: Record<string, unknown>,
+  session: Session,
+): Promise<boolean> {
   const name = typeof content.name === 'string' ? content.name : '';
   if (!name) {
     await notifyAgent(session, 'create_agent failed: name is required.');
     return false;
   }
   if (!(await getAgentGroup(session.agent_group_id))) {
-    await notifyAgent(session, 'create_agent failed: source agent group not found.');
-    log.warn('create_agent failed: missing source group', { sessionAgentGroup: session.agent_group_id, name });
+    await notifyAgent(
+      session,
+      'create_agent failed: source agent group not found.',
+    );
+    log.warn('create_agent failed: missing source group', {
+      sessionAgentGroup: session.agent_group_id,
+      name,
+    });
     return false;
   }
   return true;
 }
 
 /** Guard hold: card the requesting group's admin chain. */
-export async function requestCreateAgentHold(content: Record<string, unknown>, session: Session): Promise<void> {
+export async function requestCreateAgentHold(
+  content: Record<string, unknown>,
+  session: Session,
+): Promise<void> {
   const name = typeof content.name === 'string' ? content.name : '';
-  const instructions = typeof content.instructions === 'string' ? content.instructions : null;
+  const instructions =
+    typeof content.instructions === 'string' ? content.instructions : null;
   const sourceGroup = await getAgentGroup(session.agent_group_id);
   if (!sourceGroup) return;
 
@@ -94,11 +115,19 @@ export async function createAgent(
   options?: CreateAgentOptions,
 ): Promise<void> {
   const name = typeof content.name === 'string' ? content.name : '';
-  const instructions = typeof content.instructions === 'string' ? content.instructions : null;
+  const instructions =
+    typeof content.instructions === 'string' ? content.instructions : null;
   const sourceGroup = await getAgentGroup(session.agent_group_id);
   if (!name || !sourceGroup) return; // precheck already answered the requester
 
-  await performCreateAgent(name, instructions, session, sourceGroup, (text) => notifyAgent(session, text), options);
+  await performCreateAgent(
+    name,
+    instructions,
+    session,
+    sourceGroup,
+    (text) => notifyAgent(session, text),
+    options,
+  );
 }
 
 /**
@@ -121,7 +150,9 @@ async function performCreateAgent(
 
   // Collision in the creator's destination namespace
   if (await getDestinationByName(sourceGroup.id, localName)) {
-    await notify(`Cannot create agent "${name}": you already have a destination named "${localName}".`);
+    await notify(
+      `Cannot create agent "${name}": you already have a destination named "${localName}".`,
+    );
     return;
   }
 
@@ -132,7 +163,10 @@ async function performCreateAgent(
   // skip to the next suffix instead (templates/create-agent.ts precedent).
   let folder = localName;
   let suffix = 2;
-  while ((await getAgentGroupByFolder(folder)) || groupFolderExistsOnDisk(folder)) {
+  while (
+    (await getAgentGroupByFolder(folder)) ||
+    groupFolderExistsOnDisk(folder)
+  ) {
     folder = `${localName}-${suffix}`;
     suffix++;
   }
@@ -164,8 +198,12 @@ async function performCreateAgent(
   // stamps its config row in one step (a NULL parent resolves to claude). The
   // operator can still flip a child later with `ncl groups config update
   // --provider`.
-  const parentProvider = (await getContainerConfig(sourceGroup.id))?.provider ?? 'claude';
-  await initGroupFilesystem(newGroup, { instructions: instructions ?? undefined, provider: parentProvider });
+  const parentProvider =
+    (await getContainerConfig(sourceGroup.id))?.provider ?? 'claude';
+  await initGroupFilesystem(newGroup, {
+    instructions: instructions ?? undefined,
+    provider: parentProvider,
+  });
 
   // Insert bidirectional destination rows (= ACL grants).
   // Creator refers to child by the name it chose; child refers to creator as "parent".
@@ -203,5 +241,11 @@ async function performCreateAgent(
       `Agent "${localName}" created. You can now message it with send_message({ to: "${localName}", ... }).`,
     );
   }
-  log.info('Agent group created', { agentGroupId, name, localName, folder, parent: sourceGroup.id });
+  log.info('Agent group created', {
+    agentGroupId,
+    name,
+    localName,
+    folder,
+    parent: sourceGroup.id,
+  });
 }

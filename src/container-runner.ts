@@ -24,11 +24,17 @@ import {
   INSTALL_SLUG,
   TIMEZONE,
 } from './config.js';
-import { CONTAINER_PLUGINS_DIR, materializeContainerJson } from './container-config.js';
+import {
+  CONTAINER_PLUGINS_DIR,
+  materializeContainerJson,
+} from './container-config.js';
 import { getContainerConfig } from './db/container-configs.js';
 import { updateContainerConfigScalars } from './db/container-configs.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
-import { composeGroupProjectDoc, DEFAULT_PROJECT_DOC } from './project-doc-compose.js';
+import {
+  composeGroupProjectDoc,
+  DEFAULT_PROJECT_DOC,
+} from './project-doc-compose.js';
 import { getAgentGroup } from './db/agent-groups.js';
 import {
   getLiveHostInstance,
@@ -44,10 +50,25 @@ import { getHostInstanceId } from './host-instance.js';
 import { getDb, hasTable } from './db/connection.js';
 import { getSession } from './db/sessions.js';
 import { getSessionDriver, isSessionEventsDriver } from './drivers/index.js';
-import type { SupervisedHandle, SupervisedSnapshot } from './drivers/session-events.js';
-import { GROUP_FOLDER_LABEL, labelValueLegal, specInvalid } from './drivers/types.js';
-import type { ContainerSpec, MountSpec, SessionFailure, SessionSpec } from './drivers/types.js';
-import { getGatewayProvider, type GatewayContribution } from './gateway-providers/index.js';
+import type {
+  SupervisedHandle,
+  SupervisedSnapshot,
+} from './drivers/session-events.js';
+import {
+  GROUP_FOLDER_LABEL,
+  labelValueLegal,
+  specInvalid,
+} from './drivers/types.js';
+import type {
+  ContainerSpec,
+  MountSpec,
+  SessionFailure,
+  SessionSpec,
+} from './drivers/types.js';
+import {
+  getGatewayProvider,
+  type GatewayContribution,
+} from './gateway-providers/index.js';
 import { initGroupFilesystem } from './group-init.js';
 import { getAgentMailbox } from './mailbox/index.js';
 import { stopTypingRefresh } from './modules/typing/index.js';
@@ -139,11 +160,17 @@ function claimantId(): string {
  * lease-expired, or unknown (older claimant-id schemes) stays takeover-able:
  * a crashed claimant must never wedge a session.
  */
-async function claimSessionRun(sessionId: string, containerRef: string): Promise<number | null> {
+async function claimSessionRun(
+  sessionId: string,
+  containerRef: string,
+): Promise<number | null> {
   const current = await getSessionClaim(sessionId);
   const self = claimantId();
   if (current?.claimed_by && current.claimed_by !== self) {
-    const holder = await getLiveHostInstance(current.claimed_by, new Date().toISOString());
+    const holder = await getLiveHostInstance(
+      current.claimed_by,
+      new Date().toISOString(),
+    );
     if (holder) {
       log.warn('Refusing session claim held by a live peer host', {
         sessionId,
@@ -164,7 +191,10 @@ async function claimSessionRun(sessionId: string, containerRef: string): Promise
 
 /** Release our claim at this incarnation. Never throws — a failed release is
  *  self-healing (the next claimant's CAS supersedes it). */
-async function releaseClaimQuietly(sessionId: string, incarnation: number): Promise<void> {
+async function releaseClaimQuietly(
+  sessionId: string,
+  incarnation: number,
+): Promise<void> {
   await shadowWrite('session-claim-release', () =>
     releaseSessionClaim({
       sessionId,
@@ -218,19 +248,30 @@ export function _resetAdoptionRetryStateForTesting(): void {
 async function retryPendingAdoption(session: Session): Promise<boolean> {
   const driver = getSessionDriver();
   const snapshots = await driver.listSessions(INSTALL_SLUG);
-  const snapshot = snapshots.find(({ handle, phase }) => handle.key.sessionId === session.id && phase === 'running');
+  const snapshot = snapshots.find(
+    ({ handle, phase }) =>
+      handle.key.sessionId === session.id && phase === 'running',
+  );
   if (!snapshot) {
     pendingAdoptions.delete(session.id);
     return false;
   }
-  const claimIncarnation = await claimSessionRun(session.id, snapshot.handle.name);
+  const claimIncarnation = await claimSessionRun(
+    session.id,
+    snapshot.handle.name,
+  );
   if (claimIncarnation === null) {
     pendingAdoptions.delete(session.id);
     throw new Error(
       `session ${session.id} is claimed by another live host process — not adopting or spawning a duplicate`,
     );
   }
-  const runtime = registerRuntime(session.id, snapshot.handle, snapshot.handle.name, true);
+  const runtime = registerRuntime(
+    session.id,
+    snapshot.handle,
+    snapshot.handle.name,
+    true,
+  );
   runtime.claimIncarnation = claimIncarnation;
   runtime.stopReason = undefined;
   snapshot.handle.onTerminal((failure) => {
@@ -238,7 +279,9 @@ async function retryPendingAdoption(session: Session): Promise<boolean> {
   });
   await markContainerRunning(session.id);
   pendingAdoptions.delete(session.id);
-  log.info('Adopted surviving container on retry after a failed claim write', { sessionId: session.id });
+  log.info('Adopted surviving container on retry after a failed claim write', {
+    sessionId: session.id,
+  });
   return true;
 }
 
@@ -258,13 +301,18 @@ export function wakeContainer(session: Session): Promise<boolean> {
   }
   const existing = wakePromises.get(session.id);
   if (existing) {
-    log.debug('Container wake already in-flight — joining existing promise', { sessionId: session.id });
+    log.debug('Container wake already in-flight — joining existing promise', {
+      sessionId: session.id,
+    });
     return existing;
   }
   const promise = spawnContainer(session)
     .then(() => true)
     .catch((err) => {
-      log.warn('wakeContainer failed — host-sweep will retry', { sessionId: session.id, err });
+      log.warn('wakeContainer failed — host-sweep will retry', {
+        sessionId: session.id,
+        err,
+      });
       return false;
     })
     .finally(() => {
@@ -283,7 +331,9 @@ async function spawnContainer(session: Session): Promise<void> {
   }
   const agentGroup = await getAgentGroup(session.agent_group_id);
   if (!agentGroup) {
-    log.error('Agent group not found', { agentGroupId: session.agent_group_id });
+    log.error('Agent group not found', {
+      agentGroupId: session.agent_group_id,
+    });
     return;
   }
 
@@ -291,28 +341,46 @@ async function spawnContainer(session: Session): Promise<void> {
   // changes take effect on wake. Destinations come from the agent-to-agent
   // module — skip when the module isn't installed (table absent).
   if (await hasTable(getDb(), 'agent_destinations')) {
-    const { writeDestinations } = await import('./modules/agent-to-agent/write-destinations.js');
+    const { writeDestinations } =
+      await import('./modules/agent-to-agent/write-destinations.js');
     await writeDestinations(agentGroup.id, session.id);
   }
   await writeSessionRouting(agentGroup.id, session.id);
   const mailboxKey = { agentGroupId: agentGroup.id, sessionId: session.id };
   const mailbox = getAgentMailbox();
-  writeSessionContext(agentGroup.id, session.id, await mailbox.runnerContext(mailboxKey));
+  writeSessionContext(
+    agentGroup.id,
+    session.id,
+    await mailbox.runnerContext(mailboxKey),
+  );
 
   // Materialize container.json from DB — writes fresh file and returns
   // the config object, threaded through provider resolution, buildMounts,
   // and buildContainerArgs so we don't re-read.
   const containerConfig = await materializeContainerJson(agentGroup.id);
 
-  const providerName = resolveProviderName(session.agent_provider, containerConfig.provider);
+  const providerName = resolveProviderName(
+    session.agent_provider,
+    containerConfig.provider,
+  );
   await initGroupFilesystem(agentGroup, { provider: providerName });
 
   // Resolve the effective provider + any host-side contribution it declares
   // (extra mounts, env passthrough). Computed once and threaded through both
   // buildMounts and buildContainerArgs so side effects (mkdir, etc.) fire once.
-  const { provider, contribution } = await resolveProviderContribution(session, agentGroup, containerConfig);
+  const { provider, contribution } = await resolveProviderContribution(
+    session,
+    agentGroup,
+    containerConfig,
+  );
 
-  const mounts = await buildMounts(agentGroup, session, containerConfig, provider, contribution);
+  const mounts = await buildMounts(
+    agentGroup,
+    session,
+    containerConfig,
+    provider,
+    contribution,
+  );
   const containerName = `nanoclaw-v2-${agentGroup.folder}-${Date.now()}`;
   const mailboxEnvironment = await mailbox.runnerEnvironment(mailboxKey);
 
@@ -324,11 +392,18 @@ async function spawnContainer(session: Session): Promise<void> {
   // row stays pending, and the sweep retries. Network selection is NOT here —
   // topology is driver-private (see `drivers/index.ts`).
   const gateway = await getGatewayProvider().contribute({
-    key: { installSlug: INSTALL_SLUG, agentGroupId: agentGroup.id, sessionId: session.id },
+    key: {
+      installSlug: INSTALL_SLUG,
+      agentGroupId: agentGroup.id,
+      sessionId: session.id,
+    },
     groupName: agentGroup.name,
     capabilities: driver.capabilities(),
   });
-  if (gateway.containers?.length && !driver.capabilities().auxiliaryContainers) {
+  if (
+    gateway.containers?.length &&
+    !driver.capabilities().auxiliaryContainers
+  ) {
     // Named at composition, where the error can say which side to change —
     // not left for the driver's refusal backstop to discover.
     throw specInvalid(
@@ -348,7 +423,11 @@ async function spawnContainer(session: Session): Promise<void> {
     mailboxEnvironment,
   });
 
-  log.info('Spawning session', { sessionId: session.id, agentGroup: agentGroup.name, containerName });
+  log.info('Spawning session', {
+    sessionId: session.id,
+    agentGroup: agentGroup.name,
+    containerName,
+  });
 
   // The claim is the cross-process spawn fence: winning it is what licenses
   // touching the session's runtime state (the heartbeat clear below included).
@@ -356,7 +435,9 @@ async function spawnContainer(session: Session): Promise<void> {
   // contract turns the throw into `false` and the sweep re-checks next tick.
   const claimIncarnation = await claimSessionRun(session.id, containerName);
   if (claimIncarnation === null) {
-    throw new Error(`session ${session.id} is claimed by another live host process — not spawning a duplicate`);
+    throw new Error(
+      `session ${session.id} is claimed by another live host process — not spawning a duplicate`,
+    );
   }
 
   // Clear any orphan heartbeat from a previous container instance — the sweep's
@@ -475,15 +556,23 @@ async function finishAndResolve(
 // choice between clobbering a newer incarnation and leaking the runtime.
 let fenceRetryDelaysMs = [5_000, 10_000, 15_000];
 let deferredFinishDelayMs = 60_000;
-export function _setFinishFenceScheduleForTesting(retryDelaysMs?: number[], deferDelayMs?: number): void {
+export function _setFinishFenceScheduleForTesting(
+  retryDelaysMs?: number[],
+  deferDelayMs?: number,
+): void {
   fenceRetryDelaysMs = retryDelaysMs ?? [5_000, 10_000, 15_000];
   deferredFinishDelayMs = deferDelayMs ?? 60_000;
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms).unref?.());
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms).unref?.());
 
 /** Re-run finalization once the store may be back. One timer per runtime. */
-function scheduleDeferredFinish(sessionId: string, runtime: ActiveSessionRuntime, failure?: SessionFailure): void {
+function scheduleDeferredFinish(
+  sessionId: string,
+  runtime: ActiveSessionRuntime,
+  failure?: SessionFailure,
+): void {
   if (runtime.deferredFinishScheduled) return;
   runtime.deferredFinishScheduled = true;
   const timer = setTimeout(() => {
@@ -495,7 +584,11 @@ function scheduleDeferredFinish(sessionId: string, runtime: ActiveSessionRuntime
   timer.unref?.();
 }
 
-async function finish(sessionId: string, runtime: ActiveSessionRuntime, failure?: SessionFailure): Promise<void> {
+async function finish(
+  sessionId: string,
+  runtime: ActiveSessionRuntime,
+  failure?: SessionFailure,
+): Promise<void> {
   const { containerName } = runtime;
 
   // Durable fence: the claim row is the authority for which incarnation owns
@@ -510,10 +603,15 @@ async function finish(sessionId: string, runtime: ActiveSessionRuntime, failure?
       if (attempt > 0) await sleep(fenceRetryDelaysMs[attempt - 1]);
       try {
         const claim = await getSessionClaim(sessionId);
-        fenced = claim !== undefined && claim.incarnation !== runtime.claimIncarnation;
+        fenced =
+          claim !== undefined && claim.incarnation !== runtime.claimIncarnation;
         break;
       } catch (err) {
-        log.warn('Claim fence check failed', { sessionId, attempt: attempt + 1, err });
+        log.warn('Claim fence check failed', {
+          sessionId,
+          attempt: attempt + 1,
+          err,
+        });
       }
     }
     /* eslint-enable no-catch-all/no-catch-all */
@@ -525,20 +623,26 @@ async function finish(sessionId: string, runtime: ActiveSessionRuntime, failure?
       // answers. Exit callbacks are deferred, not dropped — and a pending
       // respawn is carried by its durable stop-intent row even if this
       // process dies first.
-      log.warn('Claim fence unreadable — deferring finalization until the store answers', {
-        sessionId,
-        containerName,
-        incarnation: runtime.claimIncarnation,
-      });
+      log.warn(
+        'Claim fence unreadable — deferring finalization until the store answers',
+        {
+          sessionId,
+          containerName,
+          incarnation: runtime.claimIncarnation,
+        },
+      );
       scheduleDeferredFinish(sessionId, runtime, failure);
       return;
     }
     if (fenced) {
-      log.warn('Ignoring stale session finish — a newer incarnation holds the claim', {
-        sessionId,
-        containerName,
-        staleIncarnation: runtime.claimIncarnation,
-      });
+      log.warn(
+        'Ignoring stale session finish — a newer incarnation holds the claim',
+        {
+          sessionId,
+          containerName,
+          staleIncarnation: runtime.claimIncarnation,
+        },
+      );
       if (activeContainers.get(sessionId) === runtime) {
         activeContainers.delete(sessionId);
       }
@@ -549,21 +653,37 @@ async function finish(sessionId: string, runtime: ActiveSessionRuntime, failure?
   try {
     await markContainerStopped(sessionId);
   } catch (err) {
-    log.error('Failed to record stopped container', { sessionId, containerName, err });
+    log.error('Failed to record stopped container', {
+      sessionId,
+      containerName,
+      err,
+    });
   }
   try {
     stopTypingRefresh(sessionId);
   } catch (err) {
-    log.error('Failed to stop typing refresh', { sessionId, containerName, err });
+    log.error('Failed to stop typing refresh', {
+      sessionId,
+      containerName,
+      err,
+    });
   }
 
   if (failure && failure.kind !== 'started-then-died') {
-    log.error('Session failed', { sessionId, containerName, kind: failure.kind, retryable: failure.retryable });
+    log.error('Session failed', {
+      sessionId,
+      containerName,
+      kind: failure.kind,
+      retryable: failure.retryable,
+    });
   } else {
     log.info('Session ended', {
       sessionId,
       containerName,
-      exitCode: failure && failure.kind === 'started-then-died' ? failure.exitCode : undefined,
+      exitCode:
+        failure && failure.kind === 'started-then-died'
+          ? failure.exitCode
+          : undefined,
     });
   }
 
@@ -577,13 +697,21 @@ async function finish(sessionId: string, runtime: ActiveSessionRuntime, failure?
     try {
       callback();
     } catch (err) {
-      log.error('Container exit callback failed', { sessionId, containerName, err });
+      log.error('Container exit callback failed', {
+        sessionId,
+        containerName,
+        err,
+      });
     }
   }
 }
 
 /** Kill a container for a session. */
-export function killContainer(sessionId: string, reason: string, onExit?: () => void): void {
+export function killContainer(
+  sessionId: string,
+  reason: string,
+  onExit?: () => void,
+): void {
   const entry = activeContainers.get(sessionId);
   if (!entry) return;
 
@@ -592,7 +720,11 @@ export function killContainer(sessionId: string, reason: string, onExit?: () => 
   }
 
   entry.stopReason = reason;
-  log.info('Killing container', { sessionId, reason, containerName: entry.containerName });
+  log.info('Killing container', {
+    sessionId,
+    reason,
+    containerName: entry.containerName,
+  });
   void entry.handle.stop(reason).then(
     () => {
       // A handle whose supervision channel is gone (an adopted handle whose
@@ -616,7 +748,10 @@ export function killContainer(sessionId: string, reason: string, onExit?: () => 
  * gateway resolves credentials per request on the host side, so an adopted
  * session's egress keeps working without any per-process state to rebuild.
  */
-export async function adoptRunningSessions(): Promise<{ adopted: number; stopped: number }> {
+export async function adoptRunningSessions(): Promise<{
+  adopted: number;
+  stopped: number;
+}> {
   const driver = getSessionDriver();
   let snapshots: SupervisedSnapshot[];
   try {
@@ -629,7 +764,9 @@ export async function adoptRunningSessions(): Promise<{ adopted: number; stopped
   let adopted = 0;
   let stopped = 0;
   for (const { handle, phase } of snapshots) {
-    const session = handle.key.sessionId ? await getSession(handle.key.sessionId) : undefined;
+    const session = handle.key.sessionId
+      ? await getSession(handle.key.sessionId)
+      : undefined;
     // The snapshot's phase is the listing's own truth: a corpse arrives as
     // 'terminal' (or not at all), so telling adoptable sessions apart needs
     // no per-handle status() round trip. `stop()` on a corpse is still full
@@ -651,16 +788,22 @@ export async function adoptRunningSessions(): Promise<{ adopted: number; stopped
     try {
       claimIncarnation = await claimSessionRun(session.id, handle.name);
     } catch (err) {
-      log.error('Session claim write failed during adoption — leaving the container unadopted for retry', {
-        sessionId: session.id,
-        err,
-      });
+      log.error(
+        'Session claim write failed during adoption — leaving the container unadopted for retry',
+        {
+          sessionId: session.id,
+          err,
+        },
+      );
       pendingAdoptions.add(session.id);
       continue;
     }
     /* eslint-enable no-catch-all/no-catch-all */
     if (claimIncarnation === null) {
-      log.warn('Session adoption skipped — another live host process holds the claim', { sessionId: session.id });
+      log.warn(
+        'Session adoption skipped — another live host process holds the claim',
+        { sessionId: session.id },
+      );
       continue;
     }
     pendingAdoptions.delete(session.id);
@@ -678,7 +821,8 @@ export async function adoptRunningSessions(): Promise<{ adopted: number; stopped
   // Reconcile terminals the watch stream missed while no host was listening —
   // adoption is the one place a full re-list is already cheap, so the hub's
   // resync wires here rather than into new periodic machinery.
-  if (isSessionEventsDriver(driver)) await driver.resync(INSTALL_SLUG).catch(() => {});
+  if (isSessionEventsDriver(driver))
+    await driver.resync(INSTALL_SLUG).catch(() => {});
 
   if (adopted > 0 || stopped > 0) {
     log.info('Reconciled sessions at startup', { adopted, stopped });
@@ -715,25 +859,35 @@ export async function honorPendingStopIntents(
       // The session's container is alive but not yet re-fenced; acting on the
       // intent now could kill or respawn the wrong incarnation. The row stays
       // for the next recovery pass.
-      log.warn('Deferring stop intent — session awaits claim-fenced adoption', { sessionId: intent.session_id });
+      log.warn('Deferring stop intent — session awaits claim-fenced adoption', {
+        sessionId: intent.session_id,
+      });
       continue;
     }
     const session = await getSession(intent.session_id);
     if (!session || session.status !== 'active') {
-      await shadowWrite('stop-intent-clear', () => setStopIntent(intent.session_id, null, new Date().toISOString()));
+      await shadowWrite('stop-intent-clear', () =>
+        setStopIntent(intent.session_id, null, new Date().toISOString()),
+      );
       continue;
     }
     const respawn = async (): Promise<void> => {
       const woke = await wake(session);
       if (woke) {
-        await shadowWrite('stop-intent-clear', () => setStopIntent(session.id, null, new Date().toISOString()));
+        await shadowWrite('stop-intent-clear', () =>
+          setStopIntent(session.id, null, new Date().toISOString()),
+        );
       }
     };
     if (activeContainers.has(session.id)) {
       // The kill never completed — the container outlived the host that
       // ordered it. Re-issue the kill with the respawn re-armed.
       log.info('Re-issuing interrupted restart', { sessionId: session.id });
-      killContainer(session.id, 'restart-intent-recovery', () => void respawn());
+      killContainer(
+        session.id,
+        'restart-intent-recovery',
+        () => void respawn(),
+      );
     } else {
       await respawn();
     }
@@ -757,7 +911,10 @@ async function resolveProviderContribution(
   agentGroup: AgentGroup,
   containerConfig: import('./container-config.js').ContainerConfig,
 ): Promise<{ provider: string; contribution: ProviderContainerContribution }> {
-  const provider = resolveProviderName(session.agent_provider, containerConfig.provider);
+  const provider = resolveProviderName(
+    session.agent_provider,
+    containerConfig.provider,
+  );
   const fn = getProviderContainerConfig(provider);
   const contribution = fn
     ? await fn({
@@ -785,7 +942,12 @@ export async function buildMounts(
   const defaultSurfaces = !providerProvidesAgentSurfaces(provider);
 
   const groupDir = path.resolve(GROUPS_DIR, agentGroup.folder);
-  const claudeDir = path.join(DATA_DIR, 'v2-sessions', agentGroup.id, '.claude-shared');
+  const claudeDir = path.join(
+    DATA_DIR,
+    'v2-sessions',
+    agentGroup.id,
+    '.claude-shared',
+  );
   if (defaultSurfaces) {
     syncSkillSymlinks(claudeDir, containerConfig);
 
@@ -799,7 +961,13 @@ export async function buildMounts(
   const scope = agentGroup.id;
 
   // Session workspace: mailbox-selected state plus outbox and heartbeat files.
-  mounts.push({ hostPath: sessDir, containerPath: '/workspace', readonly: false, mountClass: 'group-state', scope });
+  mounts.push({
+    hostPath: sessDir,
+    containerPath: '/workspace',
+    readonly: false,
+    mountClass: 'group-state',
+    scope,
+  });
   mounts.push({
     hostPath: sessionContextPath(agentGroup.id, session.id),
     containerPath: '/app/.nanoclaw-session.json',
@@ -877,7 +1045,12 @@ export async function buildMounts(
   }
 
   // Shared agent-runner source — read-only, same code for all groups.
-  const agentRunnerSrc = path.join(projectRoot, 'container', 'agent-runner', 'src');
+  const agentRunnerSrc = path.join(
+    projectRoot,
+    'container',
+    'agent-runner',
+    'src',
+  );
   mounts.push({
     hostPath: agentRunnerSrc,
     containerPath: '/app/src',
@@ -899,9 +1072,21 @@ export async function buildMounts(
   }
 
   // Additional mounts from container config — already vetted by the allowlist.
-  if (containerConfig.additionalMounts && containerConfig.additionalMounts.length > 0) {
-    const validated = validateAdditionalMounts(containerConfig.additionalMounts, agentGroup.name);
-    mounts.push(...validated.map((m) => ({ ...m, mountClass: 'allowlisted-extra' as const, scope })));
+  if (
+    containerConfig.additionalMounts &&
+    containerConfig.additionalMounts.length > 0
+  ) {
+    const validated = validateAdditionalMounts(
+      containerConfig.additionalMounts,
+      agentGroup.name,
+    );
+    mounts.push(
+      ...validated.map((m) => ({
+        ...m,
+        mountClass: 'allowlisted-extra' as const,
+        scope,
+      })),
+    );
   }
 
   // Provider-contributed mounts (e.g. opencode-xdg). Vetted upstream by the
@@ -909,14 +1094,23 @@ export async function buildMounts(
   // contract — classing them group-state would deny any provider whose state
   // root sits outside the group subtree.
   if (providerContribution.mounts) {
-    mounts.push(...providerContribution.mounts.map((m) => ({ ...m, mountClass: 'allowlisted-extra' as const, scope })));
+    mounts.push(
+      ...providerContribution.mounts.map((m) => ({
+        ...m,
+        mountClass: 'allowlisted-extra' as const,
+        scope,
+      })),
+    );
   }
 
   return mounts;
 }
 
 /** VolumeMount (host vocabulary) → MountSpec (seam vocabulary). */
-export function toMountSpecs(mounts: readonly VolumeMount[], defaultScope: string): MountSpec[] {
+export function toMountSpecs(
+  mounts: readonly VolumeMount[],
+  defaultScope: string,
+): MountSpec[] {
   return mounts.map((mount) => ({
     class: mount.mountClass ?? 'allowlisted-extra',
     hostPath: mount.hostPath,
@@ -951,9 +1145,15 @@ export interface ComposeSessionSpecInput {
  * used to produce, resolved here so the spec a driver sees is collision-free
  * and `validateSpec` can refuse ambiguity outright).
  */
-export function mergeMounts(composed: MountSpec[], contributed: MountSpec[]): MountSpec[] {
+export function mergeMounts(
+  composed: MountSpec[],
+  contributed: MountSpec[],
+): MountSpec[] {
   const contributedTargets = new Set(contributed.map((m) => m.containerPath));
-  return [...composed.filter((m) => !contributedTargets.has(m.containerPath)), ...contributed];
+  return [
+    ...composed.filter((m) => !contributedTargets.has(m.containerPath)),
+    ...contributed,
+  ];
 }
 
 /**
@@ -961,9 +1161,19 @@ export function mergeMounts(composed: MountSpec[], contributed: MountSpec[]): Mo
  * with argv assembly removed: the host says what a session *is*, the driver
  * says how it is realized.
  */
-export function composeSessionSpec(input: ComposeSessionSpecInput): SessionSpec {
-  const { agentGroup, session, containerName, mounts, containerConfig, contribution, gateway, mailboxEnvironment } =
-    input;
+export function composeSessionSpec(
+  input: ComposeSessionSpecInput,
+): SessionSpec {
+  const {
+    agentGroup,
+    session,
+    containerName,
+    mounts,
+    containerConfig,
+    contribution,
+    gateway,
+    mailboxEnvironment,
+  } = input;
 
   const env: Record<string, string> = {
     TZ: containerConfig.timezone ?? TIMEZONE,
@@ -992,7 +1202,10 @@ export function composeSessionSpec(input: ComposeSessionSpecInput): SessionSpec 
   // the image has no passwd entry for resolves HOME to '/', and the provider
   // SDK's `mkdir ~/.claude` dies EACCES; /home/node is chmod 777 in the agent
   // image, so it is writable by any uid under both drivers.
-  const runAs = hostUid != null && hostUid !== 0 ? { uid: hostUid, gid: hostGid ?? hostUid } : undefined;
+  const runAs =
+    hostUid != null && hostUid !== 0
+      ? { uid: hostUid, gid: hostGid ?? hostUid }
+      : undefined;
   if (runAs) env.HOME = '/home/node';
 
   const agent: ContainerSpec = {
@@ -1004,7 +1217,10 @@ export function composeSessionSpec(input: ComposeSessionSpecInput): SessionSpec 
     // 'standard' posture's PID-1 requirement onto this: Docker adds `--init`.
     command: ['bash', '-c'],
     args: ['exec bun run /app/src/index.ts'],
-    mounts: mergeMounts(toMountSpecs(mounts, agentGroup.id), gateway.mounts ?? []),
+    mounts: mergeMounts(
+      toMountSpecs(mounts, agentGroup.id),
+      gateway.mounts ?? [],
+    ),
     contributedEnv,
   };
 
@@ -1030,8 +1246,15 @@ export function composeSessionSpec(input: ComposeSessionSpecInput): SessionSpec 
   }
 
   return {
-    key: { installSlug: INSTALL_SLUG, agentGroupId: agentGroup.id, sessionId: session.id },
-    labels: { 'nanoclaw-container-name': containerName, [GROUP_FOLDER_LABEL]: agentGroup.folder },
+    key: {
+      installSlug: INSTALL_SLUG,
+      agentGroupId: agentGroup.id,
+      sessionId: session.id,
+    },
+    labels: {
+      'nanoclaw-container-name': containerName,
+      [GROUP_FOLDER_LABEL]: agentGroup.folder,
+    },
     // The gateway's auxiliary containers ride beside the agent; capability-
     // gated in the spawn path before composition ever runs.
     containers: [agent, ...(gateway.containers ?? [])],
@@ -1068,11 +1291,15 @@ export function parseMemoryMb(value: string): number | undefined {
     // used to make Docker reject the spawn, and returning undefined here would
     // silently REMOVE the operator's cap instead — the one wrong direction for
     // a resource limit to fail in.
-    throw specInvalid(`CONTAINER_MEMORY_LIMIT '${value}' is not a docker size string ("8g", "512m", "1073741824")`);
+    throw specInvalid(
+      `CONTAINER_MEMORY_LIMIT '${value}' is not a docker size string ("8g", "512m", "1073741824")`,
+    );
   }
   const size = Number(match[1]);
   if (!Number.isFinite(size)) {
-    throw specInvalid(`CONTAINER_MEMORY_LIMIT '${value}' is not a docker size string ("8g", "512m", "1073741824")`);
+    throw specInvalid(
+      `CONTAINER_MEMORY_LIMIT '${value}' is not a docker size string ("8g", "512m", "1073741824")`,
+    );
   }
   if (size === 0) return undefined; // Docker's own meaning for 0: no cap.
   switch (match[2].toLowerCase()) {
@@ -1160,7 +1387,9 @@ export function syncSkillSymlinks(
  * Resolve the group's skill selection to concrete names — `'all'` recomputes
  * from `container/skills/` so newly-added upstream skills appear automatically.
  */
-function selectedSkillNames(containerConfig: import('./container-config.js').ContainerConfig): string[] {
+function selectedSkillNames(
+  containerConfig: import('./container-config.js').ContainerConfig,
+): string[] {
   if (containerConfig.skills !== 'all') return containerConfig.skills;
   const sharedSkillsDir = path.join(process.cwd(), 'container', 'skills');
   return fs.existsSync(sharedSkillsDir)
@@ -1177,7 +1406,9 @@ function selectedSkillNames(containerConfig: import('./container-config.js').Con
 const execAsync = promisify(exec);
 
 /** Build a per-agent-group Docker image with custom packages. */
-export async function buildAgentGroupImage(agentGroupId: string): Promise<void> {
+export async function buildAgentGroupImage(
+  agentGroupId: string,
+): Promise<void> {
   const agentGroup = await getAgentGroup(agentGroupId);
   if (!agentGroup) throw new Error('Agent group not found');
 
@@ -1193,7 +1424,9 @@ export async function buildAgentGroupImage(agentGroupId: string): Promise<void> 
   // the local Docker daemon. Both call sites gate on the `imageBuild`
   // capability; this is the backstop for any future caller that forgets.
   if (!getSessionDriver().capabilities().imageBuild) {
-    throw new Error('Per-agent-group image builds are unavailable on this runtime driver');
+    throw new Error(
+      'Per-agent-group image builds are unavailable on this runtime driver',
+    );
   }
 
   // Which bytes this is built on. Recorded on the derived image so an operator
@@ -1202,7 +1435,9 @@ export async function buildAgentGroupImage(agentGroupId: string): Promise<void> 
   // all and an id is unambiguous either way.
   let baseId = '';
   try {
-    const { stdout } = await execAsync(`${CONTAINER_RUNTIME_BIN} image inspect --format '{{.Id}}' ${CONTAINER_IMAGE}`);
+    const { stdout } = await execAsync(
+      `${CONTAINER_RUNTIME_BIN} image inspect --format '{{.Id}}' ${CONTAINER_IMAGE}`,
+    );
     baseId = stdout.trim();
   } catch {
     // Non-fatal: the build below fails on its own if the base is really absent.
@@ -1217,7 +1452,9 @@ export async function buildAgentGroupImage(agentGroupId: string): Promise<void> 
     // to /root/.npmrc (base image sets it up for agent-browser) so packages
     // with postinstall — e.g. playwright, puppeteer, native addons — don't
     // install silently broken.
-    const allowlist = npmPackages.map((p) => `echo 'only-built-dependencies[]=${p}' >> /root/.npmrc`).join(' && ');
+    const allowlist = npmPackages
+      .map((p) => `echo 'only-built-dependencies[]=${p}' >> /root/.npmrc`)
+      .join(' && ');
     dockerfile += `RUN ${allowlist} && pnpm install -g ${npmPackages.join(' ')}\n`;
   }
   dockerfile += 'USER node\n';
@@ -1235,17 +1472,25 @@ export async function buildAgentGroupImage(agentGroupId: string): Promise<void> 
 
   const imageTag = `${CONTAINER_IMAGE_BASE}:${agentGroupId}`;
 
-  log.info('Building per-agent-group image', { agentGroupId, imageTag, apt: aptPackages, npm: npmPackages });
+  log.info('Building per-agent-group image', {
+    agentGroupId,
+    imageTag,
+    apt: aptPackages,
+    npm: npmPackages,
+  });
 
   const tmpDockerfile = path.join(DATA_DIR, `Dockerfile.${agentGroupId}`);
   fs.writeFileSync(tmpDockerfile, dockerfile);
   try {
     // Awaited async exec so the single-threaded host stays responsive during
     // the build (can take minutes) instead of blocking on execSync.
-    await execAsync(`${CONTAINER_RUNTIME_BIN} build -t ${imageTag} -f ${tmpDockerfile} .`, {
-      cwd: DATA_DIR,
-      timeout: 900_000,
-    });
+    await execAsync(
+      `${CONTAINER_RUNTIME_BIN} build -t ${imageTag} -f ${tmpDockerfile} .`,
+      {
+        cwd: DATA_DIR,
+        timeout: 900_000,
+      },
+    );
   } finally {
     fs.unlinkSync(tmpDockerfile);
   }

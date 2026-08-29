@@ -32,8 +32,15 @@
  * channel on repeated calls, so re-resolving after a cache miss is always
  * safe — worst case we round-trip redundantly.
  */
-import { getChannelAdapter, getChannelAdapterExact } from '../../channels/channel-registry.js';
-import { getMessagingGroup, getMessagingGroupByPlatform, createMessagingGroup } from '../../db/messaging-groups.js';
+import {
+  getChannelAdapter,
+  getChannelAdapterExact,
+} from '../../channels/channel-registry.js';
+import {
+  getMessagingGroup,
+  getMessagingGroupByPlatform,
+  createMessagingGroup,
+} from '../../db/messaging-groups.js';
 import { log } from '../../log.js';
 import type { MessagingGroup, User } from '../../types.js';
 import { getUser } from './db/users.js';
@@ -53,17 +60,26 @@ import { getUserDm, upsertUserDm } from './db/user-dms.js';
  */
 export async function ensureUserDm(
   userId: string,
-  { privacySafeLogs = false, instance }: { privacySafeLogs?: boolean; instance?: string } = {},
+  {
+    privacySafeLogs = false,
+    instance,
+  }: { privacySafeLogs?: boolean; instance?: string } = {},
 ): Promise<MessagingGroup | null> {
   const user = await getUser(userId);
   if (!user) {
-    log.warn('ensureUserDm: user not found', privacySafeLogs ? undefined : { userId });
+    log.warn(
+      'ensureUserDm: user not found',
+      privacySafeLogs ? undefined : { userId },
+    );
     return null;
   }
 
   const { channelType, handle } = parseUserId(user);
   if (!channelType || !handle) {
-    log.warn('ensureUserDm: user id not namespaced', privacySafeLogs ? undefined : { userId });
+    log.warn(
+      'ensureUserDm: user id not namespaced',
+      privacySafeLogs ? undefined : { userId },
+    );
     return null;
   }
 
@@ -75,27 +91,46 @@ export async function ensureUserDm(
     const cached = await getUserDm(userId, channelType);
     if (cached) {
       const mg = await getMessagingGroup(cached.messaging_group_id);
-      if (mg && (instance === undefined || (mg.instance ?? mg.channel_type) === instance)) return mg;
+      if (
+        mg &&
+        (instance === undefined ||
+          (mg.instance ?? mg.channel_type) === instance)
+      )
+        return mg;
       if (mg) {
-        log.debug('ensureUserDm: cached row belongs to a different instance, re-resolving', { channelType, instance });
+        log.debug(
+          'ensureUserDm: cached row belongs to a different instance, re-resolving',
+          { channelType, instance },
+        );
       } else {
         // Row points to a deleted messaging_group — fall through and re-resolve.
         log.warn(
           'ensureUserDm: cached row references missing messaging_group, re-resolving',
-          privacySafeLogs ? { channelType } : { userId, messagingGroupId: cached.messaging_group_id },
+          privacySafeLogs
+            ? { channelType }
+            : { userId, messagingGroupId: cached.messaging_group_id },
         );
       }
     }
   }
 
   // Cache miss: resolve the DM platform_id either via openDM or directly.
-  const dmPlatformId = await resolveDmPlatformId(channelType, handle, privacySafeLogs, instance);
+  const dmPlatformId = await resolveDmPlatformId(
+    channelType,
+    handle,
+    privacySafeLogs,
+    instance,
+  );
   if (!dmPlatformId) return null;
 
   // Find-or-create the underlying messaging_group. A DM we received
   // earlier may already have a row matching (channel_type, platform_id).
   const now = new Date().toISOString();
-  let mg = await getMessagingGroupByPlatform(channelType, dmPlatformId, instance);
+  let mg = await getMessagingGroupByPlatform(
+    channelType,
+    dmPlatformId,
+    instance,
+  );
   if (!mg) {
     const mgId = `mg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     mg = {
@@ -115,7 +150,9 @@ export async function ensureUserDm(
     await createMessagingGroup(mg);
     log.info(
       'ensureUserDm: created DM messaging_group',
-      privacySafeLogs ? { channelType } : { userId, channelType, messagingGroupId: mgId },
+      privacySafeLogs
+        ? { channelType }
+        : { userId, channelType, messagingGroupId: mgId },
     );
   }
 
@@ -141,7 +178,10 @@ async function resolveDmPlatformId(
   privacySafeLogs: boolean,
   instance?: string,
 ): Promise<string | null> {
-  const adapter = instance === undefined ? getChannelAdapter(channelType) : getChannelAdapterExact(instance);
+  const adapter =
+    instance === undefined
+      ? getChannelAdapter(channelType)
+      : getChannelAdapterExact(instance);
   if (!adapter) {
     log.warn('ensureUserDm: no adapter for channel', { channelType, instance });
     return null;
@@ -154,13 +194,20 @@ async function resolveDmPlatformId(
   try {
     return await adapter.openDM(handle);
   } catch (err) {
-    log.error('ensureUserDm: adapter.openDM failed', privacySafeLogs ? { channelType } : { channelType, handle, err });
+    log.error(
+      'ensureUserDm: adapter.openDM failed',
+      privacySafeLogs ? { channelType } : { channelType, handle, err },
+    );
     return null;
   }
   /* eslint-enable no-catch-all/no-catch-all */
 }
 
-function parseUserId(user: User): { channelType: string; handle: string } | { channelType: null; handle: null } {
+function parseUserId(
+  user: User,
+):
+  | { channelType: string; handle: string }
+  | { channelType: null; handle: null } {
   const idx = user.id.indexOf(':');
   if (idx < 0) return { channelType: null, handle: null };
   const prefix = user.id.slice(0, idx);

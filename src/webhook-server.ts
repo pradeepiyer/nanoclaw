@@ -24,7 +24,10 @@ interface WebhookEntry {
 }
 
 /** Node-style handler for raw (non-Chat-SDK) webhook routes. */
-export type RawWebhookHandler = (req: http.IncomingMessage, res: http.ServerResponse) => void | Promise<void>;
+export type RawWebhookHandler = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+) => void | Promise<void>;
 
 const routes = new Map<string, WebhookEntry>();
 const rawRoutes = new Map<string, RawWebhookHandler>();
@@ -56,8 +59,14 @@ async function toWebRequest(req: http.IncomingMessage): Promise<Request> {
 }
 
 /** Write a Web API Response back to a Node.js ServerResponse. */
-async function fromWebResponse(webRes: Response, nodeRes: http.ServerResponse): Promise<void> {
-  nodeRes.writeHead(webRes.status, Object.fromEntries(webRes.headers.entries()));
+async function fromWebResponse(
+  webRes: Response,
+  nodeRes: http.ServerResponse,
+): Promise<void> {
+  nodeRes.writeHead(
+    webRes.status,
+    Object.fromEntries(webRes.headers.entries()),
+  );
   if (webRes.body) {
     const reader = webRes.body.getReader();
     try {
@@ -85,10 +94,17 @@ async function fromWebResponse(webRes: Response, nodeRes: http.ServerResponse): 
  * byte-identical. Signature adopted verbatim from PR #2617 (@davekim917's
  * #1804 prototype) so the two changes converge textually.
  */
-export function registerWebhookAdapter(chat: Chat, adapterName: string, routingPath: string = adapterName): void {
+export function registerWebhookAdapter(
+  chat: Chat,
+  adapterName: string,
+  routingPath: string = adapterName,
+): void {
   routes.set(routingPath, { chat, adapterName });
   ensureServer();
-  log.info('Webhook adapter registered', { adapter: adapterName, path: `/webhook/${routingPath}` });
+  log.info('Webhook adapter registered', {
+    adapter: adapterName,
+    path: `/webhook/${routingPath}`,
+  });
 }
 
 /**
@@ -101,7 +117,10 @@ export function registerWebhookAdapter(chat: Chat, adapterName: string, routingP
  *
  * Starts the server lazily on first call.
  */
-export function registerWebhookHandler(path: string, handler: RawWebhookHandler): void {
+export function registerWebhookHandler(
+  path: string,
+  handler: RawWebhookHandler,
+): void {
   rawRoutes.set(path, handler);
   ensureServer();
   log.info('Webhook handler registered', { path: `/webhook/${path}` });
@@ -143,7 +162,10 @@ function ensureServer(): void {
 
         const webReq = await toWebRequest(req);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const webhooks = entry.chat.webhooks as Record<string, (r: Request, opts?: any) => Promise<Response>>;
+        const webhooks = entry.chat.webhooks as Record<
+          string,
+          (r: Request, opts?: any) => Promise<Response>
+        >;
         const handler = webhooks[entry.adapterName];
         const webRes = await handler(webReq, {
           waitUntil: (p: Promise<unknown>) => {
@@ -152,7 +174,11 @@ function ensureServer(): void {
         });
         await fromWebResponse(webRes, res);
       } catch (err) {
-        log.error('Webhook handler error', { adapter: adapterName, url: req.url, err });
+        log.error('Webhook handler error', {
+          adapter: adapterName,
+          url: req.url,
+          err,
+        });
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'text/plain' });
           res.end('Internal Server Error');

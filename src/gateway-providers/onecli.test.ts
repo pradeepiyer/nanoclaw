@@ -1,9 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
-vi.mock('../config.js', () => ({ ONECLI_URL: 'http://localhost:1', ONECLI_API_KEY: 'unused' }));
+vi.mock('../config.js', () => ({
+  ONECLI_URL: 'http://localhost:1',
+  ONECLI_API_KEY: 'unused',
+}));
 
 import { contributionFromArgs } from './onecli.js';
 
@@ -47,8 +56,14 @@ describe('contributionFromArgs', () => {
 
   it('refuses argv outside the grammar — nothing rides raw around the spec again', () => {
     // Grammar drift in the SDK must break the spawn loudly, not smuggle flags.
-    expect(() => contributionFromArgs(['--network', 'something'], 'g1')).toThrow(/cannot type/);
-    expect(() => contributionFromArgs(['-v', '/odd'], 'g1')).toThrow(/cannot type/);
-    expect(() => contributionFromArgs(['-v', 'h:c:rw:extra'], 'g1')).toThrow(/cannot type/);
+    expect(() =>
+      contributionFromArgs(['--network', 'something'], 'g1'),
+    ).toThrow(/cannot type/);
+    expect(() => contributionFromArgs(['-v', '/odd'], 'g1')).toThrow(
+      /cannot type/,
+    );
+    expect(() => contributionFromArgs(['-v', 'h:c:rw:extra'], 'g1')).toThrow(
+      /cannot type/,
+    );
   });
 });

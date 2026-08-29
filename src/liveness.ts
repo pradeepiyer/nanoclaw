@@ -19,7 +19,10 @@ export interface LivenessSource {
    * Epoch ms of the last observed agent activity for this session, or null
    * when nothing has been observed (no heartbeat yet).
    */
-  lastActivityMs(session: { id: string; agent_group_id: string }): Promise<number | null>;
+  lastActivityMs(session: {
+    id: string;
+    agent_group_id: string;
+  }): Promise<number | null>;
 }
 
 /** Today's behavior, extracted: heartbeat-file mtime, null when absent. */

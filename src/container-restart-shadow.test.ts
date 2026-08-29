@@ -8,12 +8,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 const killContainer = vi.fn();
 vi.mock('./container-runner.js', () => ({
   isContainerRunning: vi.fn().mockReturnValue(true),
-  killContainer: (sessionId: string, reason: string, onExit?: () => void) => killContainer(sessionId, reason, onExit),
+  killContainer: (sessionId: string, reason: string, onExit?: () => void) =>
+    killContainer(sessionId, reason, onExit),
 }));
 
 const requestWake = vi.fn().mockResolvedValue(true);
 vi.mock('./request-wake.js', () => ({
-  requestWake: (session: unknown, reason: string) => requestWake(session, reason),
+  requestWake: (session: unknown, reason: string) =>
+    requestWake(session, reason),
 }));
 
 vi.mock('./session-manager.js', () => ({
@@ -23,7 +25,13 @@ vi.mock('./session-manager.js', () => ({
 
 import { restartAgentGroupContainers } from './container-restart.js';
 import { getSessionClaim } from './db/coordination.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup, createSession } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  createSession,
+} from './db/index.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -60,19 +68,32 @@ afterEach(async () => {
 
 describe('restart respawn intent', () => {
   it('writes respawn_after_stop before the kill and clears it after the respawn request', async () => {
-    const restarted = await restartAgentGroupContainers('ag-1', 'test-restart', 'back online');
+    const restarted = await restartAgentGroupContainers(
+      'ag-1',
+      'test-restart',
+      'back online',
+    );
     expect(restarted).toBe(1);
 
     // The kill has happened but the (captured) exit callback has not fired:
     // the durable intent must already be in place.
-    expect((await getSessionClaim('sess-1'))?.stop_intent).toBe('respawn_after_stop');
-    const [sessionId, , onExit] = killContainer.mock.calls[0] as [string, string, () => void];
+    expect((await getSessionClaim('sess-1'))?.stop_intent).toBe(
+      'respawn_after_stop',
+    );
+    const [sessionId, , onExit] = killContainer.mock.calls[0] as [
+      string,
+      string,
+      () => void,
+    ];
     expect(sessionId).toBe('sess-1');
     expect(onExit).toBeTypeOf('function');
 
     onExit();
     await vi.waitFor(async () => {
-      expect(requestWake).toHaveBeenCalledWith(expect.objectContaining({ id: 'sess-1' }), 'container-restart');
+      expect(requestWake).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'sess-1' }),
+        'container-restart',
+      );
       expect((await getSessionClaim('sess-1'))?.stop_intent).toBeNull();
     });
   });
@@ -81,7 +102,11 @@ describe('restart respawn intent', () => {
     const restarted = await restartAgentGroupContainers('ag-1', 'plain-stop');
     expect(restarted).toBe(1);
     expect(await getSessionClaim('sess-1')).toBeUndefined();
-    const [, , onExit] = killContainer.mock.calls[0] as [string, string, (() => void) | undefined];
+    const [, , onExit] = killContainer.mock.calls[0] as [
+      string,
+      string,
+      (() => void) | undefined,
+    ];
     expect(onExit).toBeUndefined();
   });
 });

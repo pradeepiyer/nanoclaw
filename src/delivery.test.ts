@@ -20,16 +20,31 @@ vi.mock('./container-runner.js', () => ({
 }));
 
 vi.mock('./config.js', async () => {
-  const actual = await vi.importActual<typeof import('./config.js')>('./config.js');
-  return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-delivery', GROUPS_DIR: '/tmp/nanoclaw-test-delivery/groups' };
+  const actual =
+    await vi.importActual<typeof import('./config.js')>('./config.js');
+  return {
+    ...actual,
+    DATA_DIR: '/tmp/nanoclaw-test-delivery',
+    GROUPS_DIR: '/tmp/nanoclaw-test-delivery/groups',
+  };
 });
 
 const TEST_DIR = '/tmp/nanoclaw-test-delivery';
 
-import { initTestDb, closeDb, runMigrations, createAgentGroup, createMessagingGroup } from './db/index.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  createMessagingGroup,
+} from './db/index.js';
 import { getDeliveredIds } from './mailbox/sqlite/session-db.js';
 import { inboundDbPath, outboundDbPath } from './mailbox/sqlite/paths.js';
-import { resolveSession, resolveTaskSession, withMailboxSession } from './session-manager.js';
+import {
+  resolveSession,
+  resolveTaskSession,
+  withMailboxSession,
+} from './session-manager.js';
 import {
   deliverSessionMessages,
   registerDeliveryBatchPreview,
@@ -41,7 +56,10 @@ import { createDestination } from './modules/agent-to-agent/db/agent-destination
 import { getAgentMailbox } from './mailbox/index.js';
 import { log } from './log.js';
 
-function openInboundDb(agentGroupId: string, sessionId: string): Database.Database {
+function openInboundDb(
+  agentGroupId: string,
+  sessionId: string,
+): Database.Database {
   return new Database(inboundDbPath(agentGroupId, sessionId));
 }
 
@@ -68,7 +86,11 @@ async function seedAgentAndChannel(): Promise<void> {
   });
 }
 
-function insertOutbound(agentGroupId: string, sessionId: string, msgId: string): void {
+function insertOutbound(
+  agentGroupId: string,
+  sessionId: string,
+  msgId: string,
+): void {
   const db = new Database(outboundDbPath(agentGroupId, sessionId));
   db.prepare(
     `INSERT INTO messages_out (id, timestamp, kind, platform_id, channel_type, content)
@@ -94,7 +116,9 @@ describe('deliverSessionMessages — concurrent invocations', () => {
     await seedAgentAndChannel();
     const { session } = await resolveSession('ag-1', 'mg-1', null, 'shared');
     const err = new Error('mailbox unavailable');
-    const sessionSpy = vi.spyOn(getAgentMailbox(), 'session').mockRejectedValueOnce(err);
+    const sessionSpy = vi
+      .spyOn(getAgentMailbox(), 'session')
+      .mockRejectedValueOnce(err);
     const logSpy = vi.spyOn(log, 'error').mockImplementation(() => {});
 
     try {
@@ -131,7 +155,10 @@ describe('deliverSessionMessages — concurrent invocations', () => {
 
     // Two concurrent calls — simulating active (1s) and sweep (60s) polls
     // hitting the same running session at the same moment.
-    await Promise.all([deliverSessionMessages(session), deliverSessionMessages(session)]);
+    await Promise.all([
+      deliverSessionMessages(session),
+      deliverSessionMessages(session),
+    ]);
 
     expect(calls).toHaveLength(1);
   });
@@ -212,7 +239,9 @@ describe('deliverSessionMessages — malformed row containment', () => {
     const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
     await deliverSessionMessages(session);
     expect(calls).toHaveLength(2);
-    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) => mailbox.getDeliveredIds());
+    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) =>
+      mailbox.getDeliveredIds(),
+    );
     expect(delivered.has('out-good')).toBe(true);
     expect(delivered.has('out-bad')).toBe(true);
 
@@ -254,7 +283,9 @@ describe('deliverSessionMessages — retry and permanent failure', () => {
     expect(callCount).toBe(3);
 
     // Verify the message is in the delivered table with 'failed' status
-    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) => mailbox.getDeliveredIds());
+    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) =>
+      mailbox.getDeliveredIds(),
+    );
     expect(delivered.has('out-flaky')).toBe(true);
   });
 
@@ -274,7 +305,9 @@ describe('deliverSessionMessages — retry and permanent failure', () => {
     // Attempt 1 — must NOT be acknowledged as delivered
     await deliverSessionMessages(session);
     expect(
-      await withMailboxSession('ag-1', session.id, (mailbox) => mailbox.getDeliveredIds().has('out-offline')),
+      await withMailboxSession('ag-1', session.id, (mailbox) =>
+        mailbox.getDeliveredIds().has('out-offline'),
+      ),
     ).toBe(false);
 
     // Attempts 2 and 3 — exhausts MAX_DELIVERY_ATTEMPTS
@@ -282,8 +315,12 @@ describe('deliverSessionMessages — retry and permanent failure', () => {
     await deliverSessionMessages(session);
 
     // The row must end as status='failed', never 'delivered'
-    const deliveryDb = new Database(inboundDbPath('ag-1', session.id), { readonly: true });
-    const row = deliveryDb.prepare('SELECT * FROM delivered WHERE message_out_id = ?').get('out-offline') as
+    const deliveryDb = new Database(inboundDbPath('ag-1', session.id), {
+      readonly: true,
+    });
+    const row = deliveryDb
+      .prepare('SELECT * FROM delivered WHERE message_out_id = ?')
+      .get('out-offline') as
       | { status: string; platform_message_id: string | null }
       | undefined;
     deliveryDb.close();
@@ -352,7 +389,12 @@ describe('deliverSessionMessages — instance resolution', () => {
       created_at: now(),
     });
 
-    const { session } = await resolveSession('ag-1', 'mg-tester', null, 'shared');
+    const { session } = await resolveSession(
+      'ag-1',
+      'mg-tester',
+      null,
+      'shared',
+    );
     const db = new Database(outboundDbPath('ag-1', session.id));
     db.prepare(
       `INSERT INTO messages_out (id, timestamp, kind, platform_id, channel_type, content)
@@ -435,7 +477,9 @@ describe('deliverSessionMessages — permission check', () => {
     expect(calls).toHaveLength(0);
 
     // Message is marked as permanently failed
-    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) => mailbox.getDeliveredIds());
+    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) =>
+      mailbox.getDeliveredIds(),
+    );
     expect(delivered.has('out-unauth')).toBe(true);
   });
 
@@ -594,9 +638,13 @@ describe('deliverSessionMessages — task_log rows (one-door task delivery)', ()
     const logFile = `${TEST_DIR}/groups/test-agent/tasks/daily-digest-a1b2.md`;
     expect(fs.existsSync(logFile)).toBe(true);
     const line = fs.readFileSync(logFile, 'utf8').trim();
-    expect(line).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} — checked feeds; nothing new$/);
+    expect(line).toMatch(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2} — checked feeds; nothing new$/,
+    );
     // Marked delivered — the row is not retried.
-    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) => mailbox.getDeliveredIds());
+    const delivered = await withMailboxSession('ag-1', session.id, (mailbox) =>
+      mailbox.getDeliveredIds(),
+    );
     expect(delivered.has('log-1')).toBe(true);
   });
 });
@@ -662,10 +710,30 @@ describe('deliverSessionMessages — post-delivery hooks', () => {
     await seedAgentAndChannel();
     const { session } = await resolveSession('ag-1', 'mg-1', null, 'shared');
     // Unknown system action: handled internally, marked delivered, no hook.
-    insertOutboundRow('ag-1', session.id, 'pd-sys', 'system', '2026-01-01T00:00:01.000Z', { action: 'nope' });
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'pd-sys',
+      'system',
+      '2026-01-01T00:00:01.000Z',
+      { action: 'nope' },
+    );
     // task_log outside a task session: ignored + marked delivered, no hook.
-    insertOutboundRow('ag-1', session.id, 'pd-log', 'task_log', '2026-01-01T00:00:02.000Z', { text: 'log line' });
-    insertOutboundRow('ag-1', session.id, 'pd-chat', 'chat', '2026-01-01T00:00:03.000Z');
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'pd-log',
+      'task_log',
+      '2026-01-01T00:00:02.000Z',
+      { text: 'log line' },
+    );
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'pd-chat',
+      'chat',
+      '2026-01-01T00:00:03.000Z',
+    );
 
     const seen: string[] = [];
     registerPostDeliveryHook((msg) => {
@@ -686,12 +754,33 @@ describe('deliverSessionMessages — post-delivery hooks', () => {
   it('firstDelivery is true exactly on the first delivered row of a fresh session', async () => {
     await seedAgentAndChannel();
     const { session } = await resolveSession('ag-1', 'mg-1', null, 'shared');
-    insertOutboundRow('ag-1', session.id, 'fd-1', 'chat', '2026-01-01T00:00:01.000Z');
-    insertOutboundRow('ag-1', session.id, 'fd-2', 'chat', '2026-01-01T00:00:02.000Z');
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'fd-1',
+      'chat',
+      '2026-01-01T00:00:01.000Z',
+    );
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'fd-2',
+      'chat',
+      '2026-01-01T00:00:02.000Z',
+    );
 
-    const seen: Array<{ id: string; firstDelivery: boolean; sessionId: string }> = [];
+    const seen: Array<{
+      id: string;
+      firstDelivery: boolean;
+      sessionId: string;
+    }> = [];
     registerPostDeliveryHook((msg, s, info) => {
-      if (msg.id.startsWith('fd-')) seen.push({ id: msg.id, firstDelivery: info.firstDelivery, sessionId: s.id });
+      if (msg.id.startsWith('fd-'))
+        seen.push({
+          id: msg.id,
+          firstDelivery: info.firstDelivery,
+          sessionId: s.id,
+        });
     });
     passthroughAdapter();
 
@@ -702,16 +791,38 @@ describe('deliverSessionMessages — post-delivery hooks', () => {
     ]);
 
     // A later drain of the same session never reports firstDelivery again.
-    insertOutboundRow('ag-1', session.id, 'fd-3', 'chat', '2026-01-01T00:00:03.000Z');
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'fd-3',
+      'chat',
+      '2026-01-01T00:00:03.000Z',
+    );
     await deliverSessionMessages(session);
-    expect(seen[2]).toEqual({ id: 'fd-3', firstDelivery: false, sessionId: session.id });
+    expect(seen[2]).toEqual({
+      id: 'fd-3',
+      firstDelivery: false,
+      sessionId: session.id,
+    });
   });
 
   it('a throwing hook never breaks delivery or markDelivered', async () => {
     await seedAgentAndChannel();
     const { session } = await resolveSession('ag-1', 'mg-1', null, 'shared');
-    insertOutboundRow('ag-1', session.id, 'th-1', 'chat', '2026-01-01T00:00:01.000Z');
-    insertOutboundRow('ag-1', session.id, 'th-2', 'chat', '2026-01-01T00:00:02.000Z');
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'th-1',
+      'chat',
+      '2026-01-01T00:00:01.000Z',
+    );
+    insertOutboundRow(
+      'ag-1',
+      session.id,
+      'th-2',
+      'chat',
+      '2026-01-01T00:00:02.000Z',
+    );
 
     registerPostDeliveryHook(() => {
       throw new Error('hook exploded');

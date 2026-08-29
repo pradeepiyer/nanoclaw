@@ -32,14 +32,21 @@ import { getSessionsByAgentGroup, isTaskThread } from '../../db/sessions.js';
 import { log } from '../../log.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import type { AgentGroup, MessagingGroup, Session } from '../../types.js';
-import { ECHO_CHANNEL_TYPE, ECHO_SIBLING_SURFACE, ECHO_TASK_SURFACE, ECHO_TEXT_MAX_CHARS } from './config.js';
+import {
+  ECHO_CHANNEL_TYPE,
+  ECHO_SIBLING_SURFACE,
+  ECHO_TASK_SURFACE,
+  ECHO_TEXT_MAX_CHARS,
+} from './config.js';
 
 /** Surface values that appear on the wire in echo.{surface}: the sibling-
  *  thread marker and the task-delivery marker (backfill's dm-timeline is
  *  written by backfill.ts directly). Every fan target is a session of the
  *  conversation the message appeared in, so the old cross-surface 'dm'/'room'
  *  values are no longer emitted. */
-export type EchoWireSurface = typeof ECHO_SIBLING_SURFACE | typeof ECHO_TASK_SURFACE;
+export type EchoWireSurface =
+  | typeof ECHO_SIBLING_SURFACE
+  | typeof ECHO_TASK_SURFACE;
 
 /** Inbound kinds that are real chat traffic. Everything else (task, system,
  *  approval plumbing) never fans. */
@@ -47,12 +54,17 @@ const CHAT_KINDS = new Set(['chat', 'chat-sdk']);
 
 /** Head-truncate to the cap, appending '…' when cut (contract: ≤500 chars). */
 export function truncateEchoText(text: string): string {
-  return text.length <= ECHO_TEXT_MAX_CHARS ? text : `${text.slice(0, ECHO_TEXT_MAX_CHARS)}…`;
+  return text.length <= ECHO_TEXT_MAX_CHARS
+    ? text
+    : `${text.slice(0, ECHO_TEXT_MAX_CHARS)}…`;
 }
 
 /** Echo-row id: namespaced by target session so the same source message can
  *  land in every sibling inbound.db without PK collisions (contract shape). */
-export function echoRowId(origMessageId: string, targetSessionId: string): string {
+export function echoRowId(
+  origMessageId: string,
+  targetSessionId: string,
+): string {
   return `${origMessageId}:echo:${targetSessionId}`;
 }
 
@@ -74,16 +86,23 @@ export function buildSiblingEchoLabel(
   senderName?: string | null,
 ): string {
   const who = mg.is_group === 0 ? (mg.name ?? senderName) : null;
-  return who ? `another conversation with ${who}` : `another conversation in ${buildEchoLabel(mg, senderName)}`;
+  return who
+    ? `another conversation with ${who}`
+    : `another conversation in ${buildEchoLabel(mg, senderName)}`;
 }
 
 /** Label for an echo of a message the agent delivered INTO this conversation
  *  from elsewhere (a task run, or a cross-conversation send). Targets are
  *  always sessions of the very conversation the message landed in, so
  *  "this DM"/"this room" is accurate from every receiver's perspective. */
-export function buildDeliveredEchoLabel(mg: Pick<MessagingGroup, 'is_group'>, fromTask: boolean): string {
+export function buildDeliveredEchoLabel(
+  mg: Pick<MessagingGroup, 'is_group'>,
+  fromTask: boolean,
+): string {
   const where = mg.is_group === 1 ? 'this room' : 'this DM';
-  return fromTask ? `${where}, posted by your scheduled task` : `${where}, posted by you from another conversation`;
+  return fromTask
+    ? `${where}, posted by your scheduled task`
+    : `${where}, posted by you from another conversation`;
 }
 
 export interface EchoTargetCandidate {
@@ -106,11 +125,18 @@ export function selectEchoTargets<T extends EchoTargetCandidate>(
 ): T[] {
   if (sourceMessagingGroupId === null) return [];
   return candidates.filter(
-    (s) => s.id !== sourceSessionId && s.status === 'active' && s.messaging_group_id === sourceMessagingGroupId,
+    (s) =>
+      s.id !== sourceSessionId &&
+      s.status === 'active' &&
+      s.messaging_group_id === sourceMessagingGroupId,
   );
 }
 
-function parseContent(raw: string): { text: string; sender: string | null; senderId: string | null } {
+function parseContent(raw: string): {
+  text: string;
+  sender: string | null;
+  senderId: string | null;
+} {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
@@ -141,7 +167,11 @@ interface EchoFanInput {
 
 async function fanEcho(input: EchoFanInput): Promise<number> {
   const candidates = await getSessionsByAgentGroup(input.agentGroupId);
-  const targets = selectEchoTargets(candidates, input.sourceSessionId, input.sourceMessagingGroupId);
+  const targets = selectEchoTargets(
+    candidates,
+    input.sourceSessionId,
+    input.sourceMessagingGroupId,
+  );
   if (targets.length === 0) return 0;
 
   const content = JSON.stringify({
@@ -201,7 +231,8 @@ export async function fanInboundMessage(args: {
     const { session, mg } = args;
     if (!CHAT_KINDS.has(args.kind)) return 0;
     // Only real chat surfaces fan: a2a rows and echo rows never re-fan.
-    if (args.channelType === 'agent' || args.channelType === ECHO_CHANNEL_TYPE) return 0;
+    if (args.channelType === 'agent' || args.channelType === ECHO_CHANNEL_TYPE)
+      return 0;
     // Task sessions are never a SOURCE (their traffic is series-internal).
     if (isTaskThread(session.thread_id)) return 0;
     const parsed = parseContent(args.content);
@@ -251,15 +282,27 @@ export async function fanOutboundMessage(
   try {
     if (msg.kind === 'system' || msg.kind === 'task_log') return 0;
     if (!msg.channel_type || !msg.platform_id) return 0;
-    if (msg.channel_type === 'agent' || msg.channel_type === ECHO_CHANNEL_TYPE) return 0;
+    if (msg.channel_type === 'agent' || msg.channel_type === ECHO_CHANNEL_TYPE)
+      return 0;
     const isTaskSource = isTaskThread(session.thread_id);
 
-    const originMg = session.messaging_group_id ? await getMessagingGroup(session.messaging_group_id) : undefined;
+    const originMg = session.messaging_group_id
+      ? await getMessagingGroup(session.messaging_group_id)
+      : undefined;
     const mg =
-      originMg && originMg.channel_type === msg.channel_type && originMg.platform_id === msg.platform_id
+      originMg &&
+      originMg.channel_type === msg.channel_type &&
+      originMg.platform_id === msg.platform_id
         ? originMg
-        : ((await getMessagingGroupForOwnDestination(session.agent_group_id, msg.channel_type, msg.platform_id)) ??
-          (await getMessagingGroupByPlatform(msg.channel_type, msg.platform_id)));
+        : ((await getMessagingGroupForOwnDestination(
+            session.agent_group_id,
+            msg.channel_type,
+            msg.platform_id,
+          )) ??
+          (await getMessagingGroupByPlatform(
+            msg.channel_type,
+            msg.platform_id,
+          )));
     if (!mg) return 0;
 
     const parsed = parseContent(msg.content);
@@ -277,14 +320,20 @@ export async function fanOutboundMessage(
       timestamp: new Date().toISOString(),
       surface: isTaskSource ? ECHO_TASK_SURFACE : ECHO_SIBLING_SURFACE,
       label:
-        !isTaskSource && isOriginSend ? buildSiblingEchoLabel(mg, mg.name) : buildDeliveredEchoLabel(mg, isTaskSource),
+        !isTaskSource && isOriginSend
+          ? buildSiblingEchoLabel(mg, mg.name)
+          : buildDeliveredEchoLabel(mg, isTaskSource),
       platformId: mg.platform_id,
       text: parsed.text,
       sender: agentGroup.name,
       senderId: agentGroup.id,
     });
   } catch (err) {
-    log.warn('Outbound echo fan failed', { sessionId: session.id, messageId: msg.id, err });
+    log.warn('Outbound echo fan failed', {
+      sessionId: session.id,
+      messageId: msg.id,
+      err,
+    });
     return 0;
   }
 }

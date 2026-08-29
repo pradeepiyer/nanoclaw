@@ -35,11 +35,23 @@ import './messaging-groups.js';
 // Registration-tier declaration (no live adapter) — the environment `ncl`
 // sees for offline instances and setup scripts.
 const declared: ChannelDefaults = {
-  dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'public' },
-  group: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'request_approval' },
+  dm: {
+    engageMode: 'pattern',
+    engagePattern: '.',
+    threads: false,
+    unknownSenderPolicy: 'public',
+  },
+  group: {
+    engageMode: 'mention',
+    threads: false,
+    unknownSenderPolicy: 'request_approval',
+  },
   mentions: 'platform',
 };
-registerChannelAdapter('declchan-mg', { factory: () => null, defaults: declared });
+registerChannelAdapter('declchan-mg', {
+  factory: () => null,
+  defaults: declared,
+});
 
 describe('messaging-groups CLI create defaults instance to channel_type', () => {
   beforeEach(async () => {
@@ -75,13 +87,20 @@ describe('messaging-groups CLI create defaults instance to channel_type', () => 
       {
         id: 'req-2',
         command: 'messaging-groups-create',
-        args: { channel_type: 'telegram', platform_id: '67890', instance: 'work' },
+        args: {
+          channel_type: 'telegram',
+          platform_id: '67890',
+          instance: 'work',
+        },
       },
       { caller: 'host' },
     );
 
     expect(resp.ok).toBe(true);
-    expect((await getMessagingGroupByPlatform('telegram', '67890', 'work'))?.instance).toBe('work');
+    expect(
+      (await getMessagingGroupByPlatform('telegram', '67890', 'work'))
+        ?.instance,
+    ).toBe('work');
   });
 });
 
@@ -98,32 +117,60 @@ describe('messaging-groups CLI create resolves unknown_sender_policy from the ch
   });
 
   const create = (args: Record<string, unknown>, id: string) =>
-    dispatch({ id, command: 'messaging-groups-create', args }, { caller: 'host' });
+    dispatch(
+      { id, command: 'messaging-groups-create', args },
+      { caller: 'host' },
+    );
 
   it('DM context takes the declared dm policy', async () => {
-    const resp = await create({ channel_type: 'declchan-mg', platform_id: 'dm-1' }, 'req-d1');
+    const resp = await create(
+      { channel_type: 'declchan-mg', platform_id: 'dm-1' },
+      'req-d1',
+    );
     expect(resp.ok).toBe(true);
-    expect((await getMessagingGroupByPlatform('declchan-mg', 'dm-1'))?.unknown_sender_policy).toBe('public');
+    expect(
+      (await getMessagingGroupByPlatform('declchan-mg', 'dm-1'))
+        ?.unknown_sender_policy,
+    ).toBe('public');
   });
 
   it('group context takes the declared group policy', async () => {
-    const resp = await create({ channel_type: 'declchan-mg', platform_id: 'g-1', is_group: '1' }, 'req-d2');
+    const resp = await create(
+      { channel_type: 'declchan-mg', platform_id: 'g-1', is_group: '1' },
+      'req-d2',
+    );
     expect(resp.ok).toBe(true);
-    expect((await getMessagingGroupByPlatform('declchan-mg', 'g-1'))?.unknown_sender_policy).toBe('request_approval');
+    expect(
+      (await getMessagingGroupByPlatform('declchan-mg', 'g-1'))
+        ?.unknown_sender_policy,
+    ).toBe('request_approval');
   });
 
   it('explicit --unknown-sender-policy wins over the declaration', async () => {
     const resp = await create(
-      { channel_type: 'declchan-mg', platform_id: 'dm-2', unknown_sender_policy: 'strict' },
+      {
+        channel_type: 'declchan-mg',
+        platform_id: 'dm-2',
+        unknown_sender_policy: 'strict',
+      },
       'req-d3',
     );
     expect(resp.ok).toBe(true);
-    expect((await getMessagingGroupByPlatform('declchan-mg', 'dm-2'))?.unknown_sender_policy).toBe('strict');
+    expect(
+      (await getMessagingGroupByPlatform('declchan-mg', 'dm-2'))
+        ?.unknown_sender_policy,
+    ).toBe('strict');
   });
 
   it("undeclared channels keep the legacy static 'strict' default (back-compat)", async () => {
-    const resp = await create({ channel_type: 'stalechan-mg', platform_id: 's-1' }, 'req-d4');
+    const resp = await create(
+      { channel_type: 'stalechan-mg', platform_id: 's-1' },
+      'req-d4',
+    );
     expect(resp.ok).toBe(true);
-    expect((await getMessagingGroupByPlatform('stalechan-mg', 's-1'))?.unknown_sender_policy).toBe('strict');
+    expect(
+      (await getMessagingGroupByPlatform('stalechan-mg', 's-1'))
+        ?.unknown_sender_policy,
+    ).toBe('strict');
   });
 });

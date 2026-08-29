@@ -20,9 +20,17 @@ describe('getInstallSlug', () => {
   });
 
   it('rejects label-unsafe overrides', () => {
-    for (const bad of ['UPPER', '-leading', 'has space', 'a'.repeat(33), 'dot.dot']) {
+    for (const bad of [
+      'UPPER',
+      '-leading',
+      'has space',
+      'a'.repeat(33),
+      'dot.dot',
+    ]) {
       process.env.NANOCLAW_INSTALL_ID = bad;
-      expect(() => getInstallSlug('/some/checkout'), bad).toThrow(/NANOCLAW_INSTALL_ID/);
+      expect(() => getInstallSlug('/some/checkout'), bad).toThrow(
+        /NANOCLAW_INSTALL_ID/,
+      );
     }
   });
 });

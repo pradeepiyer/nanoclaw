@@ -105,7 +105,12 @@ function runCli(
   cwd: string,
   stdin: Record<string, unknown>,
   clientPath = fileURLToPath(new URL('./client.ts', import.meta.url)),
-): Promise<{ code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }> {
+): Promise<{
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+}> {
   const child = spawn(
     process.execPath,
     [

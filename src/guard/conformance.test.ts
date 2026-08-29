@@ -29,7 +29,9 @@ describe('guard conformance', () => {
     const holding = listGuardedActions().filter((spec) => spec.grantActionName);
     expect(holding.length).toBeGreaterThan(0);
 
-    const dangling = holding.filter((spec) => !getApprovalHandler(spec.grantActionName as string));
+    const dangling = holding.filter(
+      (spec) => !getApprovalHandler(spec.grantActionName as string),
+    );
     expect(dangling.map((s) => s.action)).toEqual([]);
   });
 
@@ -37,7 +39,9 @@ describe('guard conformance', () => {
     const mutating = listCommands().filter((cmd) => cmd.access === 'approval');
     expect(mutating.length).toBeGreaterThan(0);
 
-    const wrong = mutating.filter((cmd) => commandGuard(cmd.name).grantActionName !== 'cli_command');
+    const wrong = mutating.filter(
+      (cmd) => commandGuard(cmd.name).grantActionName !== 'cli_command',
+    );
     expect(wrong.map((c) => c.name)).toEqual([]);
   });
 
@@ -51,14 +55,19 @@ describe('guard conformance', () => {
       'senders.admit',
       'channels.register',
     ]) {
-      expect(actions.has(expected), `catalog is missing "${expected}"`).toBe(true);
+      expect(actions.has(expected), `catalog is missing "${expected}"`).toBe(
+        true,
+      );
     }
   });
 
   it('defining the same action twice throws — names are the catalog key', () => {
     defineGuardedAction({ action: 'test.dup-define', decide: () => HOLD('x') });
-    expect(() => defineGuardedAction({ action: 'test.dup-define', decide: () => HOLD('x') })).toThrow(
-      /already defined/,
-    );
+    expect(() =>
+      defineGuardedAction({
+        action: 'test.dup-define',
+        decide: () => HOLD('x'),
+      }),
+    ).toThrow(/already defined/);
   });
 });

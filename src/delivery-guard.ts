@@ -11,7 +11,10 @@ import { log } from './log.js';
 import type { PendingApproval, Session } from './types.js';
 
 /** Handler shape for guard-wrapped actions — must not touch inDb (replays run without one). */
-export type GuardedDeliveryHandler = (content: Record<string, unknown>, session: Session) => Promise<void>;
+export type GuardedDeliveryHandler = (
+  content: Record<string, unknown>,
+  session: Session,
+) => Promise<void>;
 
 export interface DeliveryGuardSpec {
   /** Guard action consulted before the handler runs — the defined value, not a name. */
@@ -20,11 +23,21 @@ export interface DeliveryGuardSpec {
    * Domain validation that runs before the guard — malformed requests are
    * answered (notify) without ever creating a hold. Return false to stop.
    */
-  precheck?: (content: Record<string, unknown>, session: Session) => boolean | Promise<boolean>;
+  precheck?: (
+    content: Record<string, unknown>,
+    session: Session,
+  ) => boolean | Promise<boolean>;
   /** Create the hold (the domain's requestApproval call — card text lives with the domain). */
-  requestHold: (content: Record<string, unknown>, session: Session) => Promise<void>;
+  requestHold: (
+    content: Record<string, unknown>,
+    session: Session,
+  ) => Promise<void>;
   /** Tell the requester about a deny. */
-  onDeny?: (content: Record<string, unknown>, session: Session, reason: string) => void | Promise<void>;
+  onDeny?: (
+    content: Record<string, unknown>,
+    session: Session,
+    reason: string,
+  ) => void | Promise<void>;
 }
 
 /**
@@ -45,13 +58,20 @@ export async function runGuarded(
   if (spec.precheck && !(await spec.precheck(content, session))) return;
 
   const decision = await guard(spec.guardAction, {
-    actor: { kind: 'agent', agentGroupId: session.agent_group_id, sessionId: session.id },
+    actor: {
+      kind: 'agent',
+      agentGroupId: session.agent_group_id,
+      sessionId: session.id,
+    },
     payload: content,
     grant,
   });
 
   if (decision.effect === 'deny') {
-    log.warn('Delivery action denied by guard', { action, reason: decision.reason });
+    log.warn('Delivery action denied by guard', {
+      action,
+      reason: decision.reason,
+    });
     await spec.onDeny?.(content, session, decision.reason);
     return;
   }

@@ -37,13 +37,17 @@ const FIX_COMMAND = 'pnpm exec tsx scripts/upgrade-state.ts set';
 /** Version the running code declares, read from package.json. */
 export function getCodeVersion(projectRoot: string = process.cwd()): string {
   const pkgPath = path.join(projectRoot, 'package.json');
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version?: string };
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as {
+    version?: string;
+  };
   if (!pkg.version) throw new Error(`No version field in ${pkgPath}`);
   return pkg.version;
 }
 
 /** Git identity of the exact checkout the host is about to run. */
-export function getCodeIdentity(projectRoot: string = process.cwd()): CodeIdentity {
+export function getCodeIdentity(
+  projectRoot: string = process.cwd(),
+): CodeIdentity {
   const git = (rev: string): string =>
     execFileSync('git', ['rev-parse', '--verify', rev], {
       cwd: projectRoot,
@@ -70,13 +74,18 @@ export function readUpgradeState(): UpgradeState | null {
     raw = fs.readFileSync(MARKER_PATH, 'utf8');
   } catch (e: unknown) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    log.warn('Could not read upgrade marker; treating as absent', { path: MARKER_PATH, err: String(e) });
+    log.warn('Could not read upgrade marker; treating as absent', {
+      path: MARKER_PATH,
+      err: String(e),
+    });
     return null;
   }
   try {
     return JSON.parse(raw) as UpgradeState;
   } catch {
-    log.warn('Upgrade marker is corrupt; treating as absent', { path: MARKER_PATH });
+    log.warn('Upgrade marker is corrupt; treating as absent', {
+      path: MARKER_PATH,
+    });
     return null;
   }
 }
@@ -85,7 +94,11 @@ export function readUpgradeState(): UpgradeState | null {
  * Stamp the marker. Only the sanctioned paths (setup / update / migrate)
  * call this on success; `version` defaults to the current code version.
  */
-export function writeUpgradeState(opts: { version?: string; via: string; projectRoot?: string }): UpgradeState {
+export function writeUpgradeState(opts: {
+  version?: string;
+  via: string;
+  projectRoot?: string;
+}): UpgradeState {
   const identity = getCodeIdentity(opts.projectRoot);
   const state: UpgradeState = {
     ...identity,
@@ -112,16 +125,22 @@ export function isUpgradeCurrent(projectRoot: string = process.cwd()): boolean {
       // 'unknown' for both — so the version match is the whole signal.
       // Accept it, loudly, rather than making the tripwire a permanent
       // boot-stop wherever Git is absent.
-      log.warn('Upgrade marker accepted on version match alone — Git cannot identify this checkout', {
-        version: code.version,
-      });
+      log.warn(
+        'Upgrade marker accepted on version match alone — Git cannot identify this checkout',
+        {
+          version: code.version,
+        },
+      );
       return true;
     }
     return state.commit === code.commit && state.tree === code.tree;
   } catch (err) {
-    log.warn('Could not resolve running code identity; upgrade marker fails closed', {
-      err: String(err),
-    });
+    log.warn(
+      'Could not resolve running code identity; upgrade marker fails closed',
+      {
+        err: String(err),
+      },
+    );
     return false;
   }
 }
@@ -195,6 +214,9 @@ export function enforceUpgradeTripwire(): void {
       '',
     ].join('\n'),
   );
-  log.error('Upgrade tripwire: install not on the sanctioned path', { code, recorded });
+  log.error('Upgrade tripwire: install not on the sanctioned path', {
+    code,
+    recorded,
+  });
   process.exit(1);
 }

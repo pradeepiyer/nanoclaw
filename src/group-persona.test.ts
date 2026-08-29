@@ -3,10 +3,20 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
-import { PERSONA_PREPEND_FILE, readGroupPersona, stageGroupPersona } from './group-persona.js';
+import {
+  PERSONA_PREPEND_FILE,
+  readGroupPersona,
+  stageGroupPersona,
+} from './group-persona.js';
 import { log } from './log.js';
 
 const TMP = '/tmp/nanoclaw-group-persona-test';
@@ -33,7 +43,10 @@ describe('readGroupPersona', () => {
   });
 
   it('returns the trimmed content when present', () => {
-    fs.writeFileSync(path.join(TMP, PERSONA_PREPEND_FILE), '\nYou are an SDR agent.\n\n');
+    fs.writeFileSync(
+      path.join(TMP, PERSONA_PREPEND_FILE),
+      '\nYou are an SDR agent.\n\n',
+    );
     expect(readGroupPersona(TMP)).toBe('You are an SDR agent.');
   });
 
@@ -54,7 +67,9 @@ describe('stageGroupPersona', () => {
   it('creates standing instructions once', () => {
     expect(stageGroupPersona(TMP, 'You are concise.\n\n')).toBe(true);
     expect(stageGroupPersona(TMP, 'replacement')).toBe(false);
-    expect(fs.readFileSync(path.join(TMP, PERSONA_PREPEND_FILE), 'utf-8')).toBe('You are concise.\n');
+    expect(fs.readFileSync(path.join(TMP, PERSONA_PREPEND_FILE), 'utf-8')).toBe(
+      'You are concise.\n',
+    );
   });
 
   it('does not replace an existing symlink', () => {

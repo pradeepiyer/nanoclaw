@@ -40,7 +40,10 @@ const unguardedBrand = Symbol('unguarded');
  * the handler. The reason travels with the registration;
  * `grep "unguarded("` is the complete inventory.
  */
-export type Unguarded = { readonly reason: string; readonly [unguardedBrand]: true };
+export type Unguarded = {
+  readonly reason: string;
+  readonly [unguardedBrand]: true;
+};
 
 export function unguarded(reason: string): Unguarded {
   return Object.freeze({ reason, [unguardedBrand]: true as const });
@@ -61,14 +64,23 @@ export type GuardDecision =
   | { effect: 'hold'; reason: string; approverUserId?: string }
   | { effect: 'deny'; reason: string };
 
-export const ALLOW = (reason: string): GuardDecision => ({ effect: 'allow', reason });
-export const DENY = (reason: string): GuardDecision => ({ effect: 'deny', reason });
+export const ALLOW = (reason: string): GuardDecision => ({
+  effect: 'allow',
+  reason,
+});
+export const DENY = (reason: string): GuardDecision => ({
+  effect: 'deny',
+  reason,
+});
 /**
  * approverUserId names an exclusive approver for the hold (the a2a policy
  * row's named approver). Absent, the hold goes to the approvals primitive's
  * default chain (scoped admins → global admins → owners).
  */
-export const HOLD = (reason: string, approverUserId?: string): GuardDecision => ({
+export const HOLD = (
+  reason: string,
+  approverUserId?: string,
+): GuardDecision => ({
   effect: 'hold',
   reason,
   approverUserId,

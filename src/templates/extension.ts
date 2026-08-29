@@ -43,7 +43,9 @@ export function readNanoclawExtension(
   const ours = manifestExtensions[NANOCLAW_EXTENSION_NS];
   if (ours !== undefined) {
     if (!isPlainObject(ours)) {
-      report.push(`plugin.json: extensions["${NANOCLAW_EXTENSION_NS}"] is not an object; ignored`);
+      report.push(
+        `plugin.json: extensions["${NANOCLAW_EXTENSION_NS}"] is not an object; ignored`,
+      );
     } else {
       const value = ours.agentName;
       if (value !== undefined) {
@@ -55,7 +57,9 @@ export function readNanoclawExtension(
       }
       for (const key of Object.keys(ours)) {
         if (key !== 'agentName') {
-          report.push(`plugin.json: extensions["${NANOCLAW_EXTENSION_NS}"].${key} is not recognized; ignored`);
+          report.push(
+            `plugin.json: extensions["${NANOCLAW_EXTENSION_NS}"].${key} is not recognized; ignored`,
+          );
         }
       }
     }
@@ -67,7 +71,9 @@ export function readNanoclawExtension(
   let instructions: string | undefined;
   if (fs.existsSync(instructionsFile)) {
     if (!fs.lstatSync(instructionsFile).isFile()) {
-      throw new Error(`${NANOCLAW_EXTENSION_NS}/context/instructions.md must be a regular file`);
+      throw new Error(
+        `${NANOCLAW_EXTENSION_NS}/context/instructions.md must be a regular file`,
+      );
     }
     instructions = fs.readFileSync(instructionsFile, 'utf-8').trimEnd();
   }
@@ -76,7 +82,10 @@ export function readNanoclawExtension(
     ...(agentName === undefined ? {} : { agentName }),
     ...(instructions === undefined ? {} : { instructions }),
     contextExtras: readContextExtras(contextDir),
-    tasks: readTasks(path.join(extDir, 'tasks'), `${NANOCLAW_EXTENSION_NS}/tasks`),
+    tasks: readTasks(
+      path.join(extDir, 'tasks'),
+      `${NANOCLAW_EXTENSION_NS}/tasks`,
+    ),
     report,
   };
 }
@@ -87,11 +96,21 @@ export function readNanoclawExtension(
  * layout — a reference like `additional_context/faq.md` written in
  * instructions.md resolves unchanged in the agent's workspace.
  */
-function readContextExtras(contextDir: string): { name: string; content: string }[] {
+function readContextExtras(
+  contextDir: string,
+): { name: string; content: string }[] {
   if (!fs.existsSync(contextDir)) return [];
   return (fs.readdirSync(contextDir, { recursive: true }) as string[])
     .map((f) => f.split(path.sep).join('/'))
-    .filter((f) => f.endsWith('.md') && f !== 'instructions.md' && fs.lstatSync(path.join(contextDir, f)).isFile())
+    .filter(
+      (f) =>
+        f.endsWith('.md') &&
+        f !== 'instructions.md' &&
+        fs.lstatSync(path.join(contextDir, f)).isFile(),
+    )
     .sort()
-    .map((name) => ({ name, content: fs.readFileSync(path.join(contextDir, name), 'utf-8') }));
+    .map((name) => ({
+      name,
+      content: fs.readFileSync(path.join(contextDir, name), 'utf-8'),
+    }));
 }

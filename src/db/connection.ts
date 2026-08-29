@@ -25,7 +25,10 @@ export async function initDb(
   options: DbInitOptions = { role: 'runtime' },
 ): Promise<DbDriver> {
   if (_db) throw new Error('Central DB is already initialized');
-  const config = { ...defaultConfig(), ...(typeof target === 'string' ? { path: target } : target) };
+  const config = {
+    ...defaultConfig(),
+    ...(typeof target === 'string' ? { path: target } : target),
+  };
   _db = await createDbDriver(config, options);
   if (options.role !== 'tool') {
     log.info('Central DB initialized', {
@@ -42,7 +45,9 @@ export interface InitTestDbOptions {
 }
 
 /** For tests only — the installed composition owns backend selection/reset. */
-export async function initTestDb(options: InitTestDbOptions = {}): Promise<DbDriver> {
+export async function initTestDb(
+  options: InitTestDbOptions = {},
+): Promise<DbDriver> {
   await closeDb();
   const db = await initDb(':memory:', { role: 'test' });
   if (db.prepareTestSchema) {

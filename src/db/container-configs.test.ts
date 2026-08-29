@@ -12,10 +12,20 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initTestDb, closeDb } from './connection.js';
 import { runMigrations } from './migrations/index.js';
 import { createAgentGroup } from './agent-groups.js';
-import { ensureContainerConfig, getContainerConfig, updateContainerConfigScalars } from './container-configs.js';
+import {
+  ensureContainerConfig,
+  getContainerConfig,
+  updateContainerConfigScalars,
+} from './container-configs.js';
 
 async function makeGroup(id: string): Promise<void> {
-  await createAgentGroup({ id, name: id, folder: id, agent_provider: null, created_at: new Date().toISOString() });
+  await createAgentGroup({
+    id,
+    name: id,
+    folder: id,
+    agent_provider: null,
+    created_at: new Date().toISOString(),
+  });
 }
 
 describe('ensureContainerConfig provider stamping', () => {

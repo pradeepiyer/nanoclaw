@@ -50,8 +50,14 @@ describe('host module lifecycle registry', () => {
 
     expect(startSnapshot).toEqual([firstStart]);
     expect(shutdownSnapshot).toEqual([firstStop]);
-    expect(lifecycle.getHostStartCallbacks()).toEqual([firstStart, secondStart]);
-    expect(lifecycle.getHostShutdownCallbacks()).toEqual([firstStop, secondStop]);
+    expect(lifecycle.getHostStartCallbacks()).toEqual([
+      firstStart,
+      secondStart,
+    ]);
+    expect(lifecycle.getHostShutdownCallbacks()).toEqual([
+      firstStop,
+      secondStop,
+    ]);
   });
 
   it('starts callbacks serially in registration order with the same context', async () => {
@@ -89,11 +95,17 @@ describe('host module lifecycle registry', () => {
     });
     lifecycle.onHostStart(later);
 
-    await expect(lifecycle.startHostModules({ db: {} as never, signal: new AbortController().signal })).rejects.toBe(
-      failure,
-    );
+    await expect(
+      lifecycle.startHostModules({
+        db: {} as never,
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBe(failure);
     expect(later).not.toHaveBeenCalled();
-    expect(log.error).toHaveBeenCalledWith('Host module startup callback threw', { err: failure });
+    expect(log.error).toHaveBeenCalledWith(
+      'Host module startup callback threw',
+      { err: failure },
+    );
   });
 
   it('stops callbacks LIFO, logs the error, and continues', async () => {
@@ -133,8 +145,13 @@ describe('host module lifecycle registry', () => {
 
 describe('host lifecycle orchestration', () => {
   it('starts after delivery is ready and before delivery polling', () => {
-    const source = fs.readFileSync(path.join(process.cwd(), 'src', 'index.ts'), 'utf8');
-    const deliveryReady = source.indexOf('setDeliveryAdapter(createChannelDeliveryAdapter())');
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'index.ts'),
+      'utf8',
+    );
+    const deliveryReady = source.indexOf(
+      'setDeliveryAdapter(createChannelDeliveryAdapter())',
+    );
     const modulesStart = source.indexOf('await startHostModules(');
     const pollingStart = source.indexOf('startActiveDeliveryPoll()');
 
@@ -144,7 +161,10 @@ describe('host lifecycle orchestration', () => {
   });
 
   it('aborts modules and awaits their LIFO shutdown before host cleanup', () => {
-    const source = fs.readFileSync(path.join(process.cwd(), 'src', 'index.ts'), 'utf8');
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'index.ts'),
+      'utf8',
+    );
     const abort = source.indexOf('hostAbortController.abort()');
     const modulesStop = source.indexOf('await stopHostModules()');
     const pollsStop = source.indexOf('stopDeliveryPolls()');

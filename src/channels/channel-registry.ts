@@ -4,7 +4,13 @@
  * Channels self-register on import. The host calls initChannelAdapters() at startup
  * to instantiate and set up all registered adapters.
  */
-import type { ChannelAdapter, ChannelDefaults, ChannelRegistration, ChannelSetup, OutboundFile } from './adapter.js';
+import type {
+  ChannelAdapter,
+  ChannelDefaults,
+  ChannelRegistration,
+  ChannelSetup,
+  OutboundFile,
+} from './adapter.js';
 import type { ChannelDeliveryAdapter } from '../delivery.js';
 import { log } from '../log.js';
 
@@ -20,13 +26,17 @@ function isNetworkError(err: unknown): err is Error {
   return err instanceof Error && err.name === 'NetworkError';
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const registry = new Map<string, ChannelRegistration>();
 const activeAdapters = new Map<string, ChannelAdapter>();
 
 /** Register a channel adapter factory. Called by channel modules on import. */
-export function registerChannelAdapter(name: string, registration: ChannelRegistration): void {
+export function registerChannelAdapter(
+  name: string,
+  registration: ChannelRegistration,
+): void {
   registry.set(name, registration);
 }
 
@@ -37,7 +47,9 @@ export function registerChannelAdapter(name: string, registration: ChannelRegist
  *  through the wrong bot identity with the wrong token. A missing key
  *  means the owning adapter is offline; callers apply their normal
  *  offline-adapter handling. */
-export function getChannelAdapterExact(key: string): ChannelAdapter | undefined {
+export function getChannelAdapterExact(
+  key: string,
+): ChannelAdapter | undefined {
   return activeAdapters.get(key);
 }
 
@@ -55,10 +67,13 @@ export function getChannelAdapter(key: string): ChannelAdapter | undefined {
   if (exact) return exact;
   for (const [registryKey, adapter] of activeAdapters) {
     if (adapter.channelType === key) {
-      log.warn('Channel adapter fallback: requested key resolved through a differently-keyed instance', {
-        requested: key,
-        resolvedKey: registryKey,
-      });
+      log.warn(
+        'Channel adapter fallback: requested key resolved through a differently-keyed instance',
+        {
+          requested: key,
+          resolvedKey: registryKey,
+        },
+      );
       return adapter;
     }
   }
@@ -111,7 +126,11 @@ export function createChannelDeliveryAdapter(): ChannelDeliveryAdapter {
       if (!adapter) {
         throw new MissingChannelAdapterError(channelType, instance);
       }
-      return adapter.deliver(platformId, threadId, { kind, content: JSON.parse(content), files });
+      return adapter.deliver(platformId, threadId, {
+        kind,
+        content: JSON.parse(content),
+        files,
+      });
     },
     async setTyping(
       channelType: string,
@@ -134,7 +153,12 @@ export function createChannelDeliveryAdapter(): ChannelDeliveryAdapter {
  * sibling bot). Missing adapter or missing capability is a silent no-op —
  * titles are decoration, never worth a delivery failure.
  */
-export async function setThreadTitle(key: string, platformId: string, threadId: string, title: string): Promise<void> {
+export async function setThreadTitle(
+  key: string,
+  platformId: string,
+  threadId: string,
+  title: string,
+): Promise<void> {
   const adapter = getChannelAdapterExact(key);
   await adapter?.setThreadTitle?.(platformId, threadId, title);
 }
@@ -168,7 +192,9 @@ export async function setSuggestedPrompts(
  *    supportsThreads-derived routing.
  *  - mentions 'platform': never blocks a mention wiring at creation time.
  */
-export function fallbackChannelDefaults(supportsThreads: boolean): ChannelDefaults {
+export function fallbackChannelDefaults(
+  supportsThreads: boolean,
+): ChannelDefaults {
   return {
     dm: {
       engageMode: 'pattern',
@@ -204,7 +230,10 @@ export function fallbackChannelDefaults(supportsThreads: boolean): ChannelDefaul
  *     no adapter is live — conservative, reachable only from manual creation
  *     surfaces since the router never sees events for unregistered channels).
  */
-export function getChannelDefaults(key: string, channelType?: string): ChannelDefaults {
+export function getChannelDefaults(
+  key: string,
+  channelType?: string,
+): ChannelDefaults {
   const { live, decl } = lookupDeclaredDefaults(key, channelType);
   return decl ?? fallbackChannelDefaults(live?.supportsThreads ?? false);
 }
@@ -218,7 +247,10 @@ export function getChannelDefaults(key: string, channelType?: string): ChannelDe
  * The faithful fallback exists for the ROUTER's auto-create/runtime paths,
  * whose historical behavior it reproduces; it is not what `ncl` did.
  */
-export function hasDeclaredChannelDefaults(key: string, channelType?: string): boolean {
+export function hasDeclaredChannelDefaults(
+  key: string,
+  channelType?: string,
+): boolean {
   return lookupDeclaredDefaults(key, channelType).decl !== undefined;
 }
 
@@ -241,7 +273,8 @@ function lookupDeclaredDefaults(
 
   const typeKey = live?.channelType ?? channelType;
   const registered =
-    registry.get(key)?.defaults ?? (typeKey !== undefined ? registry.get(typeKey)?.defaults : undefined);
+    registry.get(key)?.defaults ??
+    (typeKey !== undefined ? registry.get(typeKey)?.defaults : undefined);
   return { live, decl: registered };
 }
 
@@ -256,7 +289,9 @@ export function getRegisteredChannelNames(): string[] {
 }
 
 /** Get container config for a channel (used by container-runner for additional mounts/env). */
-export function getChannelContainerConfig(name: string): ChannelRegistration['containerConfig'] {
+export function getChannelContainerConfig(
+  name: string,
+): ChannelRegistration['containerConfig'] {
   return registry.get(name)?.containerConfig;
 }
 
@@ -264,7 +299,9 @@ export function getChannelContainerConfig(name: string): ChannelRegistration['co
  * Instantiate and set up all registered channel adapters.
  * Skips adapters that return null (missing credentials).
  */
-export async function initChannelAdapters(setupFn: (adapter: ChannelAdapter) => ChannelSetup): Promise<void> {
+export async function initChannelAdapters(
+  setupFn: (adapter: ChannelAdapter) => ChannelSetup,
+): Promise<void> {
   hotStartSetupFn = setupFn;
   for (const [name, registration] of registry) {
     try {
@@ -287,12 +324,15 @@ export async function initChannelAdapters(setupFn: (adapter: ChannelAdapter) => 
         } catch (err) {
           if (isNetworkError(err) && attempt < SETUP_RETRY_DELAYS_MS.length) {
             const delay = SETUP_RETRY_DELAYS_MS[attempt]!;
-            log.warn('Channel adapter setup failed with network error, retrying', {
-              channel: name,
-              attempt: attempt + 1,
-              delayMs: delay,
-              err: err.message,
-            });
+            log.warn(
+              'Channel adapter setup failed with network error, retrying',
+              {
+                channel: name,
+                attempt: attempt + 1,
+                delayMs: delay,
+                err: err.message,
+              },
+            );
             await sleep(delay);
             attempt += 1;
             continue;
@@ -306,10 +346,17 @@ export async function initChannelAdapters(setupFn: (adapter: ChannelAdapter) => 
       // last-write-wins, but now visibly.
       const key = adapter.instance ?? adapter.channelType;
       if (activeAdapters.has(key)) {
-        log.warn('Duplicate adapter instance key — overwriting previous adapter', { key, channel: name });
+        log.warn(
+          'Duplicate adapter instance key — overwriting previous adapter',
+          { key, channel: name },
+        );
       }
       activeAdapters.set(key, adapter);
-      log.info('Channel adapter started', { channel: name, type: adapter.channelType, instance: key });
+      log.info('Channel adapter started', {
+        channel: name,
+        type: adapter.channelType,
+        instance: key,
+      });
     } catch (err) {
       log.error('Failed to start channel adapter', { channel: name, err });
     }
@@ -339,11 +386,15 @@ export async function teardownChannelAdapters(): Promise<void> {
  */
 let hotStartSetupFn: ((adapter: ChannelAdapter) => ChannelSetup) | null = null;
 
-export async function startChannelAdapter(key: string): Promise<'started' | 'already-active' | 'no-credentials'> {
+export async function startChannelAdapter(
+  key: string,
+): Promise<'started' | 'already-active' | 'no-credentials'> {
   if (activeAdapters.has(key)) return 'already-active';
   const registration = registry.get(key);
-  if (!registration) throw new Error(`startChannelAdapter: no registration for '${key}'`);
-  if (!hotStartSetupFn) throw new Error('startChannelAdapter: initChannelAdapters has not run');
+  if (!registration)
+    throw new Error(`startChannelAdapter: no registration for '${key}'`);
+  if (!hotStartSetupFn)
+    throw new Error('startChannelAdapter: initChannelAdapters has not run');
   const adapter = await registration.factory();
   if (!adapter) return 'no-credentials';
   const setup = hotStartSetupFn(adapter);
@@ -355,12 +406,15 @@ export async function startChannelAdapter(key: string): Promise<'started' | 'alr
     } catch (err) {
       if (isNetworkError(err) && attempt < SETUP_RETRY_DELAYS_MS.length) {
         const delay = SETUP_RETRY_DELAYS_MS[attempt]!;
-        log.warn('Hot-start adapter setup failed with network error, retrying', {
-          channel: key,
-          attempt: attempt + 1,
-          delayMs: delay,
-          err: err.message,
-        });
+        log.warn(
+          'Hot-start adapter setup failed with network error, retrying',
+          {
+            channel: key,
+            attempt: attempt + 1,
+            delayMs: delay,
+            err: err.message,
+          },
+        );
         await sleep(delay);
         attempt += 1;
         continue;
@@ -370,9 +424,16 @@ export async function startChannelAdapter(key: string): Promise<'started' | 'alr
   }
   const activeKey = adapter.instance ?? adapter.channelType;
   if (activeAdapters.has(activeKey)) {
-    log.warn('Duplicate adapter instance key — overwriting previous adapter', { key: activeKey, channel: key });
+    log.warn('Duplicate adapter instance key — overwriting previous adapter', {
+      key: activeKey,
+      channel: key,
+    });
   }
   activeAdapters.set(activeKey, adapter);
-  log.info('Channel adapter hot-started', { channel: key, type: adapter.channelType, instance: activeKey });
+  log.info('Channel adapter hot-started', {
+    channel: key,
+    type: adapter.channelType,
+    instance: activeKey,
+  });
   return 'started';
 }

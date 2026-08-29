@@ -37,21 +37,33 @@ const BANNED_PORTABLE_SQL = [
 
 describe('central migration portability policy', () => {
   it('freezes SQLite-only status to the pre-boundary migration set', () => {
-    const actual = migrations.filter((migration) => migration.sqliteOnly).map((migration) => migration.name);
+    const actual = migrations
+      .filter((migration) => migration.sqliteOnly)
+      .map((migration) => migration.name);
     expect(new Set(actual)).toEqual(FROZEN_SQLITE_ONLY);
   });
 
   it('requires every post-boundary migration to be async and portable', () => {
-    for (const migration of migrations.filter((candidate) => !candidate.sqliteOnly)) {
-      expect(migration.up.constructor.name, migration.name).toBe('AsyncFunction');
+    for (const migration of migrations.filter(
+      (candidate) => !candidate.sqliteOnly,
+    )) {
+      expect(migration.up.constructor.name, migration.name).toBe(
+        'AsyncFunction',
+      );
       const source = String(migration.up);
-      for (const banned of BANNED_PORTABLE_SQL) expect(source, `${migration.name}: ${banned}`).not.toMatch(banned);
+      for (const banned of BANNED_PORTABLE_SQL)
+        expect(source, `${migration.name}: ${banned}`).not.toMatch(banned);
     }
   });
 
   it('preserves the skill-edit migration anchors byte-for-byte', () => {
-    const source = fs.readFileSync(new URL('./index.ts', import.meta.url), 'utf8');
-    expect(source).toContain("import { migration019 } from './019-wiring-threads.js';");
+    const source = fs.readFileSync(
+      new URL('./index.ts', import.meta.url),
+      'utf8',
+    );
+    expect(source).toContain(
+      "import { migration019 } from './019-wiring-threads.js';",
+    );
     expect(source).toContain('\n  migration019,\n');
   });
 });

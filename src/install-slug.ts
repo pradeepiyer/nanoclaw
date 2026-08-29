@@ -20,7 +20,9 @@ export function getInstallSlug(projectRoot: string = process.cwd()): string {
   const override = process.env.NANOCLAW_INSTALL_ID;
   if (override) {
     if (!INSTALL_ID_PATTERN.test(override)) {
-      throw new Error(`NANOCLAW_INSTALL_ID must be 1-32 chars of [a-z0-9_-] starting alphanumeric (got '${override}')`);
+      throw new Error(
+        `NANOCLAW_INSTALL_ID must be 1-32 chars of [a-z0-9_-] starting alphanumeric (got '${override}')`,
+      );
     }
     return override;
   }

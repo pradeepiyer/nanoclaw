@@ -19,7 +19,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockState = vi.hoisted(() => ({ allowlistPath: '' }));
 
 vi.mock('../../config.js', async () => {
-  const actual = await vi.importActual<Record<string, unknown>>('../../config.js');
+  const actual =
+    await vi.importActual<Record<string, unknown>>('../../config.js');
   return {
     ...actual,
     get MOUNT_ALLOWLIST_PATH() {

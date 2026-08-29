@@ -8,8 +8,10 @@
  * (report + ignore, the forward-compatibility valve); every other schema
  * violation rejects the whole plugin.
  */
-export const PLUGIN_SCHEMA_URL = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
-export const MCP_SCHEMA_URL = 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json';
+export const PLUGIN_SCHEMA_URL =
+  'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
+export const MCP_SCHEMA_URL =
+  'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json';
 export const PLUGIN_MANIFEST_FILE = 'plugin.json';
 
 export interface PluginManifest {
@@ -22,8 +24,21 @@ export interface PluginManifest {
   report: string[];
 }
 
-const STRING_FIELDS = ['version', 'description', 'homepage', 'repository', 'license'] as const;
-const KNOWN_FIELDS = new Set(['$schema', 'name', 'author', 'keywords', 'extensions', ...STRING_FIELDS]);
+const STRING_FIELDS = [
+  'version',
+  'description',
+  'homepage',
+  'repository',
+  'license',
+] as const;
+const KNOWN_FIELDS = new Set([
+  '$schema',
+  'name',
+  'author',
+  'keywords',
+  'extensions',
+  ...STRING_FIELDS,
+]);
 const AUTHOR_FIELDS = new Set(['name', 'email', 'url']);
 
 // Published schema pattern: lowercase alphanumerics, hyphens, periods; must
@@ -31,7 +46,13 @@ const AUTHOR_FIELDS = new Set(['name', 'email', 'url']);
 const NAME_RE = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
 
 export function isValidPluginName(name: string): boolean {
-  return name.length >= 1 && name.length <= 64 && NAME_RE.test(name) && !name.includes('--') && !name.includes('..');
+  return (
+    name.length >= 1 &&
+    name.length <= 64 &&
+    NAME_RE.test(name) &&
+    !name.includes('--') &&
+    !name.includes('..')
+  );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -59,15 +80,21 @@ export function parsePluginManifest(raw: unknown): PluginManifest {
     }
   }
   if (raw.keywords !== undefined) {
-    if (!Array.isArray(raw.keywords) || !raw.keywords.every((k) => typeof k === 'string')) {
+    if (
+      !Array.isArray(raw.keywords) ||
+      !raw.keywords.every((k) => typeof k === 'string')
+    ) {
       throw new Error('plugin.json keywords must be an array of strings');
     }
   }
   if (raw.author !== undefined) {
-    if (!isPlainObject(raw.author)) throw new Error('plugin.json author must be an object');
+    if (!isPlainObject(raw.author))
+      throw new Error('plugin.json author must be an object');
     for (const [key, value] of Object.entries(raw.author)) {
-      if (!AUTHOR_FIELDS.has(key)) throw new Error(`plugin.json author has unknown field "${key}"`);
-      if (typeof value !== 'string') throw new Error(`plugin.json author.${key} must be a string`);
+      if (!AUTHOR_FIELDS.has(key))
+        throw new Error(`plugin.json author has unknown field "${key}"`);
+      if (typeof value !== 'string')
+        throw new Error(`plugin.json author.${key} must be a string`);
     }
   }
 
@@ -84,13 +111,16 @@ export function parsePluginManifest(raw: unknown): PluginManifest {
   }
 
   for (const key of Object.keys(raw)) {
-    if (!KNOWN_FIELDS.has(key)) report.push(`plugin.json: unknown field "${key}" ignored`);
+    if (!KNOWN_FIELDS.has(key))
+      report.push(`plugin.json: unknown field "${key}" ignored`);
   }
 
   return {
     name: raw.name,
     ...(typeof raw.version === 'string' ? { version: raw.version } : {}),
-    ...(typeof raw.description === 'string' ? { description: raw.description } : {}),
+    ...(typeof raw.description === 'string'
+      ? { description: raw.description }
+      : {}),
     extensions,
     report,
   };

@@ -10,7 +10,9 @@ export function migrateClaudeMemorySettings(settingsFile: string): boolean {
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
     if (!isRecord(parsed)) {
-      log.warn('Claude settings root is not an object; leaving it unchanged', { settingsFile });
+      log.warn('Claude settings root is not an object; leaving it unchanged', {
+        settingsFile,
+      });
       return false;
     }
 
@@ -31,11 +33,15 @@ export function migrateClaudeMemorySettings(settingsFile: string): boolean {
     }
 
     const hooks = isRecord(parsed.hooks) ? parsed.hooks : {};
-    const existingSessionStart = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
+    const existingSessionStart = Array.isArray(hooks.SessionStart)
+      ? hooks.SessionStart
+      : [];
     const nextSessionStart = existingSessionStart
       .map(removeLegacyNanoClawMemoryHook)
       .filter((entry) => entry !== undefined);
-    if (JSON.stringify(nextSessionStart) !== JSON.stringify(existingSessionStart)) {
+    if (
+      JSON.stringify(nextSessionStart) !== JSON.stringify(existingSessionStart)
+    ) {
       if (nextSessionStart.length > 0) hooks.SessionStart = nextSessionStart;
       else delete hooks.SessionStart;
       changed = true;
@@ -43,7 +49,9 @@ export function migrateClaudeMemorySettings(settingsFile: string): boolean {
 
     const preCompact = Array.isArray(hooks.PreCompact) ? hooks.PreCompact : [];
     if (!JSON.stringify(preCompact).includes(PRE_COMPACT_COMMAND)) {
-      preCompact.push({ hooks: [{ type: 'command', command: PRE_COMPACT_COMMAND }] });
+      preCompact.push({
+        hooks: [{ type: 'command', command: PRE_COMPACT_COMMAND }],
+      });
       hooks.PreCompact = preCompact;
       changed = true;
     }

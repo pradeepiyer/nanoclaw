@@ -16,9 +16,17 @@ export async function grantRole(row: UserRole): Promise<void> {
   );
 }
 
-export async function revokeRole(userId: string, role: UserRoleKind, agentGroupId: string | null): Promise<void> {
+export async function revokeRole(
+  userId: string,
+  role: UserRoleKind,
+  agentGroupId: string | null,
+): Promise<void> {
   if (agentGroupId === null) {
-    await getDb().run('DELETE FROM user_roles WHERE user_id = ? AND role = ? AND agent_group_id IS NULL', userId, role);
+    await getDb().run(
+      'DELETE FROM user_roles WHERE user_id = ? AND role = ? AND agent_group_id IS NULL',
+      userId,
+      role,
+    );
   } else {
     await getDb().run(
       'DELETE FROM user_roles WHERE user_id = ? AND role = ? AND agent_group_id = ?',
@@ -30,7 +38,10 @@ export async function revokeRole(userId: string, role: UserRoleKind, agentGroupI
 }
 
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
-  return getDb().all<UserRole>('SELECT * FROM user_roles WHERE user_id = ?', userId);
+  return getDb().all<UserRole>(
+    'SELECT * FROM user_roles WHERE user_id = ?',
+    userId,
+  );
 }
 
 export async function isOwner(userId: string): Promise<boolean> {
@@ -51,7 +62,10 @@ export async function isGlobalAdmin(userId: string): Promise<boolean> {
   return !!row;
 }
 
-export async function isAdminOfAgentGroup(userId: string, agentGroupId: string): Promise<boolean> {
+export async function isAdminOfAgentGroup(
+  userId: string,
+  agentGroupId: string,
+): Promise<boolean> {
   const row = await getDb().get(
     'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? AND agent_group_id = ? LIMIT 1',
     userId,
@@ -62,8 +76,15 @@ export async function isAdminOfAgentGroup(userId: string, agentGroupId: string):
 }
 
 /** Any admin privilege over this agent group: global admin OR scoped admin. */
-export async function hasAdminPrivilege(userId: string, agentGroupId: string): Promise<boolean> {
-  return (await isOwner(userId)) || (await isGlobalAdmin(userId)) || (await isAdminOfAgentGroup(userId, agentGroupId));
+export async function hasAdminPrivilege(
+  userId: string,
+  agentGroupId: string,
+): Promise<boolean> {
+  return (
+    (await isOwner(userId)) ||
+    (await isGlobalAdmin(userId)) ||
+    (await isAdminOfAgentGroup(userId, agentGroupId))
+  );
 }
 
 export async function getOwners(): Promise<UserRole[]> {
@@ -74,7 +95,10 @@ export async function getOwners(): Promise<UserRole[]> {
 }
 
 export async function hasAnyOwner(): Promise<boolean> {
-  const row = await getDb().get('SELECT 1 FROM user_roles WHERE role = ? AND agent_group_id IS NULL LIMIT 1', 'owner');
+  const row = await getDb().get(
+    'SELECT 1 FROM user_roles WHERE role = ? AND agent_group_id IS NULL LIMIT 1',
+    'owner',
+  );
   return !!row;
 }
 
@@ -85,7 +109,9 @@ export async function getGlobalAdmins(): Promise<UserRole[]> {
   );
 }
 
-export async function getAdminsOfAgentGroup(agentGroupId: string): Promise<UserRole[]> {
+export async function getAdminsOfAgentGroup(
+  agentGroupId: string,
+): Promise<UserRole[]> {
   return getDb().all<UserRole>(
     'SELECT * FROM user_roles WHERE role = ? AND agent_group_id = ? ORDER BY granted_at',
     'admin',

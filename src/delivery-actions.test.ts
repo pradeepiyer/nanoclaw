@@ -17,7 +17,11 @@ vi.mock('./container-runner.js', () => ({
   buildAgentGroupImage: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { registerDeliveryAction, getDeliveryAction, type DeliveryActionHandler } from './delivery.js';
+import {
+  registerDeliveryAction,
+  getDeliveryAction,
+  type DeliveryActionHandler,
+} from './delivery.js';
 import { defineGuardedAction, HOLD, unguarded } from './guard/index.js';
 
 const testUnguarded = unguarded('test — registry mechanics only');
@@ -54,9 +58,13 @@ describe('delivery action registry', () => {
     // Disarming the guard by re-registering unguarded must throw — otherwise
     // the action's catalog entry would still exist while the live path runs
     // unguarded.
-    expect(() => registerDeliveryAction('test_guarded_overwrite', async () => {}, testUnguarded)).toThrow(
-      /disarm the guard/,
-    );
+    expect(() =>
+      registerDeliveryAction(
+        'test_guarded_overwrite',
+        async () => {},
+        testUnguarded,
+      ),
+    ).toThrow(/disarm the guard/);
 
     // Re-registering WITH a spec stays allowed (a legitimate replacement
     // keeps the action guarded).

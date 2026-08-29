@@ -18,7 +18,10 @@ const PORT = 3917;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 /** Minimal Chat stand-in: only `webhooks` is touched by the server. */
-function stubChat(tag: string, adapterName = 'slack'): { chat: Chat; calls: string[] } {
+function stubChat(
+  tag: string,
+  adapterName = 'slack',
+): { chat: Chat; calls: string[] } {
   const calls: string[] = [];
   const chat = {
     webhooks: {

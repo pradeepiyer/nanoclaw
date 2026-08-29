@@ -66,7 +66,9 @@ describe('migrations', () => {
       .prepare(
         `SELECT type, "notnull", dflt_value FROM pragma_table_info('messaging_group_agents') WHERE name = 'threads'`,
       )
-      .get() as { type: string; notnull: number; dflt_value: unknown } | undefined;
+      .get() as
+      | { type: string; notnull: number; dflt_value: unknown }
+      | undefined;
     expect(col).toBeDefined();
     // NULL must remain expressible (= inherit the adapter declaration) with
     // no default — a backfill would freeze today's behavior into rows.
@@ -78,11 +80,23 @@ describe('migrations', () => {
   it('persists approval card bodies for terminal rendering (021)', async () => {
     const db = await initSqliteTestDb();
     await runMigrations(db);
-    for (const table of ['pending_approvals', 'pending_channel_approvals', 'pending_sender_approvals']) {
+    for (const table of [
+      'pending_approvals',
+      'pending_channel_approvals',
+      'pending_sender_approvals',
+    ]) {
       const col = sqliteRaw(db)
-        .prepare(`SELECT type, "notnull", dflt_value FROM pragma_table_info(?) WHERE name = 'question'`)
-        .get(table) as { type: string; notnull: number; dflt_value: string } | undefined;
-      expect(col, table).toEqual({ type: 'TEXT', notnull: 1, dflt_value: "''" });
+        .prepare(
+          `SELECT type, "notnull", dflt_value FROM pragma_table_info(?) WHERE name = 'question'`,
+        )
+        .get(table) as
+        | { type: string; notnull: number; dflt_value: string }
+        | undefined;
+      expect(col, table).toEqual({
+        type: 'TEXT',
+        notnull: 1,
+        dflt_value: "''",
+      });
     }
   });
 });
@@ -115,7 +129,12 @@ describe('agent groups', () => {
 
   it('should list all', async () => {
     await createAgentGroup(ag());
-    await createAgentGroup({ ...ag(), id: 'ag-2', name: 'Another', folder: 'another' });
+    await createAgentGroup({
+      ...ag(),
+      id: 'ag-2',
+      name: 'Another',
+      folder: 'another',
+    });
     expect(await getAllAgentGroups()).toHaveLength(2);
   });
 
@@ -166,7 +185,9 @@ describe('messaging groups', () => {
 
   it('should enforce unique channel_type + platform_id', async () => {
     await createMessagingGroup(mg());
-    await expect(createMessagingGroup({ ...mg(), id: 'mg-dup' })).rejects.toThrow();
+    await expect(
+      createMessagingGroup({ ...mg(), id: 'mg-dup' }),
+    ).rejects.toThrow();
   });
 
   it('should update', async () => {
@@ -233,7 +254,12 @@ describe('messaging group agents', () => {
       agent_provider: null,
       created_at: now(),
     });
-    await createMessagingGroupAgent({ ...mga(), id: 'mga-2', agent_group_id: 'ag-2', priority: 10 });
+    await createMessagingGroupAgent({
+      ...mga(),
+      id: 'mga-2',
+      agent_group_id: 'ag-2',
+      priority: 10,
+    });
     const results = await getMessagingGroupAgents('mg-1');
     expect(results[0].agent_group_id).toBe('ag-2');
     expect(results[1].agent_group_id).toBe('ag-1');
@@ -241,7 +267,9 @@ describe('messaging group agents', () => {
 
   it('should enforce unique messaging_group + agent_group', async () => {
     await createMessagingGroupAgent(mga());
-    await expect(createMessagingGroupAgent({ ...mga(), id: 'mga-dup' })).rejects.toThrow();
+    await expect(
+      createMessagingGroupAgent({ ...mga(), id: 'mga-dup' }),
+    ).rejects.toThrow();
   });
 
   it('should update', async () => {
@@ -257,7 +285,9 @@ describe('messaging group agents', () => {
   });
 
   it('should enforce foreign key on agent_group_id', async () => {
-    await expect(createMessagingGroupAgent({ ...mga(), agent_group_id: 'nonexistent' })).rejects.toThrow();
+    await expect(
+      createMessagingGroupAgent({ ...mga(), agent_group_id: 'nonexistent' }),
+    ).rejects.toThrow();
   });
 
   it('auto-creates an agent_destinations row for the wiring', async () => {
@@ -272,7 +302,8 @@ describe('messaging group agents', () => {
   });
 
   it('does not duplicate destination row on re-wiring', async () => {
-    const { getDestinations } = await import('../modules/agent-to-agent/db/agent-destinations.js');
+    const { getDestinations } =
+      await import('../modules/agent-to-agent/db/agent-destinations.js');
     await createMessagingGroupAgent(mga());
     // Re-create the same wiring throws (PK unique), but even if we got the
     // row in some other way (e.g. via createDestination directly followed
@@ -283,7 +314,8 @@ describe('messaging group agents', () => {
   });
 
   it('breaks local_name collisions within an agent group', async () => {
-    const { getDestinations } = await import('../modules/agent-to-agent/db/agent-destinations.js');
+    const { getDestinations } =
+      await import('../modules/agent-to-agent/db/agent-destinations.js');
     // Two messaging groups with the same `name` wired to the same agent
     // should get distinct local_names (gen, gen-2).
     await createMessagingGroupAgent(mga());
@@ -296,9 +328,15 @@ describe('messaging group agents', () => {
       unknown_sender_policy: 'strict',
       created_at: now(),
     });
-    await createMessagingGroupAgent({ ...mga(), id: 'mga-2', messaging_group_id: 'mg-2' });
+    await createMessagingGroupAgent({
+      ...mga(),
+      id: 'mga-2',
+      messaging_group_id: 'mg-2',
+    });
 
-    const dests = (await getDestinations('ag-1')).map((d) => d.local_name).sort();
+    const dests = (await getDestinations('ag-1'))
+      .map((d) => d.local_name)
+      .sort();
     expect(dests).toEqual(['gen', 'gen-2']);
   });
 });
@@ -371,20 +409,38 @@ describe('sessions', () => {
 
   it('should list active sessions', async () => {
     await createSession(sess());
-    await createSession({ ...sess(), id: 'sess-closed', status: 'closed', thread_id: 'thread-x' });
+    await createSession({
+      ...sess(),
+      id: 'sess-closed',
+      status: 'closed',
+      thread_id: 'thread-x',
+    });
     expect(await getActiveSessions()).toHaveLength(1);
   });
 
   it('should list running sessions', async () => {
     await createSession({ ...sess(), container_status: 'running' });
-    await createSession({ ...sess(), id: 'sess-idle', container_status: 'idle', thread_id: 'thread-1' });
-    await createSession({ ...sess(), id: 'sess-stopped', container_status: 'stopped', thread_id: 'thread-2' });
+    await createSession({
+      ...sess(),
+      id: 'sess-idle',
+      container_status: 'idle',
+      thread_id: 'thread-1',
+    });
+    await createSession({
+      ...sess(),
+      id: 'sess-stopped',
+      container_status: 'stopped',
+      thread_id: 'thread-2',
+    });
     expect(await getRunningSessions()).toHaveLength(2);
   });
 
   it('should update', async () => {
     await createSession(sess());
-    await updateSession('sess-1', { container_status: 'running', last_active: now() });
+    await updateSession('sess-1', {
+      container_status: 'running',
+      last_active: now(),
+    });
     const result = (await getSession('sess-1'))!;
     expect(result.container_status).toBe('running');
     expect(result.last_active).not.toBeNull();
@@ -461,7 +517,13 @@ describe('pending questions', () => {
 
 describe('container configs', () => {
   it('createContainerConfig persists cli_scope', async () => {
-    await createAgentGroup({ id: 'ag-full', name: 'Full', folder: 'full', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: 'ag-full',
+      name: 'Full',
+      folder: 'full',
+      agent_provider: null,
+      created_at: now(),
+    });
     await createContainerConfig({
       agent_group_id: 'ag-full',
       provider: null,

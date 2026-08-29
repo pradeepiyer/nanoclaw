@@ -10,14 +10,24 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DockerSessionDriver, dockerEventToSessionEvent, ensureDockerRunning } from './docker-driver.js';
+import {
+  DockerSessionDriver,
+  dockerEventToSessionEvent,
+  ensureDockerRunning,
+} from './docker-driver.js';
 import { FakeCli } from './fake-cli.js';
 import { withSessionEvents } from './session-events.js';
 import { FIXTURE_POLICY, fixtureSpec } from './spec-fixture.js';
 import { LABELS, type SessionEvent } from './types.js';
 
 vi.mock('../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 // The driver re-checks mount sources exist; fixture paths are not real files
@@ -52,7 +62,12 @@ describe('spec realization', () => {
     await driver().prepare(fixtureSpec());
     const args = createArgs();
 
-    expect(args.slice(0, 4)).toEqual(['create', '--rm', '--name', 'ncl-spike-s1']);
+    expect(args.slice(0, 4)).toEqual([
+      'create',
+      '--rm',
+      '--name',
+      'ncl-spike-s1',
+    ]);
     // Derived from the key, not from the timestamped lineage label — `prepare`
     // cannot be idempotent on key if the name it allocates keeps changing.
     // The four canonical labels are the adoption contract: a handle must be
@@ -62,7 +77,9 @@ describe('spec realization', () => {
     expect(args).toContain(`${LABELS.session}=s1`);
     expect(args).toContain(`${LABELS.role}=agent`);
     // Lineage labels from the spec and from the egress contribution both land.
-    expect(args).toContain('nanoclaw-container-name=nanoclaw-v2-agent-one-1700000000000');
+    expect(args).toContain(
+      'nanoclaw-container-name=nanoclaw-v2-agent-one-1700000000000',
+    );
     expect(args).toContain('session-channel=channel-abc');
     // PID 1 is split across --entrypoint and the post-image argv.
     expect(args).toContain('--entrypoint');
@@ -89,8 +106,12 @@ describe('spec realization', () => {
   it('omits the pids limit for 0, negatives and absent values', async () => {
     for (const pidsLimit of [0, -1, undefined]) {
       cli = new FakeCli('docker');
-      cli.responses = [{ match: /^inspect /, throws: new Error('No such object') }];
-      await driver().prepare(fixtureSpec({ resources: { pidsLimit, shmSizeMb: 1024 } }));
+      cli.responses = [
+        { match: /^inspect /, throws: new Error('No such object') },
+      ];
+      await driver().prepare(
+        fixtureSpec({ resources: { pidsLimit, shmSizeMb: 1024 } }),
+      );
       // cgroups v2 rejects `--pids-limit 0` with EINVAL and fails the spawn.
       expect(createArgs().join(' ')).not.toContain('--pids-limit');
     }
@@ -108,7 +129,11 @@ describe('spec realization', () => {
   });
 
   it('emits cpu, memory and shm flags when the spec sets them', async () => {
-    await driver().prepare(fixtureSpec({ resources: { cpus: '2', memoryMb: 8192, shmSizeMb: 1024 } }));
+    await driver().prepare(
+      fixtureSpec({
+        resources: { cpus: '2', memoryMb: 8192, shmSizeMb: 1024 },
+      }),
+    );
     const args = createArgs().join(' ');
 
     expect(args).toContain('--cpus 2');
@@ -144,8 +169,12 @@ describe('spec realization', () => {
     await driver().prepare(spec);
     const args = createArgs();
 
-    const workspace = args.indexOf('/install/data/v2-sessions/g1/s1:/workspace');
-    const proxyCa = args.indexOf('/pki/proxy-ca.pem:/run/session/proxy-ca.pem:ro');
+    const workspace = args.indexOf(
+      '/install/data/v2-sessions/g1/s1:/workspace',
+    );
+    const proxyCa = args.indexOf(
+      '/pki/proxy-ca.pem:/run/session/proxy-ca.pem:ro',
+    );
     const image = args.indexOf('nanoclaw-agent:spike-p0');
     expect(workspace).toBeGreaterThan(-1);
     expect(proxyCa).toBeGreaterThan(workspace);
@@ -154,7 +183,10 @@ describe('spec realization', () => {
 
   it('carries exactly one value per env key, and never a credential', async () => {
     const spec = fixtureSpec();
-    spec.containers[0].env = { TZ: 'UTC', HTTPS_PROXY: 'http://127.0.0.1:15001' };
+    spec.containers[0].env = {
+      TZ: 'UTC',
+      HTTPS_PROXY: 'http://127.0.0.1:15001',
+    };
     await driver().prepare(spec);
     const args = createArgs();
 
@@ -176,7 +208,9 @@ describe('spec realization', () => {
     const args = createArgs();
 
     const network = args.indexOf('nc-spike-abcd-session');
-    const lastMount = args.indexOf('/install/container/CLAUDE.md:/app/CLAUDE.md:ro');
+    const lastMount = args.indexOf(
+      '/install/container/CLAUDE.md:/app/CLAUDE.md:ro',
+    );
     const image = args.indexOf('nanoclaw-agent:spike-p0');
     expect(network).toBeGreaterThan(lastMount);
     expect(image).toBeGreaterThan(network);
@@ -186,7 +220,9 @@ describe('spec realization', () => {
     // The contract's override rule (ContainerSpec.contributedEnv), realized in
     // Docker vocabulary: the later `-e` wins.
     const spec = fixtureSpec();
-    spec.containers[0].contributedEnv = { HTTPS_PROXY: 'http://gateway-must-win:15001' };
+    spec.containers[0].contributedEnv = {
+      HTTPS_PROXY: 'http://gateway-must-win:15001',
+    };
     await driver().prepare(spec);
     const args = createArgs();
 
@@ -197,7 +233,10 @@ describe('spec realization', () => {
 
   it('refuses to invent a missing mount source — Docker would mount a fresh empty directory', async () => {
     vi.mocked(fs.existsSync).mockReturnValueOnce(false);
-    await expect(driver().prepare(fixtureSpec())).rejects.toMatchObject({ kind: 'spec-invalid', retryable: false });
+    await expect(driver().prepare(fixtureSpec())).rejects.toMatchObject({
+      kind: 'spec-invalid',
+      retryable: false,
+    });
     expect(cli.callMatching(/^create /)).toBeUndefined();
   });
 });
@@ -207,13 +246,16 @@ describe('spec validation', () => {
     const spec = fixtureSpec();
     spec.containers[0].mounts.push({
       class: 'identity-material',
-      hostPath: '/install/data/session-materials/channel-abc-XXXX/session-key.pem',
+      hostPath:
+        '/install/data/session-materials/channel-abc-XXXX/session-key.pem',
       containerPath: '/run/session/session-key.pem',
       mode: 'ro',
       groupScope: 'g1',
     });
 
-    await expect(driver().prepare(spec)).rejects.toMatchObject({ kind: 'denied-by-policy' });
+    await expect(driver().prepare(spec)).rejects.toMatchObject({
+      kind: 'denied-by-policy',
+    });
     expect(cli.callMatching(/^create /)).toBeUndefined();
   });
 
@@ -227,7 +269,9 @@ describe('spec validation', () => {
       groupScope: 'g1',
     });
 
-    await expect(driver().prepare(spec)).rejects.toMatchObject({ kind: 'denied-by-policy' });
+    await expect(driver().prepare(spec)).rejects.toMatchObject({
+      kind: 'denied-by-policy',
+    });
   });
 
   it('rejects an install-surface mount outside the enumerated surface roots', async () => {
@@ -242,28 +286,37 @@ describe('spec validation', () => {
       groupScope: 'g1',
     });
 
-    await expect(driver().prepare(spec)).rejects.toMatchObject({ kind: 'denied-by-policy' });
+    await expect(driver().prepare(spec)).rejects.toMatchObject({
+      kind: 'denied-by-policy',
+    });
   });
 
   it('rejects a secret-shaped env key', async () => {
     const spec = fixtureSpec();
     spec.containers[0].env.ANTHROPIC_API_KEY = 'sk-live';
 
-    await expect(driver().prepare(spec)).rejects.toMatchObject({ kind: 'denied-by-policy' });
+    await expect(driver().prepare(spec)).rejects.toMatchObject({
+      kind: 'denied-by-policy',
+    });
   });
 
   it('rejects a spec with no agent container', async () => {
     const spec = fixtureSpec();
     spec.containers = spec.containers.filter((c) => c.role !== 'agent');
 
-    await expect(driver().prepare(spec)).rejects.toMatchObject({ kind: 'spec-invalid' });
+    await expect(driver().prepare(spec)).rejects.toMatchObject({
+      kind: 'spec-invalid',
+    });
   });
 });
 
 describe('failure normalization', () => {
   const cases: Array<[string, string]> = [
     ['manifest unknown', 'image-unavailable'],
-    ['Cannot connect to the Docker daemon at unix:///var/run/docker.sock', 'runtime-unavailable'],
+    [
+      'Cannot connect to the Docker daemon at unix:///var/run/docker.sock',
+      'runtime-unavailable',
+    ],
     ['no space left on device', 'resources-exhausted'],
     ['something nobody predicted', 'unknown'],
   ];
@@ -274,16 +327,23 @@ describe('failure normalization', () => {
         { match: /^inspect /, throws: new Error('No such object') },
         { match: /^create /, throws: new Error(message) },
       ];
-      await expect(driver().prepare(fixtureSpec())).rejects.toMatchObject({ kind });
+      await expect(driver().prepare(fixtureSpec())).rejects.toMatchObject({
+        kind,
+      });
     });
   }
 
   it('never lets the raw runtime error cross the seam', async () => {
     cli.responses = [
       { match: /^inspect /, throws: new Error('No such object') },
-      { match: /^create /, throws: new Error('/secrets/session-key.pem: permission denied') },
+      {
+        match: /^create /,
+        throws: new Error('/secrets/session-key.pem: permission denied'),
+      },
     ];
-    await expect(driver().prepare(fixtureSpec())).rejects.toThrow(/^session realization failed: unknown$/);
+    await expect(driver().prepare(fixtureSpec())).rejects.toThrow(
+      /^session realization failed: unknown$/,
+    );
   });
 
   it('leaves nothing allocated when create fails', async () => {
@@ -292,7 +352,9 @@ describe('failure normalization', () => {
       { match: /^create /, throws: new Error('boom') },
     ];
     await expect(driver().prepare(fixtureSpec())).rejects.toThrow();
-    expect(cli.joined().some((c) => c.startsWith('rm --force ncl-spike-s1'))).toBe(true);
+    expect(
+      cli.joined().some((c) => c.startsWith('rm --force ncl-spike-s1')),
+    ).toBe(true);
   });
 });
 
@@ -319,7 +381,11 @@ describe('lifecycle', () => {
     started.proc.emitExit(3);
     await settled();
 
-    expect(terminal).toHaveBeenCalledExactlyOnceWith({ kind: 'started-then-died', retryable: false, exitCode: 3 });
+    expect(terminal).toHaveBeenCalledExactlyOnceWith({
+      kind: 'started-then-died',
+      retryable: false,
+      exitCode: 3,
+    });
   });
 
   it('surfaces the stderr tail at warn when the container exits non-zero', async () => {
@@ -334,7 +400,9 @@ describe('lifecycle', () => {
 
     expect(log.warn).toHaveBeenCalledWith(
       'Container exited non-zero',
-      expect.objectContaining({ stderrTail: ['Unknown provider: mock. Registered: claude'] }),
+      expect.objectContaining({
+        stderrTail: ['Unknown provider: mock. Registered: claude'],
+      }),
     );
   });
 
@@ -414,7 +482,10 @@ describe('idempotency and adoption', () => {
     // does not own.
     cli.responses = [{ match: /^inspect /, output: 'other-install|g9|s1\n' }];
 
-    await expect(driver().prepare(fixtureSpec())).rejects.toMatchObject({ kind: 'unknown', retryable: false });
+    await expect(driver().prepare(fixtureSpec())).rejects.toMatchObject({
+      kind: 'unknown',
+      retryable: false,
+    });
     expect(cli.callMatching(/^create /)).toBeUndefined();
     expect(log.warn).toHaveBeenCalledWith(
       'Container name collision: existing container is not this session',
@@ -425,12 +496,26 @@ describe('idempotency and adoption', () => {
   it('scopes the container name by install, truncating-then-hashing over-length identities', async () => {
     // Two peer installs holding the same session id must never alias one
     // runtime object; distinct keys sharing a truncated prefix must not either.
-    const longA = fixtureSpec({ key: { installSlug: 'x'.repeat(60), agentGroupId: 'g1', sessionId: 'same' } });
-    const longB = fixtureSpec({ key: { installSlug: 'x'.repeat(61), agentGroupId: 'g1', sessionId: 'same' } });
+    const longA = fixtureSpec({
+      key: {
+        installSlug: 'x'.repeat(60),
+        agentGroupId: 'g1',
+        sessionId: 'same',
+      },
+    });
+    const longB = fixtureSpec({
+      key: {
+        installSlug: 'x'.repeat(61),
+        agentGroupId: 'g1',
+        sessionId: 'same',
+      },
+    });
     await driver().prepare(longA);
     const first = createArgs()[3];
     cli = new FakeCli('docker');
-    cli.responses = [{ match: /^inspect /, throws: new Error('No such object') }];
+    cli.responses = [
+      { match: /^inspect /, throws: new Error('No such object') },
+    ];
     await driver().prepare(longB);
     const second = createArgs()[3];
 
@@ -440,7 +525,12 @@ describe('idempotency and adoption', () => {
   });
 
   it('rebuilds handles from labels alone, filtered to this install and the agent role', async () => {
-    cli.responses = [{ match: /^ps -a/, output: 'ncl-spike-s1|running|g1|s1\nncl-spike-s2|running|g2|s2\n' }];
+    cli.responses = [
+      {
+        match: /^ps -a/,
+        output: 'ncl-spike-s1|running|g1|s1\nncl-spike-s2|running|g2|s2\n',
+      },
+    ];
 
     const snapshots = await driver().listSessions('spike');
 
@@ -463,7 +553,8 @@ describe('idempotency and adoption', () => {
     cli.responses = [
       {
         match: /^ps -a/,
-        output: 'ncl-spike-s1|exited|g1|s1\nncl-spike-s2|created|g2|s2\nncl-spike-s3|running|g3|s3\n',
+        output:
+          'ncl-spike-s1|exited|g1|s1\nncl-spike-s2|created|g2|s2\nncl-spike-s3|running|g3|s3\n',
       },
     ];
 
@@ -482,22 +573,39 @@ describe('idempotency and adoption', () => {
     // they would race a freshly-named replacement for the same session
     // directory. The old cleanupOrphans() stopped them on every start; this is
     // that behavior, scoped to exactly the containers adoption cannot claim.
-    cli.responses = [{ match: /^ps --filter/, output: 'nanoclaw-v2-agent-one-1700000000000|\nncl-spike-s1|s1\n' }];
+    cli.responses = [
+      {
+        match: /^ps --filter/,
+        output: 'nanoclaw-v2-agent-one-1700000000000|\nncl-spike-s1|s1\n',
+      },
+    ];
 
     await driver().reapResidue('spike');
 
-    expect(cli.joined()).toContain('rm --force nanoclaw-v2-agent-one-1700000000000');
-    expect(cli.joined().some((c) => c === 'rm --force ncl-spike-s1')).toBe(false);
+    expect(cli.joined()).toContain(
+      'rm --force nanoclaw-v2-agent-one-1700000000000',
+    );
+    expect(cli.joined().some((c) => c === 'rm --force ncl-spike-s1')).toBe(
+      false,
+    );
   });
 
   it('reaps install-owned networks whose containers are gone', async () => {
-    cli.responses = [{ match: /^network ls/, output: 'nc-spike-a-session\nnc-spike-a-uplink\n' }];
+    cli.responses = [
+      {
+        match: /^network ls/,
+        output: 'nc-spike-a-session\nnc-spike-a-uplink\n',
+      },
+    ];
 
     await driver().reapResidue('spike');
 
     expect(cli.joined()).toContain('network rm nc-spike-a-session');
     expect(cli.joined()).toContain('network rm nc-spike-a-uplink');
-    expect(log.info).toHaveBeenCalledWith('Removed orphaned networks', expect.objectContaining({ count: 2 }));
+    expect(log.info).toHaveBeenCalledWith(
+      'Removed orphaned networks',
+      expect.objectContaining({ count: 2 }),
+    );
   });
 
   it('refuses a network name it did not shape', async () => {
@@ -553,8 +661,14 @@ describe('watchSessions', () => {
     proc.emitStdout(`${dieEvent('s1')}\n${dieEvent('s2', 'start')}\n`);
 
     expect(seen).toEqual([
-      { key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's1' }, kind: 'terminal' },
-      { key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's2' }, kind: 'phase' },
+      {
+        key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's1' },
+        kind: 'terminal',
+      },
+      {
+        key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's2' },
+        kind: 'phase',
+      },
     ]);
   });
 
@@ -566,7 +680,9 @@ describe('watchSessions', () => {
     d.watchSessions('spike', (e) => kept.push(e));
 
     watch.stop();
-    cli.started.find((s) => s.args[0] === 'events')!.proc.emitStdout(`${dieEvent('s1')}\n`);
+    cli.started
+      .find((s) => s.args[0] === 'events')!
+      .proc.emitStdout(`${dieEvent('s1')}\n`);
 
     expect(seen).toHaveLength(0);
     expect(kept).toHaveLength(1);
@@ -586,7 +702,12 @@ describe('watchSessions', () => {
       expect(procs).toHaveLength(2);
       // The reconnected stream serves the same subscribers: supervision has no gap.
       procs.at(-1)!.proc.emitStdout(`${dieEvent('s1')}\n`);
-      expect(seen).toEqual([{ key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's1' }, kind: 'terminal' }]);
+      expect(seen).toEqual([
+        {
+          key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's1' },
+          kind: 'terminal',
+        },
+      ]);
     } finally {
       vi.useRealTimers();
     }
@@ -602,21 +723,34 @@ describe('watchSessions', () => {
       const d = driver();
       // Two keys the driver knows: during the gap s1 dies and `--rm` removes
       // it (absent from the re-list); s2 dies and sits exited (a corpse).
-      cli.responses = [{ match: /^ps -a/, output: 'ncl-spike-s1|running|g1|s1\nncl-spike-s2|running|g1|s2\n' }];
+      cli.responses = [
+        {
+          match: /^ps -a/,
+          output: 'ncl-spike-s1|running|g1|s1\nncl-spike-s2|running|g1|s2\n',
+        },
+      ];
       await d.listSessions('spike');
 
       const seen: SessionEvent[] = [];
       d.watchSessions('spike', (e) => seen.push(e));
       expect(seen).toEqual([]); // the first connect is not a gap — nothing to replay
 
-      cli.responses = [{ match: /^ps -a/, output: 'ncl-spike-s2|exited|g1|s2\n' }];
+      cli.responses = [
+        { match: /^ps -a/, output: 'ncl-spike-s2|exited|g1|s2\n' },
+      ];
       cli.started.find((s) => s.args[0] === 'events')!.proc.emitExit(1);
       await vi.advanceTimersByTimeAsync(1_000);
 
       // Hints, not transitions: the hub still truth-reads each one.
       expect(seen).toEqual([
-        { key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's2' }, kind: 'terminal' },
-        { key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's1' }, kind: 'terminal' },
+        {
+          key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's2' },
+          kind: 'terminal',
+        },
+        {
+          key: { installSlug: 'spike', agentGroupId: 'g1', sessionId: 's1' },
+          kind: 'terminal',
+        },
       ]);
     } finally {
       vi.useRealTimers();
@@ -631,12 +765,19 @@ describe('watchSessions', () => {
     vi.useFakeTimers();
     try {
       const d = driver();
-      cli.responses = [{ match: /^ps -a/, output: 'ncl-spike-s1|running|g1|s1\n' }];
+      cli.responses = [
+        { match: /^ps -a/, output: 'ncl-spike-s1|running|g1|s1\n' },
+      ];
       await d.listSessions('spike');
       const seen: SessionEvent[] = [];
       d.watchSessions('spike', (e) => seen.push(e));
 
-      cli.responses = [{ match: /^ps -a/, throws: new Error('Cannot connect to the Docker daemon') }];
+      cli.responses = [
+        {
+          match: /^ps -a/,
+          throws: new Error('Cannot connect to the Docker daemon'),
+        },
+      ];
       cli.started.find((s) => s.args[0] === 'events')!.proc.emitExit(1);
       await vi.advanceTimersByTimeAsync(1_000);
 
@@ -649,10 +790,20 @@ describe('watchSessions', () => {
 
 describe('dockerEventToSessionEvent', () => {
   it('drops label-less documents and unknown actions — hints may drop', () => {
-    expect(dockerEventToSessionEvent({ Action: 'die', Actor: { Attributes: { name: 'x' } } }, 'spike')).toBeNull();
     expect(
       dockerEventToSessionEvent(
-        { Action: 'exec_create: bash', Actor: { Attributes: { [LABELS.group]: 'g1', [LABELS.session]: 's1' } } },
+        { Action: 'die', Actor: { Attributes: { name: 'x' } } },
+        'spike',
+      ),
+    ).toBeNull();
+    expect(
+      dockerEventToSessionEvent(
+        {
+          Action: 'exec_create: bash',
+          Actor: {
+            Attributes: { [LABELS.group]: 'g1', [LABELS.session]: 's1' },
+          },
+        },
         'spike',
       ),
     ).toBeNull();
@@ -667,8 +818,15 @@ describe('ensureDockerRunning', () => {
   });
 
   it('throws a fatal startup error when it does not', () => {
-    cli.responses = [{ match: /^info$/, throws: new Error('Cannot connect to the Docker daemon') }];
-    expect(() => ensureDockerRunning(cli)).toThrow('Container runtime is required but failed to start');
+    cli.responses = [
+      {
+        match: /^info$/,
+        throws: new Error('Cannot connect to the Docker daemon'),
+      },
+    ];
+    expect(() => ensureDockerRunning(cli)).toThrow(
+      'Container runtime is required but failed to start',
+    );
     expect(log.error).toHaveBeenCalled();
   });
 });

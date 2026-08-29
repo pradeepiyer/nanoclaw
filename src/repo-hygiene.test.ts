@@ -12,7 +12,9 @@ const ALLOWED_SYMLINKS = new Set(['AGENTS.md', '.agents/skills']);
 
 describe('repo hygiene', () => {
   it('tracks no symlinks outside the allowlist', () => {
-    const listing = execFileSync('git', ['ls-files', '-s'], { encoding: 'utf8' });
+    const listing = execFileSync('git', ['ls-files', '-s'], {
+      encoding: 'utf8',
+    });
     const symlinks = listing
       .split('\n')
       .filter((line) => line.startsWith('120000'))

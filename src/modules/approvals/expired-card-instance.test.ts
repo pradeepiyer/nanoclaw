@@ -14,8 +14,16 @@
 import * as fs from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { closeDb, createAgentGroup, initTestDb, runMigrations } from '../../db/index.js';
-import { createPendingApproval, getPendingApproval } from '../../db/sessions.js';
+import {
+  closeDb,
+  createAgentGroup,
+  initTestDb,
+  runMigrations,
+} from '../../db/index.js';
+import {
+  createPendingApproval,
+  getPendingApproval,
+} from '../../db/sessions.js';
 import type { ChannelDeliveryAdapter } from '../../delivery.js';
 import type { PendingApproval } from '../../types.js';
 
@@ -34,8 +42,12 @@ vi.mock('@onecli-sh/sdk', () => ({
   },
 }));
 
-const { editCardExpired, startOneCLIApprovalHandler, stopOneCLIApprovalHandler, ONECLI_ACTION } =
-  await import('./onecli-approvals.js');
+const {
+  editCardExpired,
+  startOneCLIApprovalHandler,
+  stopOneCLIApprovalHandler,
+  ONECLI_ACTION,
+} = await import('./onecli-approvals.js');
 
 const TEST_DIR = '/tmp/nanoclaw-test-expired-card-instance';
 
@@ -52,13 +64,23 @@ interface DeliveredEdit {
 const delivered: DeliveredEdit[] = [];
 
 const captureAdapter: ChannelDeliveryAdapter = {
-  async deliver(channelType, platformId, _threadId, _kind, _content, _files, instance) {
+  async deliver(
+    channelType,
+    platformId,
+    _threadId,
+    _kind,
+    _content,
+    _files,
+    instance,
+  ) {
     delivered.push({ channelType, platformId, instance });
     return 'pm-edited';
   },
 };
 
-async function seedPending(overrides: Partial<PendingApproval> = {}): Promise<PendingApproval> {
+async function seedPending(
+  overrides: Partial<PendingApproval> = {},
+): Promise<PendingApproval> {
   const row: PendingApproval = {
     approval_id: 'oa-test0001',
     session_id: null,
@@ -86,12 +108,19 @@ async function seedPending(overrides: Partial<PendingApproval> = {}): Promise<Pe
 beforeEach(async () => {
   vi.clearAllMocks();
   delivered.length = 0;
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
 
-  await createAgentGroup({ id: 'ag-b', name: 'Agent B', folder: 'agent-b', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-b',
+    name: 'Agent B',
+    folder: 'agent-b',
+    agent_provider: null,
+    created_at: now(),
+  });
 
   startOneCLIApprovalHandler(captureAdapter);
 });
@@ -99,7 +128,8 @@ beforeEach(async () => {
 afterEach(async () => {
   stopOneCLIApprovalHandler();
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 describe('expired OneCLI card edits carry the posting instance', () => {
@@ -133,7 +163,10 @@ describe('expired OneCLI card edits carry the posting instance', () => {
   });
 
   it('a default-instance install is unchanged — the edit still addresses the default key', async () => {
-    const row = await seedPending({ instance: 'slack', platform_id: 'D-DEFAULT-admin-1' });
+    const row = await seedPending({
+      instance: 'slack',
+      platform_id: 'D-DEFAULT-admin-1',
+    });
 
     await editCardExpired(row, 'no response');
 

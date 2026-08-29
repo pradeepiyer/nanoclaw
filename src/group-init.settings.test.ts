@@ -11,15 +11,32 @@ vi.mock('./config.js', async (importOriginal) => ({
 }));
 
 vi.mock('./log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
-import { closeDb, createAgentGroup, initTestDb, runMigrations } from './db/index.js';
+import {
+  closeDb,
+  createAgentGroup,
+  initTestDb,
+  runMigrations,
+} from './db/index.js';
 import { initGroupFilesystem } from './group-init.js';
 import type { AgentGroup } from './types.js';
 
 async function makeGroup(id: string): Promise<AgentGroup> {
-  const ag = { id, name: id, folder: id, agent_provider: null, created_at: new Date().toISOString() } as AgentGroup;
+  const ag = {
+    id,
+    name: id,
+    folder: id,
+    agent_provider: null,
+    created_at: new Date().toISOString(),
+  } as AgentGroup;
   await createAgentGroup(ag);
   return ag;
 }
@@ -39,7 +56,11 @@ describe('group filesystem scaffold', () => {
   it('creates plugins/ so the read-only plugins mount is unconditional', async () => {
     const ag = await makeGroup('ag-plugins');
     await initGroupFilesystem(ag, {});
-    expect(fs.statSync(path.join(TEST_ROOT, 'groups', ag.folder, 'plugins')).isDirectory()).toBe(true);
+    expect(
+      fs
+        .statSync(path.join(TEST_ROOT, 'groups', ag.folder, 'plugins'))
+        .isDirectory(),
+    ).toBe(true);
   });
 });
 
@@ -48,18 +69,34 @@ describe('default settings.json for new groups', () => {
     const ag = await makeGroup('ag-lean');
     await initGroupFilesystem(ag, {});
 
-    const file = path.join(TEST_ROOT, 'data', 'v2-sessions', ag.id, '.claude-shared', 'settings.json');
+    const file = path.join(
+      TEST_ROOT,
+      'data',
+      'v2-sessions',
+      ag.id,
+      '.claude-shared',
+      'settings.json',
+    );
     const settings = JSON.parse(fs.readFileSync(file, 'utf-8'));
 
     expect(settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS).toBeUndefined();
     expect(settings.env.CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD).toBe('1');
-    expect(JSON.stringify(settings.hooks.PreCompact)).toContain('compact-instructions');
+    expect(JSON.stringify(settings.hooks.PreCompact)).toContain(
+      'compact-instructions',
+    );
   });
 
   it('never rewrites an existing settings.json — a hand-edited re-enable sticks', async () => {
     const ag = await makeGroup('ag-reenable');
     await initGroupFilesystem(ag, {});
-    const file = path.join(TEST_ROOT, 'data', 'v2-sessions', ag.id, '.claude-shared', 'settings.json');
+    const file = path.join(
+      TEST_ROOT,
+      'data',
+      'v2-sessions',
+      ag.id,
+      '.claude-shared',
+      'settings.json',
+    );
 
     // Operator re-enables both features by editing the file (the documented path).
     const edited = JSON.parse(fs.readFileSync(file, 'utf-8'));

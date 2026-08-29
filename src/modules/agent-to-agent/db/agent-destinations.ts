@@ -36,7 +36,10 @@
  */
 import type { AgentDestination } from '../../../types.js';
 import { getDb } from '../../../db/connection.js';
-import { deletePoliciesTouching, removeMessagePolicy } from './agent-message-policies.js';
+import {
+  deletePoliciesTouching,
+  removeMessagePolicy,
+} from './agent-message-policies.js';
 
 /**
  * ⚠️  Caller responsibility: after this returns, call
@@ -52,8 +55,13 @@ export async function createDestination(row: AgentDestination): Promise<void> {
   );
 }
 
-export async function getDestinations(agentGroupId: string): Promise<AgentDestination[]> {
-  return getDb().all<AgentDestination>('SELECT * FROM agent_destinations WHERE agent_group_id = ?', agentGroupId);
+export async function getDestinations(
+  agentGroupId: string,
+): Promise<AgentDestination[]> {
+  return getDb().all<AgentDestination>(
+    'SELECT * FROM agent_destinations WHERE agent_group_id = ?',
+    agentGroupId,
+  );
 }
 
 export async function getDestinationByName(
@@ -101,7 +109,10 @@ export async function hasDestination(
  * `writeDestinations(agentGroupId, <sessionId>)` for each active session
  * so the deletion propagates to the running container's inbound.db.
  */
-export async function deleteDestination(agentGroupId: string, localName: string): Promise<void> {
+export async function deleteDestination(
+  agentGroupId: string,
+  localName: string,
+): Promise<void> {
   // Resolve the target first so we can drop a matching policy for this edge (no ghost gate on re-wire).
   const row = await getDb().get<{ target_type: string; target_id: string }>(
     'SELECT target_type, target_id FROM agent_destinations WHERE agent_group_id = ? AND local_name = ?',
@@ -128,7 +139,9 @@ export async function deleteDestination(agentGroupId: string, localName: string)
  * `agentGroupId` as a destination target. Use `getDestinationReferencers`
  * below to find them BEFORE calling this (the rows are gone afterwards).
  */
-export async function deleteAllDestinationsTouching(agentGroupId: string): Promise<void> {
+export async function deleteAllDestinationsTouching(
+  agentGroupId: string,
+): Promise<void> {
   await getDb().run(
     'DELETE FROM agent_destinations WHERE agent_group_id = ? OR (target_type = ? AND target_id = ?)',
     agentGroupId,
@@ -145,7 +158,9 @@ export async function deleteAllDestinationsTouching(agentGroupId: string): Promi
  * projections to refresh after the delete — the rows are gone once the
  * delete runs.
  */
-export async function getDestinationReferencers(targetAgentGroupId: string): Promise<string[]> {
+export async function getDestinationReferencers(
+  targetAgentGroupId: string,
+): Promise<string[]> {
   const rows = await getDb().all<{ agent_group_id: string }>(
     "SELECT DISTINCT agent_group_id FROM agent_destinations WHERE target_type = 'agent' AND target_id = ? AND agent_group_id != ?",
     targetAgentGroupId,

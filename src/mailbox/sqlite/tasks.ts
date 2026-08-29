@@ -22,8 +22,16 @@ import type { TaskWrite } from '../model.js';
  * or an on-demand run. Tasks never set platform/channel/thread (they fire into
  * an isolated system session), so those columns are always NULL.
  */
-export function insertTaskRow(db: Database.Database, row: TaskWrite, sequence = nextEvenSeq(db)): void {
-  const record = createTaskInboundRecord(row, sequence, new Date().toISOString());
+export function insertTaskRow(
+  db: Database.Database,
+  row: TaskWrite,
+  sequence = nextEvenSeq(db),
+): void {
+  const record = createTaskInboundRecord(
+    row,
+    sequence,
+    new Date().toISOString(),
+  );
   db.prepare(
     `INSERT INTO messages_in
        (id, seq, kind, timestamp, status, process_after, recurrence, series_id, tries, trigger,
@@ -74,8 +82,11 @@ export function resumeTask(db: Database.Database, taskId: string): number {
 }
 
 export function deleteTask(db: Database.Database, taskId: string): number {
-  return db.prepare("DELETE FROM messages_in WHERE (id = ? OR series_id = ?) AND kind = 'task'").run(taskId, taskId)
-    .changes;
+  return db
+    .prepare(
+      "DELETE FROM messages_in WHERE (id = ? OR series_id = ?) AND kind = 'task'",
+    )
+    .run(taskId, taskId).changes;
 }
 
 export interface TaskUpdate {
@@ -91,7 +102,11 @@ export interface TaskUpdate {
 // agent last saw. Due occurrences are already execution candidates and remain
 // immutable; only future pending or paused occurrences are updated. Returns
 // the number of rows touched.
-export function updateTask(db: Database.Database, taskId: string, update: TaskUpdate): number {
+export function updateTask(
+  db: Database.Database,
+  taskId: string,
+  update: TaskUpdate,
+): number {
   const rows = db
     .prepare(
       `SELECT id, content FROM messages_in
@@ -105,7 +120,8 @@ export function updateTask(db: Database.Database, taskId: string, update: TaskUp
 
   const setProcessAfter = update.processAfter !== undefined;
   const setRecurrence = update.recurrence !== undefined;
-  const mergeContent = update.prompt !== undefined || update.script !== undefined;
+  const mergeContent =
+    update.prompt !== undefined || update.script !== undefined;
 
   const tx = db.transaction(() => {
     for (const row of rows) {
@@ -130,7 +146,9 @@ export function updateTask(db: Database.Database, taskId: string, update: TaskUp
       }
       params.push(row.id);
 
-      db.prepare(`UPDATE messages_in SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+      db.prepare(`UPDATE messages_in SET ${sets.join(', ')} WHERE id = ?`).run(
+        ...params,
+      );
     }
   });
   tx();
@@ -150,9 +168,13 @@ export interface RecurringMessage {
 // Failed occurrences (script-skip:error runs) re-arm too — a broken monitor
 // must keep its series alive so backoff can throttle it and the cap can pause
 // it; dropping the row would silently kill the series on first script error.
-export function getCompletedRecurring(db: Database.Database): RecurringMessage[] {
+export function getCompletedRecurring(
+  db: Database.Database,
+): RecurringMessage[] {
   return db
-    .prepare("SELECT * FROM messages_in WHERE status IN ('completed', 'failed') AND recurrence IS NOT NULL")
+    .prepare(
+      "SELECT * FROM messages_in WHERE status IN ('completed', 'failed') AND recurrence IS NOT NULL",
+    )
     .all() as RecurringMessage[];
 }
 
@@ -164,7 +186,10 @@ export function getCompletedRecurring(db: Database.Database): RecurringMessage[]
  * failures from host-sweep's MAX_TRIES path): a series failing for either
  * reason should throttle, not spin.
  */
-export function trailingFailedRuns(db: Database.Database, seriesKey: string): number {
+export function trailingFailedRuns(
+  db: Database.Database,
+  seriesKey: string,
+): number {
   const rows = db
     .prepare(
       `SELECT status FROM messages_in
@@ -197,6 +222,11 @@ export function insertRecurrence(
   });
 }
 
-export function clearRecurrence(db: Database.Database, messageId: string): void {
-  db.prepare('UPDATE messages_in SET recurrence = NULL WHERE id = ?').run(messageId);
+export function clearRecurrence(
+  db: Database.Database,
+  messageId: string,
+): void {
+  db.prepare('UPDATE messages_in SET recurrence = NULL WHERE id = ?').run(
+    messageId,
+  );
 }

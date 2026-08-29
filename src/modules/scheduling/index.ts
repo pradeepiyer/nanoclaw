@@ -28,9 +28,15 @@ import {
   handleUpdateTask,
 } from './actions.js';
 
-const SCHEDULING_UNGUARDED = unguarded('scheduling: container-initiated task mutations via system message');
+const SCHEDULING_UNGUARDED = unguarded(
+  'scheduling: container-initiated task mutations via system message',
+);
 
-registerDeliveryAction('schedule_task', handleScheduleTask, SCHEDULING_UNGUARDED);
+registerDeliveryAction(
+  'schedule_task',
+  handleScheduleTask,
+  SCHEDULING_UNGUARDED,
+);
 registerDeliveryAction('cancel_task', handleCancelTask, SCHEDULING_UNGUARDED);
 registerDeliveryAction('pause_task', handlePauseTask, SCHEDULING_UNGUARDED);
 registerDeliveryAction('resume_task', handleResumeTask, SCHEDULING_UNGUARDED);

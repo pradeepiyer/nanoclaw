@@ -18,38 +18,56 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adapter } from 'chat';
 
 import type { ChannelSetup, InboundMessage } from './adapter.js';
-import { createChatSdkBridge, registerBridgeInboundPolicy } from './chat-sdk-bridge.js';
+import {
+  createChatSdkBridge,
+  registerBridgeInboundPolicy,
+} from './chat-sdk-bridge.js';
 
 vi.mock('../webhook-server.js', () => ({
   registerWebhookAdapter: vi.fn(),
 }));
 
 vi.mock('../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 /** Minimal ChatInstance surface the test drives. */
 interface ChatDriver {
-  processMessage(adapter: Adapter, threadId: string, message: unknown): Promise<void>;
+  processMessage(
+    adapter: Adapter,
+    threadId: string,
+    message: unknown,
+  ): Promise<void>;
 }
 
 /**
  * Stub adapter that captures the ChatInstance at initialize so tests can
  * push messages through the SDK's real dispatch into the bridge handlers.
  */
-function makeStubAdapter(name: string): { adapter: Adapter; chat: () => ChatDriver } {
+function makeStubAdapter(name: string): {
+  adapter: Adapter;
+  chat: () => ChatDriver;
+} {
   let captured: ChatDriver | null = null;
   const adapter = {
     name,
     initialize: async (chat: ChatDriver) => {
       captured = chat;
     },
-    channelIdFromThreadId: (threadId: string) => threadId.split(':').slice(0, 2).join(':'),
+    channelIdFromThreadId: (threadId: string) =>
+      threadId.split(':').slice(0, 2).join(':'),
   } as unknown as Adapter;
   return {
     adapter,
     chat: () => {
-      if (!captured) throw new Error('adapter not initialized — call bridge.setup() first');
+      if (!captured)
+        throw new Error('adapter not initialized — call bridge.setup() first');
       return captured;
     },
   };
@@ -63,7 +81,13 @@ function makeMessage(text: string): Record<string, unknown> {
   const payload = {
     id,
     text,
-    author: { userId: 'U123', userName: 'human', fullName: 'A Human', isBot: false, isMe: false },
+    author: {
+      userId: 'U123',
+      userName: 'human',
+      fullName: 'A Human',
+      isBot: false,
+      isMe: false,
+    },
   };
   return {
     ...payload,
@@ -131,8 +155,16 @@ describe('registerBridgeInboundPolicy', () => {
     const bridge = createChatSdkBridge({ adapter, supportsThreads: true });
     await bridge.setup(hostConfig);
 
-    await chat().processMessage(adapter, 'slack:C1:T1', makeMessage('hello there'));
-    await chat().processMessage(adapter, 'slack:C1:T2', makeMessage('please BLOCK me'));
+    await chat().processMessage(
+      adapter,
+      'slack:C1:T1',
+      makeMessage('hello there'),
+    );
+    await chat().processMessage(
+      adapter,
+      'slack:C1:T2',
+      makeMessage('please BLOCK me'),
+    );
 
     expect(calls).toHaveLength(1);
     expect(calls[0].platformId).toBe('slack:C1');
@@ -151,7 +183,11 @@ describe('registerBridgeInboundPolicy', () => {
     const applicationsBefore = wrapApplications.length;
     await bridge.setup(hostConfig);
 
-    await chat().processMessage(adapter, 'discord:C1:T1', makeMessage('please BLOCK me'));
+    await chat().processMessage(
+      adapter,
+      'discord:C1:T1',
+      makeMessage('please BLOCK me'),
+    );
 
     expect(wrapApplications).toHaveLength(applicationsBefore);
     expect(calls).toHaveLength(1);
@@ -166,7 +202,10 @@ describe('registerBridgeInboundPolicy', () => {
     const applicationsBefore = wrapApplications.length;
 
     const def = makeStubAdapter('slack');
-    const defBridge = createChatSdkBridge({ adapter: def.adapter, supportsThreads: true });
+    const defBridge = createChatSdkBridge({
+      adapter: def.adapter,
+      supportsThreads: true,
+    });
     const defHost = makeHostConfig();
     await defBridge.setup(defHost.hostConfig);
 
@@ -179,13 +218,24 @@ describe('registerBridgeInboundPolicy', () => {
     const namedHost = makeHostConfig();
     await namedBridge.setup(namedHost.hostConfig);
 
-    expect(wrapApplications.slice(applicationsBefore)).toEqual(['slack', 'slack-tester']);
+    expect(wrapApplications.slice(applicationsBefore)).toEqual([
+      'slack',
+      'slack-tester',
+    ]);
 
     // Each instance's inbound is tagged with ITS OWN key — per-instance
     // closures, not one shared wrapped setup.
-    await named.chat().processMessage(named.adapter, 'slack:C9:T9', makeMessage('to the named instance'));
+    await named
+      .chat()
+      .processMessage(
+        named.adapter,
+        'slack:C9:T9',
+        makeMessage('to the named instance'),
+      );
     expect(namedHost.calls).toHaveLength(1);
-    expect((namedHost.calls[0].message.content as Record<string, unknown>).policyTag).toBe('wrapped:slack-tester');
+    expect(
+      (namedHost.calls[0].message.content as Record<string, unknown>).policyTag,
+    ).toBe('wrapped:slack-tester');
     expect(defHost.calls).toHaveLength(0);
 
     await defBridge.teardown();

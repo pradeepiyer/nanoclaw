@@ -36,7 +36,12 @@ export function normalizeOption(raw: RawOption): NormalizedOption {
     label,
     selectedLabel: raw.selectedLabel ?? label,
     value: raw.value ?? label,
-    style: raw.style === 'primary' || raw.style === 'danger' || raw.style === 'default' ? raw.style : undefined,
+    style:
+      raw.style === 'primary' ||
+      raw.style === 'danger' ||
+      raw.style === 'default'
+        ? raw.style
+        : undefined,
   };
 }
 

@@ -56,7 +56,11 @@ interface ReasonArming {
  */
 const awaitingReason = new Map<string, ReasonArming>();
 
-function dmKey(channelType: string, platformId: string, instance: string = channelType): string {
+function dmKey(
+  channelType: string,
+  platformId: string,
+  instance: string = channelType,
+): string {
   return `${instance}:${platformId}`;
 }
 
@@ -81,22 +85,38 @@ function extractText(event: InboundEvent): string {
  * capture. If we can't reach the admin (no DM, no adapter, delivery throws) we
  * finalize a plain reject immediately rather than strand the requesting agent.
  */
-export async function armReasonCapture(approval: PendingApproval, session: Session, userId: string): Promise<void> {
-  const expiresAt = new Date(Date.now() + REASON_CAPTURE_WINDOW_MS).toISOString();
-  if (!(await markApprovalAwaitingReason(approval.approval_id, expiresAt))) return;
+export async function armReasonCapture(
+  approval: PendingApproval,
+  session: Session,
+  userId: string,
+): Promise<void> {
+  const expiresAt = new Date(
+    Date.now() + REASON_CAPTURE_WINDOW_MS,
+  ).toISOString();
+  if (!(await markApprovalAwaitingReason(approval.approval_id, expiresAt)))
+    return;
 
   const channelType = approval.channel_type;
   const platformId = approval.platform_id;
   const instance = approval.instance ?? channelType ?? undefined;
   const adapter = getDeliveryAdapter();
   if (!userId || !channelType || !platformId || !adapter) {
-    log.warn('reject-with-reason: cannot reach approver, finalizing plain reject', {
-      approvalId: approval.approval_id,
+    log.warn(
+      'reject-with-reason: cannot reach approver, finalizing plain reject',
+      {
+        approvalId: approval.approval_id,
+        userId,
+        hasDeliveryAddress: Boolean(channelType && platformId),
+        hasAdapter: Boolean(adapter),
+      },
+    );
+    await finalizeReject(
+      approval,
+      session,
       userId,
-      hasDeliveryAddress: Boolean(channelType && platformId),
-      hasAdapter: Boolean(adapter),
-    });
-    await finalizeReject(approval, session, userId, undefined, 'awaiting_reason');
+      undefined,
+      'awaiting_reason',
+    );
     return;
   }
 
@@ -111,18 +131,33 @@ export async function armReasonCapture(approval: PendingApproval, session: Sessi
       instance,
     );
   } catch (err) {
-    log.error('reject-with-reason: reason prompt delivery failed, finalizing plain reject', {
-      approvalId: approval.approval_id,
-      err,
-    });
-    await finalizeReject(approval, session, userId, undefined, 'awaiting_reason');
+    log.error(
+      'reject-with-reason: reason prompt delivery failed, finalizing plain reject',
+      {
+        approvalId: approval.approval_id,
+        err,
+      },
+    );
+    await finalizeReject(
+      approval,
+      session,
+      userId,
+      undefined,
+      'awaiting_reason',
+    );
     return;
   }
 
   // Prompt is out — now hold the row and arm capture. Order matters: a reply
   // can't arrive before the prompt is read, so there's no lost-message window.
-  awaitingReason.set(dmKey(channelType, platformId, instance), { approvalId: approval.approval_id, userId });
-  log.info('reject-with-reason: awaiting reason reply', { approvalId: approval.approval_id, userId });
+  awaitingReason.set(dmKey(channelType, platformId, instance), {
+    approvalId: approval.approval_id,
+    userId,
+  });
+  log.info('reject-with-reason: awaiting reason reply', {
+    approvalId: approval.approval_id,
+    userId,
+  });
 }
 
 /**
@@ -132,7 +167,9 @@ export async function armReasonCapture(approval: PendingApproval, session: Sessi
  *
  * Exported for tests; registered as the interceptor below.
  */
-export async function captureReasonReply(event: InboundEvent): Promise<boolean> {
+export async function captureReasonReply(
+  event: InboundEvent,
+): Promise<boolean> {
   const key = dmKey(event.channelType, event.platformId, event.instance);
   const arming = awaitingReason.get(key);
   if (!arming) return false;
@@ -147,7 +184,9 @@ export async function captureReasonReply(event: InboundEvent): Promise<boolean> 
     return false;
   }
 
-  const session = approval.session_id ? await getSession(approval.session_id) : null;
+  const session = approval.session_id
+    ? await getSession(approval.session_id)
+    : null;
   if (!session) {
     await deletePendingApproval(approval.approval_id);
     return true;
@@ -171,15 +210,21 @@ registerMessageInterceptor(captureReasonReply);
  * requesting agent always gets its decision. Called once per sweep tick.
  */
 export async function sweepAwaitingReasonRejects(): Promise<void> {
-  const rows = await getExpiredAwaitingReasonApprovals(new Date().toISOString());
+  const rows = await getExpiredAwaitingReasonApprovals(
+    new Date().toISOString(),
+  );
   for (const approval of rows) {
-    const session = approval.session_id ? await getSession(approval.session_id) : null;
+    const session = approval.session_id
+      ? await getSession(approval.session_id)
+      : null;
     if (!session) {
       await deletePendingApproval(approval.approval_id);
       continue;
     }
     // Plain reject, unknown resolver — the admin opted in but never typed.
     await finalizeReject(approval, session, '');
-    log.info('reject-with-reason: window elapsed, finalized as plain reject', { approvalId: approval.approval_id });
+    log.info('reject-with-reason: window elapsed, finalized as plain reject', {
+      approvalId: approval.approval_id,
+    });
   }
 }

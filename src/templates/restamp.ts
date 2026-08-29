@@ -18,14 +18,24 @@
 import fs from 'fs';
 import path from 'path';
 
-import { mcpServerPluginOwner, resolveGroupTimezone, type McpServerConfig } from '../container-config.js';
+import {
+  mcpServerPluginOwner,
+  resolveGroupTimezone,
+  type McpServerConfig,
+} from '../container-config.js';
 import { getAgentGroup, getAllAgentGroups } from '../db/agent-groups.js';
-import { getContainerConfig, updateContainerConfigJson } from '../db/container-configs.js';
+import {
+  getContainerConfig,
+  updateContainerConfigJson,
+} from '../db/container-configs.js';
 import { findTaskSessions } from '../db/sessions.js';
 import { resolveGroupFolderPath } from '../group-folder.js';
 import { PERSONA_PREPEND_FILE, readGroupPersona } from '../group-persona.js';
 import { log } from '../log.js';
-import { createScheduledTask, taskNameSlug } from '../modules/scheduling/create.js';
+import {
+  createScheduledTask,
+  taskNameSlug,
+} from '../modules/scheduling/create.js';
 import { parseTaskContent } from '../modules/scheduling/task-content.js';
 import { withExistingMailboxSession } from '../session-manager.js';
 import type { AgentGroup } from '../types.js';
@@ -63,7 +73,10 @@ export interface RestampResult {
  * manifest (the full walk/caps/lint pass runs in the stamp it gates, not in
  * this probe).
  */
-export async function groupsCarryingPlugin(ref: string, groups?: readonly AgentGroup[]): Promise<AgentGroup[]> {
+export async function groupsCarryingPlugin(
+  ref: string,
+  groups?: readonly AgentGroup[],
+): Promise<AgentGroup[]> {
   const dir = resolveLocalTemplate(ref);
   const manifestPath = path.join(dir, PLUGIN_MANIFEST_FILE);
   // The fast path reads ONLY a regular manifest file. Anything else — absent
@@ -73,9 +86,18 @@ export async function groupsCarryingPlugin(ref: string, groups?: readonly AgentG
   if (!fs.existsSync(manifestPath) || !fs.lstatSync(manifestPath).isFile()) {
     parseTemplate(dir);
   }
-  const manifest = parsePluginManifest(JSON.parse(fs.readFileSync(manifestPath, 'utf-8')));
+  const manifest = parsePluginManifest(
+    JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
+  );
   return (groups ?? (await getAllAgentGroups())).filter((g) =>
-    fs.existsSync(path.join(resolveGroupFolderPath(g.folder), 'plugins', manifest.name, PLUGIN_MANIFEST_FILE)),
+    fs.existsSync(
+      path.join(
+        resolveGroupFolderPath(g.folder),
+        'plugins',
+        manifest.name,
+        PLUGIN_MANIFEST_FILE,
+      ),
+    ),
   );
 }
 
@@ -108,7 +130,10 @@ export async function restampAgentFromTemplate(
     old = parseTemplate(oldPluginDir);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Cannot read the previously stamped plugin at plugins/${tpl.name}: ${message}`, { cause: err });
+    throw new Error(
+      `Cannot read the previously stamped plugin at plugins/${tpl.name}: ${message}`,
+      { cause: err },
+    );
   }
 
   // All template tasks are validated and prepared up front (slug uniqueness
@@ -116,15 +141,24 @@ export async function restampAgentFromTemplate(
   // can half-apply over an invalid task file. NEW-side only: the old parsed
   // copy is tolerated as-is, so an already-stamped bad template stays
   // restampable to a fixed version.
-  const preparedTasks = prepareTemplateTasks(tpl.tasks, await resolveGroupTimezone(group.id));
-  const newTaskSlugs = new Set(tpl.tasks.map((task) => taskNameSlug(task.name)));
+  const preparedTasks = prepareTemplateTasks(
+    tpl.tasks,
+    await resolveGroupTimezone(group.id),
+  );
+  const newTaskSlugs = new Set(
+    tpl.tasks.map((task) => taskNameSlug(task.name)),
+  );
 
   const changes: RestampChange[] = [];
   const ops: Array<() => void | Promise<void>> = [];
 
   // --- plugin files: plugins/<name> replaced wholesale ---------------------
   if (dirsEqual(tpl.dir, oldPluginDir)) {
-    changes.push({ surface: 'plugin', name: `plugins/${tpl.name}`, action: 'unchanged' });
+    changes.push({
+      surface: 'plugin',
+      name: `plugins/${tpl.name}`,
+      action: 'unchanged',
+    });
   } else {
     changes.push({
       surface: 'plugin',
@@ -147,7 +181,10 @@ export async function restampAgentFromTemplate(
   // since the last stamp. Idempotent; mkdirRealWithin creates parents.
   ops.push(() => {
     for (const sub of pluginDataCwdSubpaths(tpl.mcpServers)) {
-      mkdirRealWithin(groupDir, path.join(groupDir, 'plugin-data', tpl.name, sub));
+      mkdirRealWithin(
+        groupDir,
+        path.join(groupDir, 'plugin-data', tpl.name, sub),
+      );
     }
   });
 
@@ -158,20 +195,28 @@ export async function restampAgentFromTemplate(
   const personaFile = path.join(groupDir, PERSONA_PREPEND_FILE);
   if (newPersona !== undefined) {
     if (livePersona === newPersona) {
-      changes.push({ surface: 'persona', name: PERSONA_PREPEND_FILE, action: 'unchanged' });
+      changes.push({
+        surface: 'persona',
+        name: PERSONA_PREPEND_FILE,
+        action: 'unchanged',
+      });
     } else {
       changes.push({
         surface: 'persona',
         name: PERSONA_PREPEND_FILE,
         action: livePersona === null ? 'create' : 'update',
-        ...(livePersona !== null && livePersona !== oldPersona ? { customized: true } : {}),
+        ...(livePersona !== null && livePersona !== oldPersona
+          ? { customized: true }
+          : {}),
       });
       ops.push(() => {
         // rm-then-exclusive-write: the rm removes a planted symlink itself
         // (never its target), and `wx` makes a link re-planted in the race
         // window a loud failure instead of a write-through.
         fs.rmSync(personaFile, { force: true });
-        fs.writeFileSync(personaFile, `${tpl.instructions!.trimEnd()}\n`, { flag: 'wx' });
+        fs.writeFileSync(personaFile, `${tpl.instructions!.trimEnd()}\n`, {
+          flag: 'wx',
+        });
       });
     }
   } else if (oldPersona !== undefined && livePersona !== null) {
@@ -189,7 +234,10 @@ export async function restampAgentFromTemplate(
   const newContext = new Map(tpl.contextExtras.map((e) => [e.name, e.content]));
   for (const name of new Set([...oldContext.keys(), ...newContext.keys()])) {
     const target = contextTarget(groupDir, name);
-    const live = fs.existsSync(target) && fs.statSync(target).isFile() ? fs.readFileSync(target, 'utf-8') : undefined;
+    const live =
+      fs.existsSync(target) && fs.statSync(target).isFile()
+        ? fs.readFileSync(target, 'utf-8')
+        : undefined;
     const wanted = newContext.get(name);
     if (wanted !== undefined) {
       if (live === wanted) {
@@ -200,7 +248,9 @@ export async function restampAgentFromTemplate(
         surface: 'context',
         name,
         action: live === undefined ? 'create' : 'update',
-        ...(live !== undefined && live !== oldContext.get(name) ? { customized: true } : {}),
+        ...(live !== undefined && live !== oldContext.get(name)
+          ? { customized: true }
+          : {}),
       });
       ops.push(() => {
         mkdirRealWithin(groupDir, path.dirname(target));
@@ -240,7 +290,9 @@ export async function restampAgentFromTemplate(
         surface: 'skill',
         name,
         action: 'create',
-        ...(oldSrc !== undefined ? { customized: true, note: 'was removed locally; recreated' } : {}),
+        ...(oldSrc !== undefined
+          ? { customized: true, note: 'was removed locally; recreated' }
+          : {}),
       });
       ops.push(() => {
         ensureOverlayRoot();
@@ -253,7 +305,9 @@ export async function restampAgentFromTemplate(
         surface: 'skill',
         name,
         action: 'update',
-        ...(oldSrc === undefined || !dirsEqual(overlay, oldSrc) ? { customized: true } : {}),
+        ...(oldSrc === undefined || !dirsEqual(overlay, oldSrc)
+          ? { customized: true }
+          : {}),
       });
       ops.push(() => {
         ensureOverlayRoot();
@@ -278,14 +332,18 @@ export async function restampAgentFromTemplate(
   }
 
   // --- MCP servers (by ownership marker) -----------------------------------
-  const servers = JSON.parse(configRow.mcp_servers) as Record<string, McpServerConfig>;
+  const servers = JSON.parse(configRow.mcp_servers) as Record<
+    string,
+    McpServerConfig
+  >;
   const newOwned = markPluginServers(tpl.mcpServers, tpl.name);
   const oldOwned = markPluginServers(old.mcpServers, tpl.name);
   const next: Record<string, McpServerConfig> = { ...servers };
   let mcpDirty = false;
   for (const [name, server] of Object.entries(newOwned)) {
     const existing = servers[name];
-    const owner = existing === undefined ? undefined : mcpServerPluginOwner(existing);
+    const owner =
+      existing === undefined ? undefined : mcpServerPluginOwner(existing);
     if (existing !== undefined && owner !== tpl.name) {
       changes.push({
         surface: 'mcp-server',
@@ -308,19 +366,26 @@ export async function restampAgentFromTemplate(
         surface: 'mcp-server',
         name,
         action: 'update',
-        ...(JSON.stringify(existing) !== JSON.stringify(oldOwned[name]) ? { customized: true } : {}),
+        ...(JSON.stringify(existing) !== JSON.stringify(oldOwned[name])
+          ? { customized: true }
+          : {}),
       });
       next[name] = server;
       mcpDirty = true;
     }
   }
   for (const [name, existing] of Object.entries(servers)) {
-    if (mcpServerPluginOwner(existing) !== tpl.name || name in newOwned) continue;
+    if (mcpServerPluginOwner(existing) !== tpl.name || name in newOwned)
+      continue;
     changes.push({ surface: 'mcp-server', name, action: 'remove' });
     delete next[name];
     mcpDirty = true;
   }
-  if (mcpDirty) ops.push(async () => await updateContainerConfigJson(group.id, 'mcp_servers', next));
+  if (mcpDirty)
+    ops.push(
+      async () =>
+        await updateContainerConfigJson(group.id, 'mcp_servers', next),
+    );
 
   // --- tasks (matched by name slug; pause/resume state is operator-owned) --
   // Old-side tasks are keyed by SLUG — the identity live series carry. A rename
@@ -360,9 +425,16 @@ export async function restampAgentFromTemplate(
       continue;
     }
     const changed =
-      match.prompt !== prepared.prompt || match.script !== prepared.script || match.recurrence !== prepared.recurrence;
+      match.prompt !== prepared.prompt ||
+      match.script !== prepared.script ||
+      match.recurrence !== prepared.recurrence;
     if (!changed) {
-      changes.push({ surface: 'task', name: task.name, action: 'unchanged', note: `series ${match.seriesId}` });
+      changes.push({
+        surface: 'task',
+        name: task.name,
+        action: 'unchanged',
+        note: `series ${match.seriesId}`,
+      });
       continue;
     }
     const customized =
@@ -383,7 +455,10 @@ export async function restampAgentFromTemplate(
           prompt: prepared.prompt,
           script: prepared.script,
           ...(match.recurrence !== prepared.recurrence
-            ? { recurrence: prepared.recurrence, processAfter: prepared.processAfter }
+            ? {
+                recurrence: prepared.recurrence,
+                processAfter: prepared.processAfter,
+              }
             : {}),
         }),
       );
@@ -393,7 +468,8 @@ export async function restampAgentFromTemplate(
     if (newTaskSlugs.has(slug)) continue;
     const match = await findTaskSeriesBySlug(group.id, slug);
     // Nothing to remove when the series is already dead history.
-    if (match === undefined || (!match.live && match.recurrence === null)) continue;
+    if (match === undefined || (!match.live && match.recurrence === null))
+      continue;
     changes.push({
       surface: 'task',
       name: oldTask.name,
@@ -401,11 +477,14 @@ export async function restampAgentFromTemplate(
       note: `series ${match.seriesId} deleted (was ${match.status})`,
     });
     ops.push(async () => {
-      await withExistingMailboxSession(group.id, match.sessionId, (mailbox) => mailbox.deleteTask(match.seriesId));
+      await withExistingMailboxSession(group.id, match.sessionId, (mailbox) =>
+        mailbox.deleteTask(match.seriesId),
+      );
     });
   }
 
-  for (const line of tpl.report) log.warn('Template reader notice', { ref, notice: line });
+  for (const line of tpl.report)
+    log.warn('Template reader notice', { ref, notice: line });
 
   // Ops are independent and idempotent; a mid-list throw names how far it
   // got so the operator knows a re-run converges the rest.
@@ -423,23 +502,41 @@ export async function restampAgentFromTemplate(
     }
   }
 
-  const anyChange = changes.some((c) => c.action !== 'unchanged' && c.action !== 'skip');
+  const anyChange = changes.some(
+    (c) => c.action !== 'unchanged' && c.action !== 'skip',
+  );
   const note = opts.apply
     ? anyChange
       ? `Restamp applied. Run \`ncl groups restart --id ${group.id}\` for skill and MCP changes to take effect.`
       : 'Nothing to apply — the group already matches the template.'
     : 'DRY RUN — nothing was changed. Re-run with --yes to apply.';
-  return { group, plugin: tpl.name, applied: opts.apply, changes, report: tpl.report, note };
+  return {
+    group,
+    plugin: tpl.name,
+    applied: opts.apply,
+    changes,
+    report: tpl.report,
+    note,
+  };
 }
 
 /** Human rendering of a restamp plan/result — one aligned line per surface. */
 export function formatRestampResult(result: RestampResult): string {
-  const lines = [`Restamp "${result.plugin}" → group "${result.group.name}" (${result.group.id})`, result.note, ''];
+  const lines = [
+    `Restamp "${result.plugin}" → group "${result.group.name}" (${result.group.id})`,
+    result.note,
+    '',
+  ];
   for (const c of result.changes) {
-    const flags = [c.customized ? 'CUSTOMIZED — local edits lost' : undefined, c.note]
+    const flags = [
+      c.customized ? 'CUSTOMIZED — local edits lost' : undefined,
+      c.note,
+    ]
       .filter((s): s is string => s !== undefined)
       .join('; ');
-    lines.push(`  ${c.action.padEnd(9)} ${c.surface.padEnd(10)} ${c.name}${flags ? `  (${flags})` : ''}`);
+    lines.push(
+      `  ${c.action.padEnd(9)} ${c.surface.padEnd(10)} ${c.name}${flags ? `  (${flags})` : ''}`,
+    );
   }
   if (result.report.length > 0) {
     lines.push('', 'Template reader notices:');
@@ -465,7 +562,8 @@ function listFilesRecursive(root: string): Map<string, string> {
     const abs = path.join(root, entry);
     // lstat: symlinks are never plugin content, so a (possibly dangling) link
     // compares as an absent file instead of crashing the plan.
-    if (fs.lstatSync(abs).isFile()) out.set(entry.split(path.sep).join('/'), abs);
+    if (fs.lstatSync(abs).isFile())
+      out.set(entry.split(path.sep).join('/'), abs);
   }
   return out;
 }
@@ -482,7 +580,9 @@ function mkdirRealWithin(base: string, dir: string): void {
   while (!fs.existsSync(existing)) existing = path.dirname(existing);
   const rel = path.relative(fs.realpathSync(base), fs.realpathSync(existing));
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`refusing to write through "${dir}": it resolves outside the agent's own directories`);
+    throw new Error(
+      `refusing to write through "${dir}": it resolves outside the agent's own directories`,
+    );
   }
   fs.mkdirSync(dir, { recursive: true });
 }
@@ -499,7 +599,8 @@ function dirsEqual(a: string, b: string): boolean {
   for (const [rel, absA] of filesA) {
     const absB = filesB.get(rel);
     if (absB === undefined) return false;
-    if ((fs.lstatSync(absA).mode & 0o111) !== (fs.lstatSync(absB).mode & 0o111)) return false;
+    if ((fs.lstatSync(absA).mode & 0o111) !== (fs.lstatSync(absB).mode & 0o111))
+      return false;
     if (!fs.readFileSync(absA).equals(fs.readFileSync(absB))) return false;
   }
   return true;
@@ -524,11 +625,16 @@ interface TaskSeriesMatch {
  * match in ANY state — a recurring series between a run completing and the
  * sweep re-arming it (≤60s) has only completed rows but is still alive.
  */
-async function findTaskSeriesBySlug(agentGroupId: string, slug: string): Promise<TaskSeriesMatch | undefined> {
+async function findTaskSeriesBySlug(
+  agentGroupId: string,
+  slug: string,
+): Promise<TaskSeriesMatch | undefined> {
   if (!slug) return undefined;
   for (const session of [...(await findTaskSessions(agentGroupId))].reverse()) {
-    const row = await withExistingMailboxSession(agentGroupId, session.id, (mailbox) =>
-      mailbox.findTaskBySeriesSlug(slug),
+    const row = await withExistingMailboxSession(
+      agentGroupId,
+      session.id,
+      (mailbox) => mailbox.findTaskBySeriesSlug(slug),
     );
     if (!row?.seriesId) continue;
     const content = parseTaskContent(row.content);

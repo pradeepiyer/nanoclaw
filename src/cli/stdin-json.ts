@@ -48,10 +48,15 @@ async function readBounded(stream: StdinJsonStream): Promise<string> {
   let byteLength = 0;
 
   for await (const chunk of stream) {
-    const buffer = typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : Buffer.from(chunk);
+    const buffer =
+      typeof chunk === 'string'
+        ? Buffer.from(chunk, 'utf8')
+        : Buffer.from(chunk);
     byteLength += buffer.byteLength;
     if (byteLength > MAX_STDIN_JSON_BYTES) {
-      throw new StdinJsonInputError(`--stdin-json input exceeds ${MAX_STDIN_JSON_BYTES} bytes`);
+      throw new StdinJsonInputError(
+        `--stdin-json input exceeds ${MAX_STDIN_JSON_BYTES} bytes`,
+      );
     }
     chunks.push(buffer);
   }
@@ -69,7 +74,9 @@ function parseJsonObject(source: string): Record<string, unknown> {
   try {
     parsed = JSON.parse(source);
   } catch (err) {
-    throw new StdinJsonInputError('--stdin-json input is not valid JSON', { cause: err });
+    throw new StdinJsonInputError('--stdin-json input is not valid JSON', {
+      cause: err,
+    });
   }
 
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -103,17 +110,22 @@ function assertNoKeyConflicts(
   const argvKeysByCanonical = new Map<string, string>();
   for (const key of Object.keys(argvArgs)) {
     const canonical = canonicalArgKey(key);
-    if (!argvKeysByCanonical.has(canonical)) argvKeysByCanonical.set(canonical, key);
+    if (!argvKeysByCanonical.has(canonical))
+      argvKeysByCanonical.set(canonical, key);
   }
 
   const stdinKeysByCanonical = new Map<string, string>();
   for (const key of Object.keys(stdinArgs)) {
     if (key === '__proto__') {
-      throw new StdinJsonInputError('--stdin-json key "__proto__" is not allowed');
+      throw new StdinJsonInputError(
+        '--stdin-json key "__proto__" is not allowed',
+      );
     }
 
     if (Object.prototype.hasOwnProperty.call(argvArgs, key)) {
-      throw new StdinJsonInputError(`--stdin-json key "${key}" is also supplied on argv`);
+      throw new StdinJsonInputError(
+        `--stdin-json key "${key}" is also supplied on argv`,
+      );
     }
 
     const canonical = canonicalArgKey(key);

@@ -15,7 +15,10 @@
  * Slack/Discord, and non-threaded group platforms have null threadIds).
  */
 import type { ChannelDefaults } from './adapter.js';
-import { getChannelDefaults, hasDeclaredChannelDefaults } from './channel-registry.js';
+import {
+  getChannelDefaults,
+  hasDeclaredChannelDefaults,
+} from './channel-registry.js';
 import { log } from '../log.js';
 import type { MessagingGroup } from '../types.js';
 
@@ -92,7 +95,8 @@ export function resolveWiringDefaults(
   let mode = ctx.engageMode;
   if (mode === 'mention-sticky' && !effectiveThreads) mode = 'mention';
 
-  if (mode !== 'pattern') return { engage_mode: mode, engage_pattern: null, ...session };
+  if (mode !== 'pattern')
+    return { engage_mode: mode, engage_pattern: null, ...session };
 
   if (!ctx.engagePattern) {
     throw new Error(
@@ -161,12 +165,19 @@ export interface EngageValues {
  * declaration is permissive on mentions but its threads value is false when
  * no adapter is live, which would wrongly coerce offline-created wirings.
  */
-export function validateEngageAgainstChannel(w: EngageValues, mg: MessagingGroup): void {
+export function validateEngageAgainstChannel(
+  w: EngageValues,
+  mg: MessagingGroup,
+): void {
   if (
     w.engage_mode === 'pattern' &&
-    (w.engage_pattern === undefined || w.engage_pattern === null || w.engage_pattern === '')
+    (w.engage_pattern === undefined ||
+      w.engage_pattern === null ||
+      w.engage_pattern === '')
   ) {
-    throw new Error(`engage_mode 'pattern' requires --engage-pattern (use "." to match every message)`);
+    throw new Error(
+      `engage_mode 'pattern' requires --engage-pattern (use "." to match every message)`,
+    );
   }
 
   // per-thread sessions structurally require honored thread ids — reject the
@@ -210,7 +221,10 @@ export function validateEngageAgainstChannel(w: EngageValues, mg: MessagingGroup
   }
   if (w.engage_mode === 'mention-sticky') {
     const ctx = mg.is_group === 1 ? decl.group : decl.dm;
-    const threads = w.threads === undefined || w.threads === null ? ctx.threads : w.threads !== 0;
+    const threads =
+      w.threads === undefined || w.threads === null
+        ? ctx.threads
+        : w.threads !== 0;
     if (!threads) {
       log.warn('mention-sticky requires thread ids — coerced to mention', {
         channel: channelKey,

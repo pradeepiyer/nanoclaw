@@ -24,7 +24,11 @@ export interface SessionKey {
  */
 export type ContainerRole = string;
 
-export type MountClass = 'group-state' | 'install-surface' | 'identity-material' | 'allowlisted-extra';
+export type MountClass =
+  | 'group-state'
+  | 'install-surface'
+  | 'identity-material'
+  | 'allowlisted-extra';
 
 export interface MountSpec {
   /**
@@ -312,7 +316,10 @@ export interface SessionDriver {
    * ALL observed terminal transitions with no intent filtering: stop-intent
    * suppression belongs to the session-events hub, not to drivers.
    */
-  watchSessions(installSlug: string, onEvent: (event: SessionEvent) => void): SessionWatch;
+  watchSessions(
+    installSlug: string,
+    onEvent: (event: SessionEvent) => void,
+  ): SessionWatch;
   /**
    * Residue a stopped session could not clean up itself (a host that died
    * between stop and teardown). `stop()` remains full teardown for a live one.
@@ -354,7 +361,10 @@ export const GROUP_FOLDER_LABEL = 'nanoclaw-group-folder';
  * driver, when it fails this (see `composeSessionSpec`).
  */
 export function labelValueLegal(value: string): boolean {
-  return value.length <= 63 && /^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$/.test(value);
+  return (
+    value.length <= 63 &&
+    /^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$/.test(value)
+  );
 }
 
 export function labelsForKey(
@@ -392,7 +402,10 @@ export function deniedByPolicy(detail: string): SessionFailureError {
 }
 
 export function asFailureError(failure: SessionFailure): SessionFailureError {
-  return Object.assign(new Error(`session realization failed: ${failure.kind}`), failure);
+  return Object.assign(
+    new Error(`session realization failed: ${failure.kind}`),
+    failure,
+  );
 }
 
 /**
@@ -408,14 +421,20 @@ export interface MountPolicy {
   materialsRoot: string;
 }
 
-export function validateSpec(spec: SessionSpec, policy: MountPolicy, capabilities?: DriverCapabilities): void {
+export function validateSpec(
+  spec: SessionSpec,
+  policy: MountPolicy,
+  capabilities?: DriverCapabilities,
+): void {
   // The tier check is against the caller's declared capabilities — features
   // gate on capabilities, never on driver identity. A caller without a
   // capabilities handle gets the floor every realization ships ('container'),
   // which keeps the two-argument form's behavior exactly.
   const tiers = capabilities?.isolationTiers ?? ['container'];
   if (!tiers.includes(spec.runtimeTier)) {
-    throw specInvalid(`runtimeTier '${spec.runtimeTier}' not in driver isolation tiers [${tiers.join(', ')}]`);
+    throw specInvalid(
+      `runtimeTier '${spec.runtimeTier}' not in driver isolation tiers [${tiers.join(', ')}]`,
+    );
   }
   if (spec.containers.filter((c) => c.role === 'agent').length !== 1) {
     // Exactly one, not at-least-one: the agent is the session's one required
@@ -445,12 +464,16 @@ export function validateSpec(spec: SessionSpec, policy: MountPolicy, capabilitie
         // Two sources for one target would make the realized mount an ordering
         // artifact. Composition resolves collisions (contributed mounts win),
         // so a spec reaching a driver has exactly one source per target.
-        throw specInvalid(`duplicate containerPath ${mount.containerPath} on ${container.role}`);
+        throw specInvalid(
+          `duplicate containerPath ${mount.containerPath} on ${container.role}`,
+        );
       }
       seenTargets.add(mount.containerPath);
       const required =
         classRequiredByPath(mount.hostPath, policy) ??
-        (pluginsRoot && underRoot(mount.hostPath, pluginsRoot) ? 'install-surface' : null);
+        (pluginsRoot && underRoot(mount.hostPath, pluginsRoot)
+          ? 'install-surface'
+          : null);
       if (required && mount.class !== required) {
         // Where a file lives decides what it IS, so the class is not the
         // composer's to choose for these roots. Without this the taxonomy is
@@ -461,18 +484,29 @@ export function validateSpec(spec: SessionSpec, policy: MountPolicy, capabilitie
         // no-credentials invariant outright — and relabelling the runner source
         // as one escapes the read-only rule on the code the agent executes.
         // Neither is exotic: both are a single word in a mount literal.
-        throw deniedByPolicy(`mount ${mount.hostPath} must be classed ${required}, not ${mount.class}`);
+        throw deniedByPolicy(
+          `mount ${mount.hostPath} must be classed ${required}, not ${mount.class}`,
+        );
       }
       if (mount.class === 'install-surface' && mount.mode !== 'ro') {
-        throw deniedByPolicy(`install-surface mount ${mount.hostPath} must be ro`);
+        throw deniedByPolicy(
+          `install-surface mount ${mount.hostPath} must be ro`,
+        );
       }
-      if (mount.class === 'identity-material' && (mount.mode !== 'ro' || container.role === 'agent')) {
+      if (
+        mount.class === 'identity-material' &&
+        (mount.mode !== 'ro' || container.role === 'agent')
+      ) {
         // The no-credentials invariant, as a checkable rule: identity materials
         // are ro-only and never enter the agent container.
-        throw deniedByPolicy(`identity-material mount ${mount.hostPath} invalid on role ${container.role}`);
+        throw deniedByPolicy(
+          `identity-material mount ${mount.hostPath} invalid on role ${container.role}`,
+        );
       }
       if (!mountAllowed(mount, spec, policy)) {
-        throw deniedByPolicy(`mount ${mount.hostPath} violates class ${mount.class} scope ${mount.groupScope}`);
+        throw deniedByPolicy(
+          `mount ${mount.hostPath} violates class ${mount.class} scope ${mount.groupScope}`,
+        );
       }
     }
     for (const [key, value] of Object.entries(container.env)) {
@@ -487,7 +521,9 @@ export function validateSpec(spec: SessionSpec, policy: MountPolicy, capabilitie
       // alone denies every such install. Credential VALUES have no sanctioned
       // channel, from anyone: real material rides mounts by reference.
       if (looksLikeCredential(value)) {
-        throw deniedByPolicy(`credential value in contributed env '${key}' on ${container.role}`);
+        throw deniedByPolicy(
+          `credential value in contributed env '${key}' on ${container.role}`,
+        );
       }
     }
   }
@@ -501,7 +537,9 @@ export function validateSpec(spec: SessionSpec, policy: MountPolicy, capabilitie
 function hostPathCanonical(hostPath: string): boolean {
   if (!hostPath.startsWith('/')) return false;
   const segments = hostPath.split('/').slice(1);
-  return segments.every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+  return segments.every(
+    (segment) => segment !== '' && segment !== '.' && segment !== '..',
+  );
 }
 
 /**
@@ -526,7 +564,9 @@ function hostPathCanonical(hostPath: string): boolean {
 export function isSecretShaped(key: string, value: string): boolean {
   // A path is a pointer, never a credential, whatever the key is called.
   if (/^\/[^\s]*$/.test(value)) return false;
-  return /(_KEY|_TOKEN|_SECRET|PASSWORD)$/i.test(key) || looksLikeCredential(value);
+  return (
+    /(_KEY|_TOKEN|_SECRET|PASSWORD)$/i.test(key) || looksLikeCredential(value)
+  );
 }
 
 /**
@@ -562,9 +602,13 @@ export function looksLikeCredential(value: string): boolean {
  * is not "everything is derived" — it is "a class that grants something cannot
  * be claimed by a path that has not earned it".
  */
-export function classRequiredByPath(hostPath: string, policy: MountPolicy): MountClass | null {
+export function classRequiredByPath(
+  hostPath: string,
+  policy: MountPolicy,
+): MountClass | null {
   if (underRoot(hostPath, policy.materialsRoot)) return 'identity-material';
-  if (policy.surfaceRoots.some((root) => underRoot(hostPath, root))) return 'install-surface';
+  if (policy.surfaceRoots.some((root) => underRoot(hostPath, root)))
+    return 'install-surface';
   return null;
 }
 
@@ -595,19 +639,27 @@ export function classRequiredByPath(hostPath: string, policy: MountPolicy): Moun
  * gets no plugins root, and a `groups/<folder>/plugins` mount on it is judged by
  * the ordinary class rules.
  */
-export function stampedPluginsRoot(spec: SessionSpec, policy: MountPolicy): string | null {
+export function stampedPluginsRoot(
+  spec: SessionSpec,
+  policy: MountPolicy,
+): string | null {
   const folder = spec.labels[GROUP_FOLDER_LABEL];
   if (!folder || !labelValueLegal(folder)) return null;
   return `${policy.groupsRoot}/${folder}/plugins`;
 }
 
-function mountAllowed(mount: MountSpec, spec: SessionSpec, policy: MountPolicy): boolean {
+function mountAllowed(
+  mount: MountSpec,
+  spec: SessionSpec,
+  policy: MountPolicy,
+): boolean {
   switch (mount.class) {
     case 'allowlisted-extra':
       // Vetted upstream by the mount-allowlist feature.
       return true;
     case 'install-surface': {
-      if (policy.surfaceRoots.some((root) => underRoot(mount.hostPath, root))) return true;
+      if (policy.surfaceRoots.some((root) => underRoot(mount.hostPath, root)))
+        return true;
       const pluginsRoot = stampedPluginsRoot(spec, policy);
       return pluginsRoot !== null && underRoot(mount.hostPath, pluginsRoot);
     }
@@ -615,7 +667,13 @@ function mountAllowed(mount: MountSpec, spec: SessionSpec, policy: MountPolicy):
       return underRoot(mount.hostPath, policy.materialsRoot);
     case 'group-state': {
       if (mount.groupScope !== spec.key.agentGroupId) return false;
-      if (underRoot(mount.hostPath, `${policy.dataRoot}/v2-sessions/${mount.groupScope}`)) return true;
+      if (
+        underRoot(
+          mount.hostPath,
+          `${policy.dataRoot}/v2-sessions/${mount.groupScope}`,
+        )
+      )
+        return true;
       if (underRoot(mount.hostPath, policy.groupsRoot)) {
         // The groups root holds EVERY group's folder, so "under groupsRoot"
         // alone would grant a session any group's state — `groupScope` cannot

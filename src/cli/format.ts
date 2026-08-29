@@ -28,12 +28,17 @@ const ISO_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/;
  */
 export function localizeIsoTimestamps(value: unknown): unknown {
   if (typeof value === 'string') {
-    return ISO_UTC_RE.test(value) ? formatLocalStamp(new Date(value), TIMEZONE) : value;
+    return ISO_UTC_RE.test(value)
+      ? formatLocalStamp(new Date(value), TIMEZONE)
+      : value;
   }
   if (Array.isArray(value)) return value.map(localizeIsoTimestamps);
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, localizeIsoTimestamps(v)]),
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        localizeIsoTimestamps(v),
+      ]),
     );
   }
   return value;
@@ -69,8 +74,11 @@ function isFlatRecord(x: unknown): x is Record<string, unknown> {
 function renderTable(rows: Record<string, unknown>[]): string {
   if (rows.length === 0) return '(no rows)';
   const cols = Object.keys(rows[0]);
-  const widths = cols.map((c) => Math.max(c.length, ...rows.map((r) => String(r[c] ?? '').length)));
-  const fmtRow = (vals: string[]): string => vals.map((v, i) => v.padEnd(widths[i])).join('  ');
+  const widths = cols.map((c) =>
+    Math.max(c.length, ...rows.map((r) => String(r[c] ?? '').length)),
+  );
+  const fmtRow = (vals: string[]): string =>
+    vals.map((v, i) => v.padEnd(widths[i])).join('  ');
   const lines = [
     fmtRow(cols),
     fmtRow(widths.map((w) => '─'.repeat(w))),

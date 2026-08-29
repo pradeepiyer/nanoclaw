@@ -24,9 +24,16 @@ import {
   type ScheduledTaskRow,
   validateRecurrence,
 } from '../../modules/scheduling/create.js';
-import { destroySessionMailbox, sessionDir, withExistingMailboxSession } from '../../session-manager.js';
+import {
+  destroySessionMailbox,
+  sessionDir,
+  withExistingMailboxSession,
+} from '../../session-manager.js';
 import { registerResource } from '../crud.js';
-import { appendRunLog, deleteRunLog } from '../../modules/scheduling/run-log.js';
+import {
+  appendRunLog,
+  deleteRunLog,
+} from '../../modules/scheduling/run-log.js';
 import { formatTasksTable } from '../format-tasks.js';
 import type { CallerContext } from '../frame.js';
 import type { InboundMailbox } from '../../mailbox/index.js';
@@ -67,12 +74,18 @@ function statusFilter(args: Record<string, unknown>): TaskStatus | undefined {
   return status;
 }
 
-function groupArg(args: Record<string, unknown>, ctx: CallerContext): string | undefined {
+function groupArg(
+  args: Record<string, unknown>,
+  ctx: CallerContext,
+): string | undefined {
   if (ctx.caller === 'agent') return ctx.agentGroupId;
   return str(args.group) ?? str(args.agent_group_id);
 }
 
-async function ownSession(sessionId: string, ctx: CallerContext): Promise<ScopedSession> {
+async function ownSession(
+  sessionId: string,
+  ctx: CallerContext,
+): Promise<ScopedSession> {
   const session = await getSession(sessionId);
   if (!session) throw new Error(`session not found: ${sessionId}`);
   if (ctx.caller === 'agent' && session.agent_group_id !== ctx.agentGroupId) {
@@ -99,10 +112,16 @@ async function selectedSessions(
   }
 
   if (ctx.caller === 'agent') return [];
-  return (await getActiveSessions()).map((s) => ({ id: s.id, agent_group_id: s.agent_group_id }));
+  return (await getActiveSessions()).map((s) => ({
+    id: s.id,
+    agent_group_id: s.agent_group_id,
+  }));
 }
 
-function withInbound<T>(session: ScopedSession, fn: (mailbox: InboundMailbox) => T): Promise<T | undefined> {
+function withInbound<T>(
+  session: ScopedSession,
+  fn: (mailbox: InboundMailbox) => T,
+): Promise<T | undefined> {
   return withExistingMailboxSession(session.agent_group_id, session.id, fn);
 }
 
@@ -116,7 +135,10 @@ function toOutput(session: ScopedSession, row: TaskRow) {
     status: row.status,
     process_after: row.processAfter,
     recurrence: row.recurrence,
-    prompt: content.prompt.length > 120 ? content.prompt.slice(0, 117) + '...' : content.prompt,
+    prompt:
+      content.prompt.length > 120
+        ? content.prompt.slice(0, 117) + '...'
+        : content.prompt,
     has_script: content.script ? 1 : 0,
     origin_session_id: content.originSessionId, // which session created the task (null for CLI-created)
     created_at: row.timestamp,
@@ -124,7 +146,10 @@ function toOutput(session: ScopedSession, row: TaskRow) {
   };
 }
 
-function selectLiveTasks(mailbox: InboundMailbox, status?: TaskStatus): TaskRow[] {
+function selectLiveTasks(
+  mailbox: InboundMailbox,
+  status?: TaskStatus,
+): TaskRow[] {
   return mailbox.listLiveTasks(status);
 }
 
@@ -151,7 +176,9 @@ async function createTask(args: Record<string, unknown>, ctx: CallerContext) {
     recurrence,
     processAfter: str(args.process_after),
     script,
-    dangerouslyOverrideRecurrenceLimit: bool(args.dangerously_override_recurrence_limit),
+    dangerouslyOverrideRecurrenceLimit: bool(
+      args.dangerously_override_recurrence_limit,
+    ),
     timezone: await resolveGroupTimezone(group),
   });
   const { session, row } = await createScheduledTask(group, prepared, {
@@ -183,7 +210,8 @@ async function appendTaskLog(
       group ??= sess.agent_group_id;
     }
   }
-  if (!series) throw new Error('--id is required (no task session to derive it from)');
+  if (!series)
+    throw new Error('--id is required (no task session to derive it from)');
   if (!group) throw new Error('could not resolve the agent group');
 
   // Group scope is enforced by groupArg (a cli_scope=group caller can only
@@ -206,12 +234,21 @@ function seriesStats(
 }
 
 /** Last ~10 lines of a series' run log (`tasks/<series>.md`), newest last. */
-async function tailRunLog(agentGroupId: string, seriesKey: string, lines = 10): Promise<string[]> {
+async function tailRunLog(
+  agentGroupId: string,
+  seriesKey: string,
+  lines = 10,
+): Promise<string[]> {
   const ag = await getAgentGroup(agentGroupId);
   if (!ag) return [];
   const file = `${GROUPS_DIR}/${ag.folder}/tasks/${seriesKey}.md`;
   if (!fs.existsSync(file)) return [];
-  return fs.readFileSync(file, 'utf8').trimEnd().split('\n').filter(Boolean).slice(-lines);
+  return fs
+    .readFileSync(file, 'utf8')
+    .trimEnd()
+    .split('\n')
+    .filter(Boolean)
+    .slice(-lines);
 }
 
 /**
@@ -240,7 +277,9 @@ async function listTasks(args: Record<string, unknown>, ctx: CallerContext) {
   const rows = [];
   for (const session of await selectedSessions(args, ctx)) {
     const sessionRows = await withInbound(session, (db) =>
-      selectLiveTasks(db, status).map((row) => enrichListRow(db, toOutput(session, row))),
+      selectLiveTasks(db, status).map((row) =>
+        enrichListRow(db, toOutput(session, row)),
+      ),
     );
     if (sessionRows) rows.push(...sessionRows);
   }
@@ -268,7 +307,10 @@ async function getTask(args: Record<string, unknown>, ctx: CallerContext) {
     });
     if (found) {
       const { series_key, ...output } = found;
-      return { ...output, recent_log: await tailRunLog(session.agent_group_id, series_key) };
+      return {
+        ...output,
+        recent_log: await tailRunLog(session.agent_group_id, series_key),
+      };
     }
   }
   throw new Error(`task not found: ${id}`);
@@ -288,21 +330,29 @@ async function mutateTask(
   return { series_id: id, touched };
 }
 
-async function deleteTaskCommand(args: Record<string, unknown>, ctx: CallerContext) {
+async function deleteTaskCommand(
+  args: Record<string, unknown>,
+  ctx: CallerContext,
+) {
   const id = taskId(args);
   let touched = 0;
   for (const session of await selectedSessions(args, ctx, true)) {
     const found = await withInbound(session, (mailbox) => mailbox.getTask(id));
     if (!found) continue;
     if (isContainerRunning(session.id))
-      throw new Error(`task is running; wait for it to finish before deleting: ${id}`);
+      throw new Error(
+        `task is running; wait for it to finish before deleting: ${id}`,
+      );
 
     // Current tasks own an isolated session, so hard-delete the whole mailbox:
     // inbound history, outbound acknowledgements/messages, attachments, and heartbeat.
     // Clean up mailbox state before deleting the task so failures can be retried.
     if ((await getSession(session.id))?.thread_id === taskThreadId(id)) {
       await destroySessionMailbox(session.agent_group_id, session.id);
-      fs.rmSync(sessionDir(session.agent_group_id, session.id), { recursive: true, force: true });
+      fs.rmSync(sessionDir(session.agent_group_id, session.id), {
+        recursive: true,
+        force: true,
+      });
       await deleteSession(session.id);
       await deleteRunLog(session.agent_group_id, id);
       touched += 1;
@@ -310,7 +360,8 @@ async function deleteTaskCommand(args: Record<string, unknown>, ctx: CallerConte
     }
 
     // Legacy shared task sessions may contain other series and keep their mailbox.
-    const deleted = (await withInbound(session, (mailbox) => mailbox.deleteTask(id))) ?? 0;
+    const deleted =
+      (await withInbound(session, (mailbox) => mailbox.deleteTask(id))) ?? 0;
     if (deleted === 0) continue;
     touched += deleted;
     await deleteRunLog(session.agent_group_id, id);
@@ -319,7 +370,10 @@ async function deleteTaskCommand(args: Record<string, unknown>, ctx: CallerConte
   return { series_id: id, touched };
 }
 
-async function updateTaskCommand(args: Record<string, unknown>, ctx: CallerContext) {
+async function updateTaskCommand(
+  args: Record<string, unknown>,
+  ctx: CallerContext,
+) {
   const id = taskId(args);
   const update: TaskUpdate = {};
   if (typeof args.prompt === 'string') update.prompt = args.prompt;
@@ -344,13 +398,20 @@ async function updateTaskCommand(args: Record<string, unknown>, ctx: CallerConte
   }
   const tz = ownerGroup ? await resolveGroupTimezone(ownerGroup) : TIMEZONE;
 
-  if (args.process_after !== undefined) update.processAfter = parseProcessAfter(args.process_after, tz);
+  if (args.process_after !== undefined)
+    update.processAfter = parseProcessAfter(args.process_after, tz);
   if (recurrence !== undefined) {
     validateRecurrence(recurrence, tz);
     // Effective script AFTER this update: the new value when provided
     // (including an explicit clear), else whatever the task already has.
-    const scriptAfter: string | null = script !== undefined ? script : currentScript;
-    enforceRecurrenceLimit(recurrence, bool(args.dangerously_override_recurrence_limit), scriptAfter != null, tz);
+    const scriptAfter: string | null =
+      script !== undefined ? script : currentScript;
+    enforceRecurrenceLimit(
+      recurrence,
+      bool(args.dangerously_override_recurrence_limit),
+      scriptAfter != null,
+      tz,
+    );
     update.recurrence = recurrence;
   }
   if (script !== undefined) update.script = script;
@@ -359,20 +420,27 @@ async function updateTaskCommand(args: Record<string, unknown>, ctx: CallerConte
 
   let touched = 0;
   for (const session of await selectedSessions(args, ctx)) {
-    touched += (await withInbound(session, (mailbox) => mailbox.updateTask(id, update))) ?? 0;
+    touched +=
+      (await withInbound(session, (mailbox) =>
+        mailbox.updateTask(id, update),
+      )) ?? 0;
   }
   if (touched === 0) throw new Error(`no live task matched: ${id}`);
   return { series_id: id, touched, fields };
 }
 
-async function cancelTaskCommand(args: Record<string, unknown>, ctx: CallerContext) {
+async function cancelTaskCommand(
+  args: Record<string, unknown>,
+  ctx: CallerContext,
+) {
   if (!bool(args.all)) {
     return mutateTask(args, ctx, (mailbox, id) => mailbox.cancelTask(id));
   }
 
   let touched = 0;
   for (const session of await selectedSessions(args, ctx)) {
-    touched += (await withInbound(session, (mailbox) => mailbox.cancelTask())) ?? 0;
+    touched +=
+      (await withInbound(session, (mailbox) => mailbox.cancelTask())) ?? 0;
   }
   return { cancelled: touched };
 }
@@ -384,7 +452,10 @@ async function cancelTaskCommand(args: Record<string, unknown>, ctx: CallerConte
  * `update --process-after now`, it neither consumes a one-shot nor force-advances
  * a recurring series' armed occurrence, so it is safe for testing a task.
  */
-async function runTaskCommand(args: Record<string, unknown>, ctx: CallerContext) {
+async function runTaskCommand(
+  args: Record<string, unknown>,
+  ctx: CallerContext,
+) {
   const id = taskId(args);
   for (const session of await selectedSessions(args, ctx)) {
     const fired = await withInbound(session, async (db) => {
@@ -417,10 +488,28 @@ registerResource({
   idColumn: 'series_id',
   scopeField: 'agent_group_id',
   columns: [
-    { name: 'series_id', type: 'string', description: 'Stable task handle.', generated: true },
-    { name: 'agent_group_id', type: 'string', description: 'Agent group that owns the task.' },
-    { name: 'session_id', type: 'string', description: 'System session that runs the task.' },
-    { name: 'status', type: 'string', description: 'Live state.', enum: ['pending', 'paused'] },
+    {
+      name: 'series_id',
+      type: 'string',
+      description: 'Stable task handle.',
+      generated: true,
+    },
+    {
+      name: 'agent_group_id',
+      type: 'string',
+      description: 'Agent group that owns the task.',
+    },
+    {
+      name: 'session_id',
+      type: 'string',
+      description: 'System session that runs the task.',
+    },
+    {
+      name: 'status',
+      type: 'string',
+      description: 'Live state.',
+      enum: ['pending', 'paused'],
+    },
     {
       name: 'process_after',
       type: 'string',
@@ -431,46 +520,85 @@ registerResource({
         'Next run time (ISO 8601 or naive local). Required for one-shots; with --recurrence the first run is derived from the cron grid.',
       updatable: true,
     },
-    { name: 'recurrence', type: 'string', description: 'Optional cron expression.', updatable: true },
-    { name: 'prompt', type: 'string', description: 'Task prompt.', required: true, updatable: true },
-    { name: 'script', type: 'string', description: 'Optional pre-task bash script.', updatable: true },
+    {
+      name: 'recurrence',
+      type: 'string',
+      description: 'Optional cron expression.',
+      updatable: true,
+    },
+    {
+      name: 'prompt',
+      type: 'string',
+      description: 'Task prompt.',
+      required: true,
+      updatable: true,
+    },
+    {
+      name: 'script',
+      type: 'string',
+      description: 'Optional pre-task bash script.',
+      updatable: true,
+    },
   ],
   operations: {},
   customOperations: {
     list: {
       access: 'open',
-      description: 'List live tasks with per-series run history (schedule, runs, failures, next fire).',
+      description:
+        'List live tasks with per-series run history (schedule, runs, failures, next fire).',
       args: [
-        { name: 'status', type: 'string', description: 'Filter by live state.', enum: ['pending', 'paused'] },
+        {
+          name: 'status',
+          type: 'string',
+          description: 'Filter by live state.',
+          enum: ['pending', 'paused'],
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
         {
           name: 'all',
           type: 'boolean',
-          description: 'List across all groups (host default when no --group; accepted for explicitness).',
+          description:
+            'List across all groups (host default when no --group; accepted for explicitness).',
         },
       ],
       handler: async (args, ctx) => listTasks(args, ctx),
       // Server-rendered run-history table (frame `human` field) — the container
       // agent gets the same legible view as the host CLI without a Bun-side
       // formatter copy.
-      formatHuman: (rows) => formatTasksTable(rows as Parameters<typeof formatTasksTable>[0]),
+      formatHuman: (rows) =>
+        formatTasksTable(rows as Parameters<typeof formatTasksTable>[0]),
     },
     get: {
       access: 'open',
       description: 'Get a task by series id.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id.', required: true },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id.',
+          required: true,
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
       handler: async (args, ctx) => getTask(args, ctx),
     },
@@ -498,9 +626,15 @@ registerResource({
         {
           name: 'name',
           type: 'string',
-          description: 'Short descriptive name → readable task id (<slug>-<hex>). Without it, ids are t-<hex>.',
+          description:
+            'Short descriptive name → readable task id (<slug>-<hex>). Without it, ids are t-<hex>.',
         },
-        { name: 'prompt', type: 'string', description: 'Task prompt the agent wakes to.', required: true },
+        {
+          name: 'prompt',
+          type: 'string',
+          description: 'Task prompt the agent wakes to.',
+          required: true,
+        },
         {
           name: 'recurrence',
           type: 'string',
@@ -516,17 +650,20 @@ registerResource({
         {
           name: 'process_after',
           type: 'string',
-          description: 'First/next run time (ISO 8601 or naive local). Required for one-shots.',
+          description:
+            'First/next run time (ISO 8601 or naive local). Required for one-shots.',
         },
         {
           name: 'script',
           type: 'string',
-          description: 'Pre-task gate script (bash) — see the --script contract above.',
+          description:
+            'Pre-task gate script (bash) — see the --script contract above.',
         },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
       ],
       examples: [
@@ -554,12 +691,14 @@ registerResource({
         {
           name: 'id',
           type: 'string',
-          description: 'Task series id. Auto-derived when called from inside a task run; required otherwise.',
+          description:
+            'Task series id. Auto-derived when called from inside a task run; required otherwise.',
         },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
       ],
       handler: async (args, ctx) => appendTaskLog(args, ctx),
@@ -568,38 +707,79 @@ registerResource({
       access: 'open',
       description: 'Update a live task by series id.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id.', required: true },
-        { name: 'prompt', type: 'string', description: 'Replace the task prompt.' },
-        { name: 'process_after', type: 'string', description: 'New next-run time (ISO 8601 or naive local).' },
-        { name: 'recurrence', type: 'string', description: 'New cron expression; "null"/"none" clears it (one-shot).' },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id.',
+          required: true,
+        },
+        {
+          name: 'prompt',
+          type: 'string',
+          description: 'Replace the task prompt.',
+        },
+        {
+          name: 'process_after',
+          type: 'string',
+          description: 'New next-run time (ISO 8601 or naive local).',
+        },
+        {
+          name: 'recurrence',
+          type: 'string',
+          description:
+            'New cron expression; "null"/"none" clears it (one-shot).',
+        },
         {
           name: 'dangerously_override_recurrence_limit',
           type: 'boolean',
           description:
             'Schedule more than 4 fires/day anyway. Only after the user explicitly confirmed they understand the quota/token cost and you agree it is right.',
         },
-        { name: 'script', type: 'string', description: 'New pre-task script; "null"/"none" removes it.' },
+        {
+          name: 'script',
+          type: 'string',
+          description: 'New pre-task script; "null"/"none" removes it.',
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
       handler: async (args, ctx) => updateTaskCommand(args, ctx),
     },
     cancel: {
       access: 'open',
-      description: 'Cancel a live task by series id, or use --all as a kill switch.',
+      description:
+        'Cancel a live task by series id, or use --all as a kill switch.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id (omit with --all).' },
-        { name: 'all', type: 'boolean', description: 'Cancel every live task in scope — kill switch.' },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id (omit with --all).',
+        },
+        {
+          name: 'all',
+          type: 'boolean',
+          description: 'Cancel every live task in scope — kill switch.',
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
       handler: async (args, ctx) => cancelTaskCommand(args, ctx),
     },
@@ -608,13 +788,23 @@ registerResource({
       description:
         'Fire a task now without changing its schedule (queues an extra run due immediately). Safe for testing — unlike update --process-after now, it neither consumes a one-shot nor advances a recurring series.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id.', required: true },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id.',
+          required: true,
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
       handler: async (args, ctx) => runTaskCommand(args, ctx),
     },
@@ -622,41 +812,73 @@ registerResource({
       access: 'open',
       description: 'Pause a pending task by series id.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id.', required: true },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id.',
+          required: true,
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
-      handler: async (args, ctx) => mutateTask(args, ctx, (mailbox, id) => mailbox.pauseTask(id)),
+      handler: async (args, ctx) =>
+        mutateTask(args, ctx, (mailbox, id) => mailbox.pauseTask(id)),
     },
     resume: {
       access: 'open',
       description: 'Resume a paused task by series id.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id.', required: true },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id.',
+          required: true,
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
-      handler: async (args, ctx) => mutateTask(args, ctx, (mailbox, id) => mailbox.resumeTask(id)),
+      handler: async (args, ctx) =>
+        mutateTask(args, ctx, (mailbox, id) => mailbox.resumeTask(id)),
     },
     delete: {
       access: 'open',
       description: 'Hard-delete a task series and its history.',
       args: [
-        { name: 'id', type: 'string', description: 'Task series id.', required: true },
+        {
+          name: 'id',
+          type: 'string',
+          description: 'Task series id.',
+          required: true,
+        },
         {
           name: 'group',
           type: 'string',
-          description: 'Agent group id (host callers; auto-filled to your own group inside a container).',
+          description:
+            'Agent group id (host callers; auto-filled to your own group inside a container).',
         },
-        { name: 'session', type: 'string', description: 'Limit to one task session id.' },
+        {
+          name: 'session',
+          type: 'string',
+          description: 'Limit to one task session id.',
+        },
       ],
       handler: async (args, ctx) => deleteTaskCommand(args, ctx),
     },

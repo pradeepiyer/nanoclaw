@@ -14,7 +14,10 @@ export interface PluginSkill {
   srcDir: string;
 }
 
-export function readPluginSkills(pluginDir: string): { skills: PluginSkill[]; report: string[] } {
+export function readPluginSkills(pluginDir: string): {
+  skills: PluginSkill[];
+  report: string[];
+} {
   const skillsDir = path.join(pluginDir, 'skills');
   const report: string[] = [];
   if (!fs.existsSync(skillsDir)) return { skills: [], report };
@@ -24,9 +27,13 @@ export function readPluginSkills(pluginDir: string): { skills: PluginSkill[]; re
   }
 
   const skills: PluginSkill[] = [];
-  for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const entry of fs
+    .readdirSync(skillsDir, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name))) {
     if (entry.isSymbolicLink()) {
-      report.push(`skills/${entry.name}: skipped: symlinks are not allowed in plugins`);
+      report.push(
+        `skills/${entry.name}: skipped: symlinks are not allowed in plugins`,
+      );
       continue;
     }
     // Stray regular files in skills/ are simply not skills; only directories count.
@@ -46,7 +53,10 @@ export function readPluginSkills(pluginDir: string): { skills: PluginSkill[]; re
 function validateSkill(skillDir: string): string | undefined {
   const skillMd = path.join(skillDir, 'SKILL.md');
   if (!fs.existsSync(skillMd)) return 'no SKILL.md';
-  if (fs.lstatSync(skillMd).isSymbolicLink() || !fs.lstatSync(skillMd).isFile()) {
+  if (
+    fs.lstatSync(skillMd).isSymbolicLink() ||
+    !fs.lstatSync(skillMd).isFile()
+  ) {
     return 'SKILL.md is not a regular file';
   }
 

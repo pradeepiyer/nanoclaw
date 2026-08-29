@@ -29,9 +29,19 @@ registerResource({
         'Human-readable name. Shown in approval cards and logs. Often auto-populated from the channel adapter.',
       updatable: true,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
   // Idempotent create on the user id, so re-wiring the same owner is a no-op.
   naturalKey: ['id'],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+  },
 });

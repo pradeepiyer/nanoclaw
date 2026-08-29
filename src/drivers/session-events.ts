@@ -62,7 +62,9 @@ export interface SessionEventsDriver extends SessionDriver {
 }
 
 /** Raw fakes installed via `resetSessionDriver` are not hubs; probe, never assume. */
-export function isSessionEventsDriver(driver: SessionDriver): driver is SessionEventsDriver {
+export function isSessionEventsDriver(
+  driver: SessionDriver,
+): driver is SessionEventsDriver {
   return typeof (driver as Partial<SessionEventsDriver>).resync === 'function';
 }
 
@@ -128,7 +130,11 @@ class SessionEventsHub {
 
   async resync(installSlug: string): Promise<void> {
     const armed = [...this.#states.values()].filter(
-      (s) => s.handle.key.installSlug === installSlug && s.cb && !s.fired && !s.stopIntent,
+      (s) =>
+        s.handle.key.installSlug === installSlug &&
+        s.cb &&
+        !s.fired &&
+        !s.stopIntent,
     );
     if (armed.length === 0) return;
     const snapshots = await this.driver.listSessions(installSlug);
@@ -176,7 +182,10 @@ class SessionEventsHub {
         try {
           const status = await state.handle.status();
           if (status.phase === 'stopped' || status.phase === 'failed') {
-            this.#deliver(state, status.phase === 'failed' ? status.failure : undefined);
+            this.#deliver(
+              state,
+              status.phase === 'failed' ? status.failure : undefined,
+            );
             return;
           }
           // spurious or replayed hint — unless a newer hint queued a re-check
@@ -243,14 +252,20 @@ export function withSessionEvents(driver: SessionDriver): SessionEventsDriver {
       return new HubHandle(handle, hub);
     },
     listSessions: async (installSlug) =>
-      (await driver.listSessions(installSlug)).map((snapshot): SupervisedSnapshot => {
-        hub.trackListed(snapshot.handle);
-        return { ...snapshot, handle: new HubHandle(snapshot.handle, hub) };
-      }),
-    watchSessions: (installSlug, onEvent) => driver.watchSessions(installSlug, onEvent),
+      (await driver.listSessions(installSlug)).map(
+        (snapshot): SupervisedSnapshot => {
+          hub.trackListed(snapshot.handle);
+          return { ...snapshot, handle: new HubHandle(snapshot.handle, hub) };
+        },
+      ),
+    watchSessions: (installSlug, onEvent) =>
+      driver.watchSessions(installSlug, onEvent),
     resync: (installSlug) => hub.resync(installSlug),
   };
-  if (driver.ensureReady) wrapped.ensureReady = (): Promise<void> => driver.ensureReady!();
-  if (driver.reapResidue) wrapped.reapResidue = (installSlug): Promise<void> => driver.reapResidue!(installSlug);
+  if (driver.ensureReady)
+    wrapped.ensureReady = (): Promise<void> => driver.ensureReady!();
+  if (driver.reapResidue)
+    wrapped.reapResidue = (installSlug): Promise<void> =>
+      driver.reapResidue!(installSlug);
   return wrapped;
 }

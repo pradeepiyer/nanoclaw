@@ -18,8 +18,12 @@ let proxyPort: number | null = null;
 registerGatewayProvider('local', () => ({
   kind: 'local',
   async contribute() {
-    const dotenv = readEnvFile(['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
-    const realToken = dotenv.CLAUDE_CODE_OAUTH_TOKEN || dotenv.ANTHROPIC_API_KEY;
+    const dotenv = readEnvFile([
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'ANTHROPIC_API_KEY',
+    ]);
+    const realToken =
+      dotenv.CLAUDE_CODE_OAUTH_TOKEN || dotenv.ANTHROPIC_API_KEY;
 
     if (!realToken) {
       throw new Error(

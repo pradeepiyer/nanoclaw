@@ -15,10 +15,18 @@ const outboundSql: string[] = [];
 
 let inboundRows: Array<{ timestamp: string; content: string }> = [];
 let outboundRows: Array<{ timestamp: string; content: string }> = [];
-let siblingSessions: Array<{ id: string; status: string; messaging_group_id: string | null }> = [];
+let siblingSessions: Array<{
+  id: string;
+  status: string;
+  messaging_group_id: string | null;
+}> = [];
 
 vi.mock('../../session-manager.js', () => ({
-  withExistingMailboxSession: (_g: string, _s: string, fn: (mailbox: unknown) => unknown) =>
+  withExistingMailboxSession: (
+    _g: string,
+    _s: string,
+    fn: (mailbox: unknown) => unknown,
+  ) =>
     fn({
       getConversationRoot: () => {
         inboundSql.push('getConversationRoot');
@@ -29,7 +37,11 @@ vi.mock('../../session-manager.js', () => ({
         return outboundRows;
       },
     }),
-  writeSessionMessage: async (agentGroupId: string, sessionId: string, msg: Record<string, unknown>) => {
+  writeSessionMessage: async (
+    agentGroupId: string,
+    sessionId: string,
+    msg: Record<string, unknown>,
+  ) => {
     written.push({ agentGroupId, sessionId, ...msg });
   },
 }));
@@ -40,9 +52,25 @@ vi.mock('../../db/sessions.js', () => ({
 
 const { backfillNewSession, BACKFILL_LIMIT } = await import('./backfill.js');
 
-const AG = { id: 'ag-1', name: 'Pete', folder: 'pete', agent_provider: null, created_at: '' } as never;
-const DM_MG = { id: 'mg-dm', channel_type: 'slack', platform_id: 'slack:D1', is_group: 0 } as never;
-const ROOM_MG = { id: 'mg-room', channel_type: 'slack', platform_id: 'slack:C1', is_group: 1 } as never;
+const AG = {
+  id: 'ag-1',
+  name: 'Pete',
+  folder: 'pete',
+  agent_provider: null,
+  created_at: '',
+} as never;
+const DM_MG = {
+  id: 'mg-dm',
+  channel_type: 'slack',
+  platform_id: 'slack:D1',
+  is_group: 0,
+} as never;
+const ROOM_MG = {
+  id: 'mg-room',
+  channel_type: 'slack',
+  platform_id: 'slack:C1',
+  is_group: 1,
+} as never;
 const NEW_SESSION = {
   id: 'sess-new',
   agent_group_id: 'ag-1',
@@ -60,15 +88,22 @@ beforeEach(() => {
   outboundSql.length = 0;
   inboundRows = [];
   outboundRows = [];
-  siblingSessions = [{ id: 'sess-old', status: 'active', messaging_group_id: 'mg-dm' }];
+  siblingSessions = [
+    { id: 'sess-old', status: 'active', messaging_group_id: 'mg-dm' },
+  ];
 });
 
 describe('backfillNewSession', () => {
   it('seeds the new session with sibling roots + top-level agent posts, ordered by time', async () => {
     outboundRows = [
-      { timestamp: '2026-08-01T19:14:00Z', content: JSON.stringify({ text: 'Hey Gavriel! I am Pete… tour?' }) },
+      {
+        timestamp: '2026-08-01T19:14:00Z',
+        content: JSON.stringify({ text: 'Hey Gavriel! I am Pete… tour?' }),
+      },
     ];
-    inboundRows = [{ timestamp: '2026-08-01T19:10:00Z', content: chat('hello there') }];
+    inboundRows = [
+      { timestamp: '2026-08-01T19:10:00Z', content: chat('hello there') },
+    ];
 
     await backfillNewSession(AG, NEW_SESSION, DM_MG);
 
@@ -79,12 +114,20 @@ describe('backfillNewSession', () => {
       channelType: 'session-echo',
       trigger: false,
     });
-    const first = JSON.parse(written[0]!.content as string) as Record<string, unknown>;
-    const second = JSON.parse(written[1]!.content as string) as Record<string, unknown>;
+    const first = JSON.parse(written[0]!.content as string) as Record<
+      string,
+      unknown
+    >;
+    const second = JSON.parse(written[1]!.content as string) as Record<
+      string,
+      unknown
+    >;
     expect(first.text).toBe('hello there');
     expect(second.text).toBe('Hey Gavriel! I am Pete… tour?');
     expect(second.sender).toBe('Pete');
-    expect((second.echo as Record<string, unknown>).surface).toBe('dm-timeline');
+    expect((second.echo as Record<string, unknown>).surface).toBe(
+      'dm-timeline',
+    );
     expect(second.self).toBe(true);
     expect(first.self).toBeUndefined();
   });
@@ -96,29 +139,57 @@ describe('backfillNewSession', () => {
   });
 
   it('skips task sessions and sessions without siblings', async () => {
-    await backfillNewSession(AG, { ...(NEW_SESSION as object), thread_id: 'system:tasks:t-1' } as never, DM_MG);
+    await backfillNewSession(
+      AG,
+      { ...(NEW_SESSION as object), thread_id: 'system:tasks:t-1' } as never,
+      DM_MG,
+    );
     siblingSessions = [];
     await backfillNewSession(AG, NEW_SESSION, DM_MG);
     expect(written).toHaveLength(0);
   });
 
   it('seeds group-surface sessions with the channel timeline: channel-timeline surface + channel label', async () => {
-    siblingSessions = [{ id: 'sess-room-t1', status: 'active', messaging_group_id: 'mg-room' }];
-    inboundRows = [{ timestamp: '2026-08-01T19:10:00Z', content: chat('thread root msg') }];
-    outboundRows = [{ timestamp: '2026-08-01T19:14:00Z', content: JSON.stringify({ text: 'top-level agent post' }) }];
+    siblingSessions = [
+      { id: 'sess-room-t1', status: 'active', messaging_group_id: 'mg-room' },
+    ];
+    inboundRows = [
+      { timestamp: '2026-08-01T19:10:00Z', content: chat('thread root msg') },
+    ];
+    outboundRows = [
+      {
+        timestamp: '2026-08-01T19:14:00Z',
+        content: JSON.stringify({ text: 'top-level agent post' }),
+      },
+    ];
 
     await backfillNewSession(AG, NEW_SESSION, ROOM_MG);
 
     expect(written).toHaveLength(2);
-    const first = JSON.parse(written[0]!.content as string) as Record<string, unknown>;
-    expect((first.echo as Record<string, unknown>).surface).toBe('channel-timeline');
-    expect((first.echo as Record<string, unknown>).label).toBe('this channel, just before this conversation');
-    const second = JSON.parse(written[1]!.content as string) as Record<string, unknown>;
+    const first = JSON.parse(written[0]!.content as string) as Record<
+      string,
+      unknown
+    >;
+    expect((first.echo as Record<string, unknown>).surface).toBe(
+      'channel-timeline',
+    );
+    expect((first.echo as Record<string, unknown>).label).toBe(
+      'this channel, just before this conversation',
+    );
+    const second = JSON.parse(written[1]!.content as string) as Record<
+      string,
+      unknown
+    >;
     expect(second.self).toBe(true);
   });
 
   it('ignores system-sender roots and caps at BACKFILL_LIMIT newest rows', async () => {
-    inboundRows = [{ timestamp: '2026-08-01T18:00:00Z', content: chat('Introduce yourself', 'system', 'system') }];
+    inboundRows = [
+      {
+        timestamp: '2026-08-01T18:00:00Z',
+        content: chat('Introduce yourself', 'system', 'system'),
+      },
+    ];
     outboundRows = Array.from({ length: 20 }, (_, i) => ({
       timestamp: `2026-08-01T19:${String(10 + i).padStart(2, '0')}:00Z`,
       content: JSON.stringify({ text: `post ${i}` }),
@@ -127,13 +198,17 @@ describe('backfillNewSession', () => {
     await backfillNewSession(AG, NEW_SESSION, DM_MG);
 
     expect(written).toHaveLength(BACKFILL_LIMIT);
-    const texts = written.map((w) => (JSON.parse(w.content as string) as { text: string }).text);
+    const texts = written.map(
+      (w) => (JSON.parse(w.content as string) as { text: string }).text,
+    );
     expect(texts).not.toContain('Introduce yourself');
     expect(texts.at(-1)).toBe('post 19');
   });
 
   it('only considers siblings of the same messaging group', async () => {
-    siblingSessions = [{ id: 'sess-other-dm', status: 'active', messaging_group_id: 'mg-other' }];
+    siblingSessions = [
+      { id: 'sess-other-dm', status: 'active', messaging_group_id: 'mg-other' },
+    ];
     await backfillNewSession(AG, NEW_SESSION, DM_MG);
     expect(written).toHaveLength(0);
   });

@@ -14,12 +14,17 @@ import { TEMPLATES_DIR } from '../config.js';
  * that escapes `base` after resolution. Throws if the resolved path is missing
  * or not a directory.
  */
-export function resolveLocalTemplate(ref: string, base: string = TEMPLATES_DIR): string {
+export function resolveLocalTemplate(
+  ref: string,
+  base: string = TEMPLATES_DIR,
+): string {
   if (!ref || ref !== ref.trim()) {
     throw new Error(`Invalid template ref: "${ref}"`);
   }
   if (path.isAbsolute(ref) || ref.startsWith('~')) {
-    throw new Error(`Template ref must be relative to the templates directory: "${ref}"`);
+    throw new Error(
+      `Template ref must be relative to the templates directory: "${ref}"`,
+    );
   }
   const candidate = path.resolve(base, ref);
   const rel = path.relative(base, candidate);

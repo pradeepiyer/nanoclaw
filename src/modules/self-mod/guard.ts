@@ -18,14 +18,21 @@
  * imageBuild. add_mcp_server needs no rebuild and carries no gate.
  */
 import { getSessionDriver } from '../../drivers/index.js';
-import { DENY, HOLD, defineGuardedAction, type GuardInput } from '../../guard/index.js';
+import {
+  DENY,
+  HOLD,
+  defineGuardedAction,
+  type GuardInput,
+} from '../../guard/index.js';
 
 function selfModDecide(label: string) {
   return (input: GuardInput) => {
     if (input.actor.kind !== 'agent') {
       return DENY(`${label} is a container-originated action.`);
     }
-    return HOLD(`${label} always requires admin approval from the container path`);
+    return HOLD(
+      `${label} always requires admin approval from the container path`,
+    );
   };
 }
 

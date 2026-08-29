@@ -8,7 +8,10 @@
 import { wakeContainer } from '../../container-runner.js';
 import { getSession } from '../../db/sessions.js';
 import { log } from '../../log.js';
-import { withMailboxSession, writeSessionMessage } from '../../session-manager.js';
+import {
+  withMailboxSession,
+  writeSessionMessage,
+} from '../../session-manager.js';
 import type { Session } from '../../types.js';
 
 export async function handleScheduleTask(
@@ -21,15 +24,19 @@ export async function handleScheduleTask(
   const processAfter = content.processAfter as string;
   const recurrence = (content.recurrence as string) || null;
 
-  await withMailboxSession(session.agent_group_id, session.id, async (mailbox) => {
-    await mailbox.insertTask({
-      id: taskId,
-      seriesId: taskId,
-      processAfter,
-      recurrence,
-      content: JSON.stringify({ prompt, script }),
-    });
-  });
+  await withMailboxSession(
+    session.agent_group_id,
+    session.id,
+    async (mailbox) => {
+      await mailbox.insertTask({
+        id: taskId,
+        seriesId: taskId,
+        processAfter,
+        recurrence,
+        content: JSON.stringify({ prompt, script }),
+      });
+    },
+  );
   log.info('Scheduled task created', { taskId, processAfter, recurrence });
 }
 
@@ -71,9 +78,15 @@ export async function handleUpdateTask(
   session: Session,
 ): Promise<void> {
   const taskId = content.taskId as string;
-  const update: { prompt?: string; script?: string | null; recurrence?: string | null; processAfter?: string } = {};
+  const update: {
+    prompt?: string;
+    script?: string | null;
+    recurrence?: string | null;
+    processAfter?: string;
+  } = {};
   if (typeof content.prompt === 'string') update.prompt = content.prompt;
-  if (typeof content.processAfter === 'string') update.processAfter = content.processAfter;
+  if (typeof content.processAfter === 'string')
+    update.processAfter = content.processAfter;
   if (content.recurrence === null || typeof content.recurrence === 'string') {
     update.recurrence = content.recurrence as string | null;
   }
@@ -81,9 +94,13 @@ export async function handleUpdateTask(
     update.script = content.script as string | null;
   }
 
-  const touched = await withMailboxSession(session.agent_group_id, session.id, (mailbox) => {
-    return mailbox.updateTask(taskId, update);
-  });
+  const touched = await withMailboxSession(
+    session.agent_group_id,
+    session.id,
+    (mailbox) => {
+      return mailbox.updateTask(taskId, update);
+    },
+  );
 
   log.info('Task updated', { taskId, touched, fields: Object.keys(update) });
   if (touched === 0) {
@@ -103,7 +120,9 @@ export async function handleUpdateTask(
     const fresh = await getSession(session.id);
     if (fresh) {
       wakeContainer(fresh).catch((err) =>
-        log.error('Failed to wake container after update_task notification', { err }),
+        log.error('Failed to wake container after update_task notification', {
+          err,
+        }),
       );
     }
   }

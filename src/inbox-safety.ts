@@ -21,7 +21,10 @@ import { log } from './log.js';
 /** True if `child` is `parent` itself or nested within it (no traversal/escape). */
 export function isPathInside(parent: string, child: string): boolean {
   const relative = path.relative(parent, child);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  );
 }
 
 /**
@@ -58,7 +61,10 @@ export function ensureContainedInboxDir(
     try {
       const st = fs.lstatSync(dir);
       if (st.isSymbolicLink() || !st.isDirectory()) {
-        log.warn('inbox-safety: rejecting unsafe inbox path', { ...context, dir });
+        log.warn('inbox-safety: rejecting unsafe inbox path', {
+          ...context,
+          dir,
+        });
         return null;
       }
     } catch {
@@ -72,12 +78,19 @@ export function ensureContainedInboxDir(
     const realInboxDir = fs.realpathSync(inboxDir);
     const realInboxRoot = fs.realpathSync(inboxRoot);
     if (!isPathInside(realInboxRoot, realInboxDir)) {
-      log.warn('inbox-safety: inbox dir escaped inbox root', { ...context, inboxDir });
+      log.warn('inbox-safety: inbox dir escaped inbox root', {
+        ...context,
+        inboxDir,
+      });
       return null;
     }
     return realInboxDir;
   } catch (err) {
-    log.warn('inbox-safety: failed to resolve inbox dir', { ...context, inboxDir, err });
+    log.warn('inbox-safety: failed to resolve inbox dir', {
+      ...context,
+      inboxDir,
+      err,
+    });
     return null;
   }
 }

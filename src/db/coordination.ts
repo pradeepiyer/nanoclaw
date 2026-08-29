@@ -19,7 +19,10 @@ import { log } from '../log.js';
  * Run a shadow write. Failures log and are swallowed — shadow state must
  * never affect the authoritative path, so no caller may see a throw.
  */
-export async function shadowWrite(label: string, write: () => Promise<unknown>): Promise<void> {
+export async function shadowWrite(
+  label: string,
+  write: () => Promise<unknown>,
+): Promise<void> {
   /* eslint-disable no-catch-all/no-catch-all -- shadow writes must never affect the authoritative path */
   try {
     await write();
@@ -92,7 +95,10 @@ export async function registerHostInstance(args: {
 }
 
 /** Renew the lease. Returns false when the row no longer exists. */
-export async function renewHostInstanceLease(instanceId: string, leaseExpiresAt: string): Promise<boolean> {
+export async function renewHostInstanceLease(
+  instanceId: string,
+  leaseExpiresAt: string,
+): Promise<boolean> {
   const result = await getDb().run(
     'UPDATE host_instances SET lease_expires_at = ? WHERE instance_id = ? AND stopped_at IS NULL',
     leaseExpiresAt,
@@ -101,8 +107,15 @@ export async function renewHostInstanceLease(instanceId: string, leaseExpiresAt:
   return result.changes > 0;
 }
 
-export async function markHostInstanceStopped(instanceId: string, now: string): Promise<void> {
-  await getDb().run('UPDATE host_instances SET stopped_at = ? WHERE instance_id = ?', now, instanceId);
+export async function markHostInstanceStopped(
+  instanceId: string,
+  now: string,
+): Promise<void> {
+  await getDb().run(
+    'UPDATE host_instances SET stopped_at = ? WHERE instance_id = ?',
+    now,
+    instanceId,
+  );
 }
 
 /**
@@ -111,7 +124,10 @@ export async function markHostInstanceStopped(instanceId: string, now: string): 
  * included) — an unknown claimant reads as not-live, which is what lets a
  * claim it holds be taken over.
  */
-export async function getLiveHostInstance(instanceId: string, now: string): Promise<HostInstanceRow | undefined> {
+export async function getLiveHostInstance(
+  instanceId: string,
+  now: string,
+): Promise<HostInstanceRow | undefined> {
   return getDb().get<HostInstanceRow>(
     'SELECT * FROM host_instances WHERE instance_id = ? AND stopped_at IS NULL AND lease_expires_at > ?',
     instanceId,
@@ -120,7 +136,9 @@ export async function getLiveHostInstance(instanceId: string, now: string): Prom
 }
 
 /** Instances whose lease is still ahead of `now` and not gracefully stopped. */
-export async function listLiveHostInstances(now: string): Promise<HostInstanceRow[]> {
+export async function listLiveHostInstances(
+  now: string,
+): Promise<HostInstanceRow[]> {
   return getDb().all<HostInstanceRow>(
     'SELECT * FROM host_instances WHERE stopped_at IS NULL AND lease_expires_at > ? ORDER BY started_at',
     now,
@@ -129,8 +147,13 @@ export async function listLiveHostInstances(now: string): Promise<HostInstanceRo
 
 // ── session_claims ──
 
-export async function getSessionClaim(sessionId: string): Promise<SessionClaimRow | undefined> {
-  return getDb().get<SessionClaimRow>('SELECT * FROM session_claims WHERE session_id = ?', sessionId);
+export async function getSessionClaim(
+  sessionId: string,
+): Promise<SessionClaimRow | undefined> {
+  return getDb().get<SessionClaimRow>(
+    'SELECT * FROM session_claims WHERE session_id = ?',
+    sessionId,
+  );
 }
 
 /**
@@ -198,7 +221,9 @@ export async function releaseSessionClaim(args: {
 
 /** Sessions carrying an unconsumed stop intent (startup recovery reads this). */
 export async function listSessionsWithStopIntent(): Promise<SessionClaimRow[]> {
-  return getDb().all<SessionClaimRow>('SELECT * FROM session_claims WHERE stop_intent IS NOT NULL');
+  return getDb().all<SessionClaimRow>(
+    'SELECT * FROM session_claims WHERE stop_intent IS NOT NULL',
+  );
 }
 
 /** Durable stop intent — survives a host restart, unlike the on-wake promise. */
@@ -249,18 +274,30 @@ export async function recordDeliveryAttempt(args: {
   return row?.attempts ?? 1;
 }
 
-export async function getDeliveryAttempt(messageId: string): Promise<DeliveryAttemptRow | undefined> {
-  return getDb().get<DeliveryAttemptRow>('SELECT * FROM delivery_attempts WHERE message_id = ?', messageId);
+export async function getDeliveryAttempt(
+  messageId: string,
+): Promise<DeliveryAttemptRow | undefined> {
+  return getDb().get<DeliveryAttemptRow>(
+    'SELECT * FROM delivery_attempts WHERE message_id = ?',
+    messageId,
+  );
 }
 
 /** Delivered or terminally failed — the row's job is done. */
 export async function clearDeliveryAttempt(messageId: string): Promise<void> {
-  await getDb().run('DELETE FROM delivery_attempts WHERE message_id = ?', messageId);
+  await getDb().run(
+    'DELETE FROM delivery_attempts WHERE message_id = ?',
+    messageId,
+  );
 }
 
 // ── wake_signals (the wake-signal outbox) ──
 
-export async function writeWakeSignal(sessionId: string, reason: string, now: string): Promise<string> {
+export async function writeWakeSignal(
+  sessionId: string,
+  reason: string,
+  now: string,
+): Promise<string> {
   const id = randomUUID();
   await getDb().run(
     'INSERT INTO wake_signals (id, session_id, reason, created_at) VALUES (?, ?, ?, ?)',
@@ -288,7 +325,9 @@ export async function takeWakeSignals(args: {
         'SELECT * FROM wake_signals WHERE session_id = ? AND consumed_at IS NULL ORDER BY created_at',
         args.sessionId,
       )
-    : await db.all<WakeSignalRow>('SELECT * FROM wake_signals WHERE consumed_at IS NULL ORDER BY created_at');
+    : await db.all<WakeSignalRow>(
+        'SELECT * FROM wake_signals WHERE consumed_at IS NULL ORDER BY created_at',
+      );
   const taken: WakeSignalRow[] = [];
   for (const signal of pending) {
     const result = await db.run(
@@ -297,7 +336,12 @@ export async function takeWakeSignals(args: {
       args.consumerId,
       signal.id,
     );
-    if (result.changes > 0) taken.push({ ...signal, consumed_at: args.now, consumed_by: args.consumerId });
+    if (result.changes > 0)
+      taken.push({
+        ...signal,
+        consumed_at: args.now,
+        consumed_by: args.consumerId,
+      });
   }
   return taken;
 }

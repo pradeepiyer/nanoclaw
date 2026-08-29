@@ -14,16 +14,41 @@ import type { CallerContext } from './frame.js';
 
 describe('validateArgs', () => {
   const defs = [
-    { name: 'target', type: 'string' as const, description: 'Target.', required: true },
-    { name: 'count', type: 'number' as const, description: 'Count.', default: 1 },
+    {
+      name: 'target',
+      type: 'string' as const,
+      description: 'Target.',
+      required: true,
+    },
+    {
+      name: 'count',
+      type: 'number' as const,
+      description: 'Count.',
+      default: 1,
+    },
     { name: 'force', type: 'boolean' as const, description: 'Force.' },
     { name: 'meta', type: 'json' as const, description: 'Meta.' },
-    { name: 'size', type: 'string' as const, description: 'Size.', enum: ['s', 'm', 'l'] },
+    {
+      name: 'size',
+      type: 'string' as const,
+      description: 'Size.',
+      enum: ['s', 'm', 'l'],
+    },
   ];
 
   it('coerces types per declaration', () => {
-    const out = validateArgs(defs, { target: 'x', count: '5', force: 'true', meta: '{"a":1}' });
-    expect(out).toMatchObject({ target: 'x', count: 5, force: true, meta: { a: 1 } });
+    const out = validateArgs(defs, {
+      target: 'x',
+      count: '5',
+      force: 'true',
+      meta: '{"a":1}',
+    });
+    expect(out).toMatchObject({
+      target: 'x',
+      count: 5,
+      force: true,
+      meta: { a: 1 },
+    });
   });
 
   it('applies defaults for absent optional flags', () => {
@@ -35,24 +60,37 @@ describe('validateArgs', () => {
   });
 
   it('rejects unknown flags', () => {
-    expect(() => validateArgs(defs, { target: 'x', bogus: '1' })).toThrow('unknown flag --bogus');
+    expect(() => validateArgs(defs, { target: 'x', bogus: '1' })).toThrow(
+      'unknown flag --bogus',
+    );
   });
 
   it('tolerates dispatch-injected keys without declaration', () => {
-    const out = validateArgs(defs, { target: 'x', id: 'ag-1', agent_group_id: 'ag-1', group: 'ag-1' });
+    const out = validateArgs(defs, {
+      target: 'x',
+      id: 'ag-1',
+      agent_group_id: 'ag-1',
+      group: 'ag-1',
+    });
     expect(out.id).toBe('ag-1');
   });
 
   it('rejects enum violations', () => {
-    expect(() => validateArgs(defs, { target: 'x', size: 'xl' })).toThrow('--size must be one of: s, m, l');
+    expect(() => validateArgs(defs, { target: 'x', size: 'xl' })).toThrow(
+      '--size must be one of: s, m, l',
+    );
   });
 
   it('rejects non-numeric values for number flags', () => {
-    expect(() => validateArgs(defs, { target: 'x', count: 'many' })).toThrow('--count must be a number');
+    expect(() => validateArgs(defs, { target: 'x', count: 'many' })).toThrow(
+      '--count must be a number',
+    );
   });
 
   it('rejects a value-less flag on a non-boolean (client sends true)', () => {
-    expect(() => validateArgs(defs, { target: true })).toThrow('--target requires a value');
+    expect(() => validateArgs(defs, { target: true })).toThrow(
+      '--target requires a value',
+    );
   });
 
   it('accepts a value-less boolean flag', () => {
@@ -60,7 +98,9 @@ describe('validateArgs', () => {
   });
 
   it('rejects invalid JSON', () => {
-    expect(() => validateArgs(defs, { target: 'x', meta: '{nope' })).toThrow('--meta must be valid JSON');
+    expect(() => validateArgs(defs, { target: 'x', meta: '{nope' })).toThrow(
+      '--meta must be valid JSON',
+    );
   });
 });
 
@@ -74,14 +114,27 @@ registerResource({
   idColumn: 'id',
   columns: [
     { name: 'id', type: 'string', description: 'UUID.', generated: true },
-    { name: 'name', type: 'string', description: 'Display name.', required: true, updatable: true },
+    {
+      name: 'name',
+      type: 'string',
+      description: 'Display name.',
+      required: true,
+      updatable: true,
+    },
   ],
   operations: {},
   customOperations: {
     ping: {
       access: 'open',
       description: 'Ping a widget.',
-      args: [{ name: 'target', type: 'string', description: 'Where to ping.', required: true }],
+      args: [
+        {
+          name: 'target',
+          type: 'string',
+          description: 'Where to ping.',
+          required: true,
+        },
+      ],
       examples: ['ncl widgets ping --target prod'],
       handler: async (args) => ({ echo: args }),
     },
@@ -115,20 +168,27 @@ describe('strict validation wiring (declared args)', () => {
   });
 
   it('rejects unknown flags with the usage block', () => {
-    expect(() => parse({ target: 'prod', bogus: '1' })).toThrow(/unknown flag --bogus[\s\S]*Flags:/);
+    expect(() => parse({ target: 'prod', bogus: '1' })).toThrow(
+      /unknown flag --bogus[\s\S]*Flags:/,
+    );
   });
 
   it('normalizes dashed flags before validating', () => {
     // --target arrives as raw key "target"; a dashed alias like "tar-get" would
     // normalize to underscores — prove normalize runs before validate.
-    expect(() => parse({ 'bogus-flag': '1', target: 'x' })).toThrow('unknown flag --bogus-flag');
+    expect(() => parse({ 'bogus-flag': '1', target: 'x' })).toThrow(
+      'unknown flag --bogus-flag',
+    );
   });
 });
 
 describe('lenient ops (no declared args) keep legacy behavior', () => {
   it('passes stray flags through untouched', () => {
     const parse = lookup('widgets-legacy')!.parseArgs;
-    expect(parse({ anything: 'goes', 'dash-key': '1' })).toMatchObject({ anything: 'goes', dash_key: '1' });
+    expect(parse({ anything: 'goes', 'dash-key': '1' })).toMatchObject({
+      anything: 'goes',
+      dash_key: '1',
+    });
   });
 });
 
@@ -152,22 +212,28 @@ describe('resource help command', () => {
   });
 
   it('renders deep help for `help <verb>` (id from prefix fallback)', async () => {
-    const out = (await helpCmd.handler(helpCmd.parseArgs({ id: 'ping' }), host)) as string;
+    const out = (await helpCmd.handler(
+      helpCmd.parseArgs({ id: 'ping' }),
+      host,
+    )) as string;
     expect(out).toContain('ncl widgets ping');
     expect(out).toContain('--target');
     expect(out).toContain('Examples:');
   });
 
   it('errors on an unknown verb', async () => {
-    await expect(helpCmd.handler(helpCmd.parseArgs({ id: 'bogus' }), host)).rejects.toThrow(
-      'no verb "bogus" on widgets',
-    );
+    await expect(
+      helpCmd.handler(helpCmd.parseArgs({ id: 'bogus' }), host),
+    ).rejects.toThrow('no verb "bogus" on widgets');
   });
 
   it('treats an auto-filled agent group id as no verb (scoped agent, plain help)', async () => {
     // dispatch auto-fills id=ctx.agentGroupId on groups/destinations; the
     // handler must show the overview, not "no verb <uuid>".
-    const out = (await helpCmd.handler(helpCmd.parseArgs({ id: 'ag-1' }), agent)) as string;
+    const out = (await helpCmd.handler(
+      helpCmd.parseArgs({ id: 'ag-1' }),
+      agent,
+    )) as string;
     expect(out).toContain('widgets: Test widgets.');
   });
 });

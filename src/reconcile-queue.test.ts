@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createReconcileQueue } from './reconcile-queue.js';
 import { sessionKey, type SingletonKey } from './reconcile.js';
 
-function deferred(): { promise: Promise<void>; resolve: () => void; reject: (err: Error) => void } {
+function deferred(): {
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (err: Error) => void;
+} {
   let resolve!: () => void;
   let reject!: (err: Error) => void;
   const promise = new Promise<void>((res, rej) => {
@@ -51,16 +55,18 @@ describe('reconcile queue', () => {
   it('re-runs a key that was re-added while it was running', async () => {
     const runs: string[] = [];
     const firstRun = deferred();
-    const queue: ReturnType<typeof createReconcileQueue> = createReconcileQueue({
-      reconcile: async (id) => {
-        runs.push(id);
-        if (runs.length === 1) {
-          queue.add(sessionKey('s-1')); // state changed mid-reconcile
-          firstRun.resolve();
-        }
+    const queue: ReturnType<typeof createReconcileQueue> = createReconcileQueue(
+      {
+        reconcile: async (id) => {
+          runs.push(id);
+          if (runs.length === 1) {
+            queue.add(sessionKey('s-1')); // state changed mid-reconcile
+            firstRun.resolve();
+          }
+        },
+        singletons: noopSingletons,
       },
-      singletons: noopSingletons,
-    });
+    );
 
     queue.add(sessionKey('s-1'));
     await firstRun.promise;

@@ -55,7 +55,8 @@ vi.mock('../db/sessions.js', () => ({
 
 const mockGetMessagingGroupAgentByPair = vi.fn();
 vi.mock('../db/messaging-groups.js', () => ({
-  getMessagingGroupAgentByPair: (...args: unknown[]) => mockGetMessagingGroupAgentByPair(...args),
+  getMessagingGroupAgentByPair: (...args: unknown[]) =>
+    mockGetMessagingGroupAgentByPair(...args),
 }));
 
 // dispatch's post-handler looks up the resource's `scopeField` via getResource.
@@ -151,7 +152,10 @@ register({
   access: 'open',
   generic: 'get',
   parseArgs: (raw) => raw,
-  handler: async (args) => ({ id: (args as Record<string, unknown>).id, agent_group_id: 'g1' }),
+  handler: async (args) => ({
+    id: (args as Record<string, unknown>).id,
+    agent_group_id: 'g1',
+  }),
 });
 
 register({
@@ -245,7 +249,10 @@ register({
   access: 'open',
   generic: 'get',
   parseArgs: (raw) => raw,
-  handler: async (args) => ({ id: (args as Record<string, unknown>).id, agent_group_id: 'g1' }),
+  handler: async (args) => ({
+    id: (args as Record<string, unknown>).id,
+    agent_group_id: 'g1',
+  }),
 });
 
 // The real `sessions-history` name — the same pre-handler check covers it.
@@ -275,7 +282,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   approvalState.observedContexts.length = 0;
   approvalState.wiringUpdates.length = 0;
-  mockGetMessagingGroupAgentByPair.mockReturnValue({ id: 'w-current', agent_group_id: 'g1' });
+  mockGetMessagingGroupAgentByPair.mockReturnValue({
+    id: 'w-current',
+    agent_group_id: 'g1',
+  });
   // Default: CLI-whitelisted resources with their real scopeFields.
   const scopeFields: Record<string, string> = {
     groups: 'id',
@@ -292,7 +302,9 @@ beforeEach(() => {
 
 // --- Helpers ---
 
-function agentCtx(overrides?: Partial<Extract<CallerContext, { caller: 'agent' }>>): CallerContext {
+function agentCtx(
+  overrides?: Partial<Extract<CallerContext, { caller: 'agent' }>>,
+): CallerContext {
   return {
     caller: 'agent',
     sessionId: 's1',
@@ -308,7 +320,10 @@ describe('host-only commands (operator-only)', () => {
   it('rejects an agent caller even at global scope', async () => {
     // global scope is otherwise unrestricted — hostOnly must still reject.
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'global' });
-    const resp = await dispatch({ id: '1', command: 'host-only-cmd', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'host-only-cmd', args: {} },
+      agentCtx(),
+    );
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
       expect(resp.error.code).toBe('forbidden');
@@ -317,7 +332,10 @@ describe('host-only commands (operator-only)', () => {
   });
 
   it('passes the gate for a host (operator) caller', async () => {
-    const resp = await dispatch({ id: '1', command: 'host-only-cmd', args: { x: 1 } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'host-only-cmd', args: { x: 1 } },
+      { caller: 'host' },
+    );
     expect(resp.ok).toBe(true);
   });
 });
@@ -326,7 +344,10 @@ describe('CLI scope enforcement', () => {
   it('disabled: rejects all CLI requests from agent', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'disabled' });
 
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -338,7 +359,10 @@ describe('CLI scope enforcement', () => {
   it('group: auto-fills --id with caller agent group', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-test', args: { foo: 'bar' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-test', args: { foo: 'bar' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -350,7 +374,10 @@ describe('CLI scope enforcement', () => {
   it('group: rejects cross-group access', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-test', args: { id: 'other-group' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-test', args: { id: 'other-group' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -362,7 +389,10 @@ describe('CLI scope enforcement', () => {
   it('group: allows same-group id', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-test', args: { id: 'g1' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-test', args: { id: 'g1' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
   });
@@ -370,7 +400,10 @@ describe('CLI scope enforcement', () => {
   it('group: blocks cli_scope escalation', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-test', args: { cli_scope: 'global' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-test', args: { cli_scope: 'global' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -382,7 +415,10 @@ describe('CLI scope enforcement', () => {
   it('group: blocks cli-scope escalation (hyphenated)', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-test', args: { 'cli-scope': 'global' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-test', args: { 'cli-scope': 'global' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -393,7 +429,10 @@ describe('CLI scope enforcement', () => {
   it('group: blocks non-group resources', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -405,7 +444,10 @@ describe('CLI scope enforcement', () => {
   it('group: allows general commands with no resource (e.g. help)', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'general-cmd', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'general-cmd', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
   });
@@ -413,7 +455,10 @@ describe('CLI scope enforcement', () => {
   it('group: allows sessions, auto-fills --agent_group_id', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'sessions-list', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'sessions-list', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -427,7 +472,10 @@ describe('CLI scope enforcement', () => {
   it('group: allows destinations, auto-fills --id', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'destinations-list', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'destinations-list', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -439,7 +487,10 @@ describe('CLI scope enforcement', () => {
   it('group: allows members, auto-fills --group', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'members-add', args: { user: 'u1' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'members-add', args: { user: 'u1' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -451,7 +502,10 @@ describe('CLI scope enforcement', () => {
   it('group: allows tasks, auto-fills --group', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'tasks-list', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'tasks-list', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -464,10 +518,17 @@ describe('CLI scope enforcement', () => {
   it('group: resolves wiring reads from the current conversation, ignoring caller ids', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'wirings-get', args: { id: 'w-foreign' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'wirings-get', args: { id: 'w-foreign' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
-    if (resp.ok) expect(resp.data).toMatchObject({ id: 'w-current', agent_group_id: 'g1' });
+    if (resp.ok)
+      expect(resp.data).toMatchObject({
+        id: 'w-current',
+        agent_group_id: 'g1',
+      });
     expect(mockGetMessagingGroupAgentByPair).toHaveBeenCalledWith('mg1', 'g1');
   });
 
@@ -485,47 +546,69 @@ describe('CLI scope enforcement', () => {
     expect(approvalState.requestApproval).not.toHaveBeenCalled();
   });
 
-  it.each(['current', 'missing'])('group: re-resolves a %s conversation wiring on approved replay', async (state) => {
-    mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetSession.mockReturnValue({ id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' });
-    mockGetAgentGroup.mockReturnValue({ id: 'g1', name: 'Group One' });
+  it.each(['current', 'missing'])(
+    'group: re-resolves a %s conversation wiring on approved replay',
+    async (state) => {
+      mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
+      mockGetSession.mockReturnValue({
+        id: 's1',
+        agent_group_id: 'g1',
+        messaging_group_id: 'mg1',
+      });
+      mockGetAgentGroup.mockReturnValue({ id: 'g1', name: 'Group One' });
 
-    const resp = await dispatch(
-      {
-        id: '1',
-        command: 'wirings-update',
-        args: { engage_mode: 'pattern', engage_pattern: '.' },
-      },
-      agentCtx(),
-    );
-    expect(resp.ok).toBe(false);
-    if (!resp.ok) expect(resp.error.code).toBe('approval-pending');
+      const resp = await dispatch(
+        {
+          id: '1',
+          command: 'wirings-update',
+          args: { engage_mode: 'pattern', engage_pattern: '.' },
+        },
+        agentCtx(),
+      );
+      expect(resp.ok).toBe(false);
+      if (!resp.ok) expect(resp.error.code).toBe('approval-pending');
 
-    const request = approvalState.requestApproval.mock.calls[0][0] as { payload: Record<string, unknown> };
-    const grant = { approval_id: `appr-${state}`, action: 'cli_command', payload: JSON.stringify(request.payload) };
-    mockGetPendingApproval.mockReturnValue(grant);
-    if (state === 'missing') mockGetMessagingGroupAgentByPair.mockReturnValue(undefined);
-    const notify = vi.fn();
+      const request = approvalState.requestApproval.mock.calls[0][0] as {
+        payload: Record<string, unknown>;
+      };
+      const grant = {
+        approval_id: `appr-${state}`,
+        action: 'cli_command',
+        payload: JSON.stringify(request.payload),
+      };
+      mockGetPendingApproval.mockReturnValue(grant);
+      if (state === 'missing')
+        mockGetMessagingGroupAgentByPair.mockReturnValue(undefined);
+      const notify = vi.fn();
 
-    await approvalState.approvalHandler!({
-      session: { id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' },
-      payload: request.payload,
-      approval: grant,
-      userId: 'telegram:admin',
-      notify,
-    });
+      await approvalState.approvalHandler!({
+        session: { id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' },
+        payload: request.payload,
+        approval: grant,
+        userId: 'telegram:admin',
+        notify,
+      });
 
-    expect(approvalState.wiringUpdates).toHaveLength(state === 'current' ? 1 : 0);
-    expect(notify).toHaveBeenCalledWith(
-      expect.stringContaining(state === 'current' ? 'approved and executed' : 'failed'),
-    );
-  });
+      expect(approvalState.wiringUpdates).toHaveLength(
+        state === 'current' ? 1 : 0,
+      );
+      expect(notify).toHaveBeenCalledWith(
+        expect.stringContaining(
+          state === 'current' ? 'approved and executed' : 'failed',
+        ),
+      );
+    },
+  );
 
   it('group: rejects cross-group --agent_group_id', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
     const resp = await dispatch(
-      { id: '1', command: 'sessions-list', args: { agent_group_id: 'other-group' } },
+      {
+        id: '1',
+        command: 'sessions-list',
+        args: { agent_group_id: 'other-group' },
+      },
       agentCtx(),
     );
 
@@ -539,7 +622,11 @@ describe('CLI scope enforcement', () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
     const resp = await dispatch(
-      { id: '1', command: 'members-add', args: { user: 'u1', group: 'other-group' } },
+      {
+        id: '1',
+        command: 'members-add',
+        args: { user: 'u1', group: 'other-group' },
+      },
       agentCtx(),
     );
 
@@ -552,7 +639,10 @@ describe('CLI scope enforcement', () => {
   it('global: allows cross-group access', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'global' });
 
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: { id: 'other-group' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: { id: 'other-group' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
   });
@@ -560,7 +650,10 @@ describe('CLI scope enforcement', () => {
   it('global: allows non-group resources', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'global' });
 
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
   });
@@ -568,7 +661,10 @@ describe('CLI scope enforcement', () => {
   it('global: does not auto-fill --id', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'global' });
 
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: { foo: 'bar' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: { foo: 'bar' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -580,7 +676,10 @@ describe('CLI scope enforcement', () => {
   it('defaults to group when cli_scope is missing', async () => {
     mockGetContainerConfig.mockReturnValue({});
 
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -590,7 +689,10 @@ describe('CLI scope enforcement', () => {
 
   it('host caller bypasses CLI scope enforcement', async () => {
     // No config check should happen for host callers
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: { id: 'any-group' } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: { id: 'any-group' } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     expect(mockGetContainerConfig).not.toHaveBeenCalled();
@@ -598,16 +700,25 @@ describe('CLI scope enforcement', () => {
 
   it('approval replay preserves the original agent caller context', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetSession.mockReturnValue({ id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' });
+    mockGetSession.mockReturnValue({
+      id: 's1',
+      agent_group_id: 'g1',
+      messaging_group_id: 'mg1',
+    });
     mockGetAgentGroup.mockReturnValue({ id: 'g1', name: 'Group One' });
 
     const ctx = agentCtx();
-    const resp = await dispatch({ id: '1', command: 'approval-context-command', args: {} }, ctx);
+    const resp = await dispatch(
+      { id: '1', command: 'approval-context-command', args: {} },
+      ctx,
+    );
 
     expect(resp.ok).toBe(false);
     expect(approvalState.requestApproval).toHaveBeenCalledTimes(1);
 
-    const approval = approvalState.requestApproval.mock.calls[0][0] as { payload: Record<string, unknown> };
+    const approval = approvalState.requestApproval.mock.calls[0][0] as {
+      payload: Record<string, unknown>;
+    };
     expect(approval.payload).toEqual({
       frame: {
         id: '1',
@@ -643,19 +754,32 @@ describe('CLI scope enforcement', () => {
 
   it('replay with a dead grant (row deleted) refuses instead of re-holding', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetSession.mockReturnValue({ id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' });
+    mockGetSession.mockReturnValue({
+      id: 's1',
+      agent_group_id: 'g1',
+      messaging_group_id: 'mg1',
+    });
     mockGetAgentGroup.mockReturnValue({ id: 'g1', name: 'Group One' });
 
     const ctx = agentCtx();
-    await dispatch({ id: '1', command: 'approval-context-command', args: {} }, ctx);
-    const approval = approvalState.requestApproval.mock.calls[0][0] as { payload: Record<string, unknown> };
+    await dispatch(
+      { id: '1', command: 'approval-context-command', args: {} },
+      ctx,
+    );
+    const approval = approvalState.requestApproval.mock.calls[0][0] as {
+      payload: Record<string, unknown>;
+    };
 
     mockGetPendingApproval.mockReturnValue(undefined); // resolution already deleted the row
     const notify = vi.fn();
     await approvalState.approvalHandler!({
       session: { id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' },
       payload: approval.payload,
-      approval: { approval_id: 'appr-dead', action: 'cli_command', payload: JSON.stringify(approval.payload) },
+      approval: {
+        approval_id: 'appr-dead',
+        action: 'cli_command',
+        payload: JSON.stringify(approval.payload),
+      },
       userId: 'telegram:admin',
       notify,
     });
@@ -676,9 +800,13 @@ describe('CLI scope enforcement', () => {
     };
     mockGetPendingApproval.mockReturnValue(grantRow);
 
-    const resp = await dispatch({ id: '1', command: 'approval-context-command', args: {} }, agentCtx(), {
-      grant: grantRow as never,
-    });
+    const resp = await dispatch(
+      { id: '1', command: 'approval-context-command', args: {} },
+      agentCtx(),
+      {
+        grant: grantRow as never,
+      },
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -695,11 +823,17 @@ describe('CLI scope enforcement', () => {
     const forged = {
       approval_id: 'appr-forged',
       action: 'cli_command',
-      payload: JSON.stringify({ frame: { command: 'approval-context-command' } }),
+      payload: JSON.stringify({
+        frame: { command: 'approval-context-command' },
+      }),
     };
-    const resp = await dispatch({ id: '1', command: 'approval-context-command', args: {} }, agentCtx(), {
-      grant: forged as never,
-    });
+    const resp = await dispatch(
+      { id: '1', command: 'approval-context-command', args: {} },
+      agentCtx(),
+      {
+        grant: forged as never,
+      },
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) expect(resp.error.code).toBe('forbidden');
@@ -711,7 +845,10 @@ describe('CLI scope enforcement', () => {
   it('group: groups list filters out other groups', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-list-data', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-list-data', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -725,7 +862,11 @@ describe('CLI scope enforcement', () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
     const resp = await dispatch(
-      { id: '1', command: 'sessions-get-data', args: { id: 's-123', belongs_to: 'other-group' } },
+      {
+        id: '1',
+        command: 'sessions-get-data',
+        args: { id: 's-123', belongs_to: 'other-group' },
+      },
       agentCtx(),
     );
 
@@ -740,7 +881,11 @@ describe('CLI scope enforcement', () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
 
     const resp = await dispatch(
-      { id: '1', command: 'sessions-get-data', args: { id: 's-123', belongs_to: 'g1' } },
+      {
+        id: '1',
+        command: 'sessions-get-data',
+        args: { id: 's-123', belongs_to: 'g1' },
+      },
       agentCtx(),
     );
 
@@ -750,7 +895,10 @@ describe('CLI scope enforcement', () => {
   it('global: no post-handler filtering', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'global' });
 
-    const resp = await dispatch({ id: '1', command: 'groups-list-data', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-list-data', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -767,7 +915,10 @@ describe('CLI scope enforcement', () => {
     // groups-config-get is access:open and reachable by a group-scoped agent;
     // it returns { agent_group_id, model } with no `id` field. Before this fix
     // the post-handler compared data['id'] (undefined) and returned forbidden.
-    const resp = await dispatch({ id: '1', command: 'groups-config-get', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-config-get', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -779,9 +930,15 @@ describe('CLI scope enforcement', () => {
 
   it('group: sessions-get returns "session not found" for a foreign session UUID', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetSession.mockReturnValue({ id: 's-x', agent_group_id: 'other-group' });
+    mockGetSession.mockReturnValue({
+      id: 's-x',
+      agent_group_id: 'other-group',
+    });
 
-    const resp = await dispatch({ id: '1', command: 'sessions-get', args: { id: 's-x' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'sessions-get', args: { id: 's-x' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -794,7 +951,10 @@ describe('CLI scope enforcement', () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
     mockGetSession.mockReturnValue(undefined);
 
-    const resp = await dispatch({ id: '1', command: 'sessions-get', args: { id: 's-nope' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'sessions-get', args: { id: 's-nope' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -805,9 +965,15 @@ describe('CLI scope enforcement', () => {
 
   it('group: sessions-history gets the same "session not found" for a foreign session UUID', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetSession.mockReturnValue({ id: 's-x', agent_group_id: 'other-group' });
+    mockGetSession.mockReturnValue({
+      id: 's-x',
+      agent_group_id: 'other-group',
+    });
 
-    const resp = await dispatch({ id: '1', command: 'sessions-history', args: { id: 's-x' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'sessions-history', args: { id: 's-x' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -820,7 +986,10 @@ describe('CLI scope enforcement', () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
     mockGetSession.mockReturnValue({ id: 's-mine', agent_group_id: 'g1' });
 
-    const resp = await dispatch({ id: '1', command: 'sessions-get', args: { id: 's-mine' } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'sessions-get', args: { id: 's-mine' } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
   });
@@ -831,7 +1000,10 @@ describe('CLI scope enforcement', () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
     mockGetResource.mockReturnValue(undefined); // a whitelisted resource that forgot scopeField
 
-    const resp = await dispatch({ id: '1', command: 'groups-list-data', args: {} }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'groups-list-data', args: {} },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -856,25 +1028,37 @@ describe('positional dashed-id resolution', () => {
 
   it('resolves a long dashed id to command + intact id (no shredding)', async () => {
     const id = 'task-374f0630-d3e0-4965-81da-fe4bf7a6a442';
-    const resp = await dispatch({ id: '1', command: `groups-test-${id}`, args: {} }, host);
+    const resp = await dispatch(
+      { id: '1', command: `groups-test-${id}`, args: {} },
+      host,
+    );
     expect(resp.ok).toBe(true);
     if (resp.ok) expect(resp.data).toEqual({ echo: { id } });
   });
 
   it('matches the LONGEST command prefix when the verb itself has dashes', async () => {
-    const resp = await dispatch({ id: '2', command: 'groups-cfg-get-abc-123', args: {} }, host);
+    const resp = await dispatch(
+      { id: '2', command: 'groups-cfg-get-abc-123', args: {} },
+      host,
+    );
     expect(resp.ok).toBe(true);
     if (resp.ok) expect(resp.data).toEqual({ echo: { id: 'abc-123' } });
   });
 
   it('leaves a registered no-id command alone', async () => {
-    const resp = await dispatch({ id: '3', command: 'groups-test', args: {} }, host);
+    const resp = await dispatch(
+      { id: '3', command: 'groups-test', args: {} },
+      host,
+    );
     expect(resp.ok).toBe(true);
     if (resp.ok) expect(resp.data).toEqual({ echo: {} });
   });
 
   it('does not override an explicit --id', async () => {
-    const resp = await dispatch({ id: '4', command: 'groups-test-tail', args: { id: 'explicit' } }, host);
+    const resp = await dispatch(
+      { id: '4', command: 'groups-test-tail', args: { id: 'explicit' } },
+      host,
+    );
     expect(resp.ok).toBe(true);
     if (resp.ok) expect(resp.data).toEqual({ echo: { id: 'explicit' } });
   });
@@ -884,7 +1068,10 @@ describe('positional dashed-id resolution', () => {
 
 describe('--help interception', () => {
   it('returns command help instead of executing (open command)', async () => {
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: { help: true } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: { help: true } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -894,7 +1081,10 @@ describe('--help interception', () => {
   });
 
   it('carries the help text in `human` so clients print it verbatim', async () => {
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: { help: true } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: { help: true } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -905,9 +1095,16 @@ describe('--help interception', () => {
 
   it('never mints an approval card for --help on an approval-gated command', async () => {
     mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetSession.mockReturnValue({ id: 's1', agent_group_id: 'g1', messaging_group_id: 'mg1' });
+    mockGetSession.mockReturnValue({
+      id: 's1',
+      agent_group_id: 'g1',
+      messaging_group_id: 'mg1',
+    });
 
-    const resp = await dispatch({ id: '1', command: 'approval-context-command', args: { help: true } }, agentCtx());
+    const resp = await dispatch(
+      { id: '1', command: 'approval-context-command', args: { help: true } },
+      agentCtx(),
+    );
 
     expect(resp.ok).toBe(true);
     expect(approvalState.requestApproval).not.toHaveBeenCalled();
@@ -930,7 +1127,14 @@ describe('--help interception', () => {
               test: {
                 access: 'open',
                 description: 'Deep test op.',
-                args: [{ name: 'foo', type: 'string', description: 'A foo.', required: true }],
+                args: [
+                  {
+                    name: 'foo',
+                    type: 'string',
+                    description: 'A foo.',
+                    required: true,
+                  },
+                ],
                 handler: async () => ({}),
               },
             },
@@ -938,7 +1142,10 @@ describe('--help interception', () => {
         : undefined,
     );
 
-    const resp = await dispatch({ id: '1', command: 'groups-test', args: { help: true } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'groups-test', args: { help: true } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -966,7 +1173,13 @@ describe('--help interception', () => {
               'config update': {
                 access: 'open',
                 description: 'Update container config.',
-                args: [{ name: 'model', type: 'string', description: 'Model override.' }],
+                args: [
+                  {
+                    name: 'model',
+                    type: 'string',
+                    description: 'Model override.',
+                  },
+                ],
                 handler: async () => ({}),
               },
             },
@@ -974,26 +1187,37 @@ describe('--help interception', () => {
         : undefined,
     );
 
-    const resp = await dispatch({ id: '1', command: 'groups-config-update', args: { help: true } }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'groups-config-update', args: { help: true } },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
       expect(resp.data).toContain('ncl groups config update');
       expect(resp.data).toContain('--model');
       // Not the bare registry description fallback:
-      expect(resp.data).not.toBe('bare registry description (should not be the help answer)');
+      expect(resp.data).not.toBe(
+        'bare registry description (should not be the help answer)',
+      );
     }
   });
 
-  it.each(['wirings-get', 'wirings-update'])('answers %s --help in group scope', async (command) => {
-    mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
-    mockGetResource.mockReturnValue(undefined);
+  it.each(['wirings-get', 'wirings-update'])(
+    'answers %s --help in group scope',
+    async (command) => {
+      mockGetContainerConfig.mockReturnValue({ cli_scope: 'group' });
+      mockGetResource.mockReturnValue(undefined);
 
-    const resp = await dispatch({ id: '1', command, args: { help: true } }, agentCtx());
+      const resp = await dispatch(
+        { id: '1', command, args: { help: true } },
+        agentCtx(),
+      );
 
-    expect(resp.ok).toBe(true);
-    expect(approvalState.requestApproval).not.toHaveBeenCalled();
-  });
+      expect(resp.ok).toBe(true);
+      expect(approvalState.requestApproval).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // --- Unknown-command errors carry their fix ---
@@ -1011,24 +1235,36 @@ describe('unknown-command errors', () => {
             columns: [],
             operations: { list: 'open', get: 'open' },
             customOperations: {
-              restart: { access: 'approval', description: 'Restart.', handler: async () => ({}) },
+              restart: {
+                access: 'approval',
+                description: 'Restart.',
+                handler: async () => ({}),
+              },
             },
           }
         : undefined,
     );
 
-    const resp = await dispatch({ id: '1', command: 'groups-restrat', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'groups-restrat', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
       expect(resp.error.code).toBe('unknown-command');
-      expect(resp.error.message).toContain('verbs for groups: list, get, restart');
+      expect(resp.error.message).toContain(
+        'verbs for groups: list, get, restart',
+      );
       expect(resp.error.message).toContain('ncl groups help');
     }
   });
 
   it('suggests the closest command name for near-miss typos', async () => {
-    const resp = await dispatch({ id: '1', command: 'test-cm', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'test-cm', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -1038,7 +1274,10 @@ describe('unknown-command errors', () => {
   });
 
   it('falls back to a plain pointer when nothing is close', async () => {
-    const resp = await dispatch({ id: '1', command: 'zzz-qqq-vvv', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'zzz-qqq-vvv', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(false);
     if (!resp.ok) {
@@ -1058,7 +1297,8 @@ describe('formatHuman hook', () => {
     access: 'open',
     parseArgs: (raw) => raw,
     handler: async () => [{ id: 'x1', status: 'live' }],
-    formatHuman: (rows) => `TABLE(${(rows as { id: string }[]).map((r) => r.id).join(',')})`,
+    formatHuman: (rows) =>
+      `TABLE(${(rows as { id: string }[]).map((r) => r.id).join(',')})`,
   });
 
   register({
@@ -1073,7 +1313,10 @@ describe('formatHuman hook', () => {
   });
 
   it('attaches human alongside data', async () => {
-    const resp = await dispatch({ id: '1', command: 'render-cmd', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'render-cmd', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -1083,7 +1326,10 @@ describe('formatHuman hook', () => {
   });
 
   it('a throwing renderer degrades to a plain frame, never an error', async () => {
-    const resp = await dispatch({ id: '1', command: 'render-throws', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'render-throws', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) {
@@ -1093,7 +1339,10 @@ describe('formatHuman hook', () => {
   });
 
   it('commands without a renderer stay human-less', async () => {
-    const resp = await dispatch({ id: '1', command: 'test-cmd', args: {} }, { caller: 'host' });
+    const resp = await dispatch(
+      { id: '1', command: 'test-cmd', args: {} },
+      { caller: 'host' },
+    );
 
     expect(resp.ok).toBe(true);
     if (resp.ok) expect(resp.human).toBeUndefined();

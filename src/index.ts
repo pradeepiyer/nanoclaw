@@ -6,13 +6,24 @@
  */
 import { backfillContainerConfigs } from './backfill-container-configs.js';
 import { CENTRAL_DB_PATH } from './config.js';
-import { enforceStartupBackoff, resetCircuitBreaker } from './circuit-breaker.js';
+import {
+  enforceStartupBackoff,
+  resetCircuitBreaker,
+} from './circuit-breaker.js';
 import { adoptRunningSessions } from './container-runner.js';
 import { closeDb, initDb } from './db/connection.js';
 import { runMigrations } from './db/migrations/index.js';
 import { getSessionDriver } from './drivers/index.js';
-import { startActiveDeliveryPoll, startSweepDeliveryPoll, setDeliveryAdapter, stopDeliveryPolls } from './delivery.js';
-import { startHostInstanceLease, stopHostInstanceLease } from './host-instance.js';
+import {
+  startActiveDeliveryPoll,
+  startSweepDeliveryPoll,
+  setDeliveryAdapter,
+  stopDeliveryPolls,
+} from './delivery.js';
+import {
+  startHostInstanceLease,
+  stopHostInstanceLease,
+} from './host-instance.js';
 import { startHostSweep, stopHostSweep } from './host-sweep.js';
 import { startHostModules, stopHostModules } from './host-lifecycle.js';
 import { routeInbound } from './router.js';
@@ -23,7 +34,10 @@ import { enforceUpgradeTripwire } from './upgrade-state.js';
 // circular import cycle: src/index.ts imports src/modules/index.js for side
 // effects, and the modules call registerResponseHandler at top level — which
 // would hit a TDZ error if the array lived here.
-import { getResponseHandlers, type ResponsePayload } from './response-registry.js';
+import {
+  getResponseHandlers,
+  type ResponsePayload,
+} from './response-registry.js';
 
 const hostAbortController = new AbortController();
 
@@ -33,10 +47,16 @@ async function dispatchResponse(payload: ResponsePayload): Promise<void> {
       const claimed = await handler(payload);
       if (claimed) return;
     } catch (err) {
-      log.error('Response handler threw', { questionId: payload.questionId, err });
+      log.error('Response handler threw', {
+        questionId: payload.questionId,
+        err,
+      });
     }
   }
-  log.warn('Unclaimed response', { questionId: payload.questionId, value: payload.value });
+  log.warn('Unclaimed response', {
+    questionId: payload.questionId,
+    value: payload.value,
+  });
 }
 
 // Channel barrel — each enabled channel self-registers on import.
@@ -78,7 +98,8 @@ async function main(): Promise<void> {
   // 1b. Backfill container_configs from legacy container.json files.
   // Idempotent — skips groups that already have a config row.
   if (db.dialect === 'sqlite') await backfillContainerConfigs();
-  else log.info('Skipping local container.json backfill for non-local central DB');
+  else
+    log.info('Skipping local container.json backfill for non-local central DB');
 
   // 2. Session runtime: prove it is reachable, then reconcile what survived a
   // restart. Adoption replaces the old reap-everything cleanup — a session that
@@ -106,7 +127,10 @@ async function main(): Promise<void> {
             isGroup: message.isGroup,
           },
         }).catch((err) => {
-          log.error('Failed to route inbound message', { channelType: adapter.channelType, err });
+          log.error('Failed to route inbound message', {
+            channelType: adapter.channelType,
+            err,
+          });
         });
       },
       onInboundEvent(event) {

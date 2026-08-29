@@ -6,7 +6,10 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import type { SupervisedHandle, SupervisedSnapshot } from './drivers/session-events.js';
+import type {
+  SupervisedHandle,
+  SupervisedSnapshot,
+} from './drivers/session-events.js';
 
 const snapshots: SupervisedSnapshot[] = [];
 vi.mock('./drivers/index.js', () => ({
@@ -26,8 +29,19 @@ import {
   killContainer,
   wakeContainer,
 } from './container-runner.js';
-import { getSessionClaim, setStopIntent, tryClaimSession } from './db/coordination.js';
-import { initTestDb, closeDb, runMigrations, createAgentGroup, createSession, getSession } from './db/index.js';
+import {
+  getSessionClaim,
+  setStopIntent,
+  tryClaimSession,
+} from './db/coordination.js';
+import {
+  initTestDb,
+  closeDb,
+  runMigrations,
+  createAgentGroup,
+  createSession,
+  getSession,
+} from './db/index.js';
 import type { Session } from './types.js';
 
 function now(): string {
@@ -112,10 +126,15 @@ describe('claim-fenced adoption', () => {
     // no registry entry, and — critically — the container is NOT stopped,
     // because it belongs to whichever claimant won.
     const coordination = await import('./db/coordination.js');
-    const casSpy = vi.spyOn(coordination, 'tryClaimSession').mockResolvedValueOnce(null);
+    const casSpy = vi
+      .spyOn(coordination, 'tryClaimSession')
+      .mockResolvedValueOnce(null);
 
     const controls = fakeHandle('sess-1', 'container-theirs');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
 
     const { adopted, stopped } = await adoptRunningSessions();
     casSpy.mockRestore();
@@ -131,10 +150,18 @@ describe('claim-fenced adoption', () => {
     // reads the current incarnation and takes over. (Refusing claims held by
     // a LIVE process is the lease-liveness check that arrives when the
     // host-instance branch converges with this one.)
-    await tryClaimSession({ sessionId: 'sess-1', instanceId: 'crashed-host:1', expectedIncarnation: 0, now: now() });
+    await tryClaimSession({
+      sessionId: 'sess-1',
+      instanceId: 'crashed-host:1',
+      expectedIncarnation: 0,
+      now: now(),
+    });
 
     const controls = fakeHandle('sess-1', 'container-adopted');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     const { adopted } = await adoptRunningSessions();
     expect(adopted).toBe(1);
     const claim = await getSessionClaim('sess-1');
@@ -146,12 +173,20 @@ describe('claim-fenced adoption', () => {
 describe('stale-finish fencing', () => {
   it('a finish from a superseded incarnation does not stomp the fresh claim or the session status', async () => {
     const controls = fakeHandle('sess-1', 'container-old');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     expect((await getSessionClaim('sess-1'))?.incarnation).toBe(1);
 
     // A newer claimant (fresh spawn elsewhere) fences incarnation 1 out.
-    await tryClaimSession({ sessionId: 'sess-1', instanceId: 'other-host:999', expectedIncarnation: 1, now: now() });
+    await tryClaimSession({
+      sessionId: 'sess-1',
+      instanceId: 'other-host:999',
+      expectedIncarnation: 1,
+      now: now(),
+    });
 
     const onExit = vi.fn();
     killContainer('sess-1', 'stale-kill', onExit);
@@ -168,14 +203,20 @@ describe('stale-finish fencing', () => {
 
   it('a terminal event from a replaced runtime never finalizes the current one', async () => {
     const old = fakeHandle('sess-1', 'container-old');
-    snapshots.push({ handle: old.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: old.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
 
     // A second adoption pass replaces the registered runtime (same process,
     // fresh handle) without the old runtime ever finishing.
     snapshots.length = 0;
     const fresh = fakeHandle('sess-1', 'container-new');
-    snapshots.push({ handle: fresh.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: fresh.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     expect((await getSessionClaim('sess-1'))?.incarnation).toBe(2);
 
@@ -204,12 +245,17 @@ describe('durable respawn intent', () => {
     const wake = vi.fn(async (_session: Session) => false);
 
     await honorPendingStopIntents(wake);
-    expect((await getSessionClaim('sess-1'))?.stop_intent).toBe('respawn_after_stop');
+    expect((await getSessionClaim('sess-1'))?.stop_intent).toBe(
+      'respawn_after_stop',
+    );
   });
 
   it('re-issues the interrupted kill when the container outlived the host, then respawns', async () => {
     const controls = fakeHandle('sess-1', 'container-survivor');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     await setStopIntent('sess-1', 'respawn_after_stop', now());
 
@@ -227,7 +273,10 @@ describe('durable respawn intent', () => {
   it('clears an intent left on a closed session without waking anything', async () => {
     await seedSession('sess-closed');
     const db = (await import('./db/connection.js')).getDb();
-    await db.run("UPDATE sessions SET status = 'closed' WHERE id = ?", 'sess-closed');
+    await db.run(
+      "UPDATE sessions SET status = 'closed' WHERE id = ?",
+      'sess-closed',
+    );
     await setStopIntent('sess-closed', 'respawn_after_stop', now());
 
     const wake = vi.fn(async (_session: Session) => true);
@@ -240,10 +289,15 @@ describe('durable respawn intent', () => {
 describe('fail-closed adoption', () => {
   it('a claim write failure leaves the container unadopted and untouched; the wake path reclaims it', async () => {
     const coordination = await import('./db/coordination.js');
-    const casSpy = vi.spyOn(coordination, 'tryClaimSession').mockRejectedValueOnce(new Error('store down'));
+    const casSpy = vi
+      .spyOn(coordination, 'tryClaimSession')
+      .mockRejectedValueOnce(new Error('store down'));
 
     const controls = fakeHandle('sess-1', 'container-alive');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
 
     const { adopted, stopped } = await adoptRunningSessions();
     expect(adopted).toBe(0);
@@ -265,10 +319,15 @@ describe('fail-closed adoption', () => {
 
   it('the wake path spawns nothing while the store is still down', async () => {
     const coordination = await import('./db/coordination.js');
-    const casSpy = vi.spyOn(coordination, 'tryClaimSession').mockRejectedValue(new Error('store down'));
+    const casSpy = vi
+      .spyOn(coordination, 'tryClaimSession')
+      .mockRejectedValue(new Error('store down'));
 
     const controls = fakeHandle('sess-1', 'container-alive');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
 
     const woke = await wakeContainer((await getSession('sess-1'))!);
@@ -281,9 +340,14 @@ describe('fail-closed adoption', () => {
   it('a pending stop intent is deferred while the session awaits fenced adoption', async () => {
     await setStopIntent('sess-1', 'respawn_after_stop', now());
     const coordination = await import('./db/coordination.js');
-    const casSpy = vi.spyOn(coordination, 'tryClaimSession').mockRejectedValueOnce(new Error('store down'));
+    const casSpy = vi
+      .spyOn(coordination, 'tryClaimSession')
+      .mockRejectedValueOnce(new Error('store down'));
     const controls = fakeHandle('sess-1', 'container-alive');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     casSpy.mockRestore();
 
@@ -291,7 +355,9 @@ describe('fail-closed adoption', () => {
     await honorPendingStopIntents(wake);
     expect(wake).not.toHaveBeenCalled();
     // The intent row survives for the pass that runs after fenced adoption.
-    expect((await getSessionClaim('sess-1'))?.stop_intent).toBe('respawn_after_stop');
+    expect((await getSessionClaim('sess-1'))?.stop_intent).toBe(
+      'respawn_after_stop',
+    );
   });
 });
 
@@ -300,12 +366,17 @@ describe('fail-closed finish', () => {
     _setFinishFenceScheduleForTesting([], 250);
 
     const controls = fakeHandle('sess-1', 'container-adopted');
-    snapshots.push({ handle: controls.handle, phase: 'running' } as SupervisedSnapshot);
+    snapshots.push({
+      handle: controls.handle,
+      phase: 'running',
+    } as SupervisedSnapshot);
     await adoptRunningSessions();
     expect(isContainerRunning('sess-1')).toBe(true);
 
     const coordination = await import('./db/coordination.js');
-    const fenceSpy = vi.spyOn(coordination, 'getSessionClaim').mockRejectedValueOnce(new Error('store down'));
+    const fenceSpy = vi
+      .spyOn(coordination, 'getSessionClaim')
+      .mockRejectedValueOnce(new Error('store down'));
     controls.fireTerminal();
     await vi.waitFor(() => expect(fenceSpy).toHaveBeenCalled());
 

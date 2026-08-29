@@ -9,9 +9,15 @@ import fs from 'fs';
 import path from 'path';
 
 import { GROUPS_DIR } from './config.js';
-import type { McpServerConfig, AdditionalMountConfig } from './container-config.js';
+import type {
+  McpServerConfig,
+  AdditionalMountConfig,
+} from './container-config.js';
 import { getAllAgentGroups } from './db/agent-groups.js';
-import { getContainerConfig, createContainerConfig } from './db/container-configs.js';
+import {
+  getContainerConfig,
+  createContainerConfig,
+} from './db/container-configs.js';
 import { log } from './log.js';
 import type { ContainerConfigRow } from './types.js';
 
@@ -39,7 +45,9 @@ export async function backfillContainerConfigs(): Promise<void> {
     let legacy: LegacyContainerJson = {};
     if (fs.existsSync(filePath)) {
       try {
-        legacy = JSON.parse(fs.readFileSync(filePath, 'utf8')) as LegacyContainerJson;
+        legacy = JSON.parse(
+          fs.readFileSync(filePath, 'utf8'),
+        ) as LegacyContainerJson;
       } catch (err) {
         log.warn('Backfill: failed to parse container.json, using defaults', {
           folder: group.folder,

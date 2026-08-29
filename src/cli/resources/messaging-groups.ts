@@ -47,7 +47,8 @@ registerResource({
     {
       name: 'is_group',
       type: 'number',
-      description: 'Multi-user group chat (1) or direct message (0). Affects session scoping.',
+      description:
+        'Multi-user group chat (1) or direct message (0). Affects session scoping.',
       default: 0,
       updatable: true,
     },
@@ -67,11 +68,22 @@ registerResource({
         'Set when the owner explicitly denies registering this channel. While set, the router drops all messages silently without re-escalating. Cleared by any explicit wiring mutation.',
       updatable: true,
     },
-    { name: 'created_at', type: 'string', description: 'Auto-set.', generated: true },
+    {
+      name: 'created_at',
+      type: 'string',
+      description: 'Auto-set.',
+      generated: true,
+    },
   ],
   // Idempotent create: a skill re-running `ncl messaging-groups create` gets the existing row back.
   naturalKey: ['channel_type', 'platform_id', 'instance'],
-  operations: { list: 'open', get: 'open', create: 'approval', update: 'approval', delete: 'approval' },
+  operations: {
+    list: 'open',
+    get: 'open',
+    create: 'approval',
+    update: 'approval',
+    delete: 'approval',
+  },
   resolveDefaults: (values) => {
     if (values.unknown_sender_policy !== undefined) return;
     const channelType = String(values.channel_type);
@@ -87,7 +99,11 @@ registerResource({
     // is_group carries its static default (0) only after this hook runs, so
     // treat "not provided" as the same DM context the static default means.
     const isGroup = Number(values.is_group ?? 0) === 1;
-    values.unknown_sender_policy = resolveUnknownSenderPolicy(channelKey, isGroup, channelType);
+    values.unknown_sender_policy = resolveUnknownSenderPolicy(
+      channelKey,
+      isGroup,
+      channelType,
+    );
   },
   customOperations: {
     send: {
@@ -99,12 +115,20 @@ registerResource({
         const platformId = args.platform_id as string;
         const text = args.text as string;
         if (!channelType || !platformId || !text) {
-          throw new Error('--channel-type, --platform-id and --text are required');
+          throw new Error(
+            '--channel-type, --platform-id and --text are required',
+          );
         }
         const instance = (args.instance as string) ?? channelType;
-        const mg = await getMessagingGroupByPlatform(channelType, platformId, instance);
+        const mg = await getMessagingGroupByPlatform(
+          channelType,
+          platformId,
+          instance,
+        );
         if (!mg) {
-          throw new Error(`no messaging group for ${channelType} ${platformId} — create + wire it first`);
+          throw new Error(
+            `no messaging group for ${channelType} ${platformId} — create + wire it first`,
+          );
         }
         // Build the same InboundEvent the CLI admin transport (src/channels/cli.ts)
         // emits for a routed message, and route it in-process. The sender id should

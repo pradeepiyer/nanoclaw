@@ -5,13 +5,21 @@
  */
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 
-import type { ChannelAdapter, OutboundMessage } from '../../channels/adapter.js';
+import type {
+  ChannelAdapter,
+  OutboundMessage,
+} from '../../channels/adapter.js';
 import {
   initChannelAdapters,
   registerChannelAdapter,
   teardownChannelAdapters,
 } from '../../channels/channel-registry.js';
-import { closeDb, createAgentGroup, initTestDb, runMigrations } from '../../db/index.js';
+import {
+  closeDb,
+  createAgentGroup,
+  initTestDb,
+  runMigrations,
+} from '../../db/index.js';
 import { createUser } from '../permissions/db/users.js';
 import { grantRole } from '../permissions/db/user-roles.js';
 import { pickApprovalDelivery, pickApprover } from './primitive.js';
@@ -94,9 +102,27 @@ describe('pickApprover', () => {
     await seedUser('u-owner', 'telegram');
     await seedUser('u-ga', 'telegram');
     await seedUser('u-sa', 'telegram');
-    await grantRole({ user_id: 'u-owner', role: 'owner', agent_group_id: null, granted_by: null, granted_at: now() });
-    await grantRole({ user_id: 'u-ga', role: 'admin', agent_group_id: null, granted_by: null, granted_at: now() });
-    await grantRole({ user_id: 'u-sa', role: 'admin', agent_group_id: 'ag-1', granted_by: null, granted_at: now() });
+    await grantRole({
+      user_id: 'u-owner',
+      role: 'owner',
+      agent_group_id: null,
+      granted_by: null,
+      granted_at: now(),
+    });
+    await grantRole({
+      user_id: 'u-ga',
+      role: 'admin',
+      agent_group_id: null,
+      granted_by: null,
+      granted_at: now(),
+    });
+    await grantRole({
+      user_id: 'u-sa',
+      role: 'admin',
+      agent_group_id: 'ag-1',
+      granted_by: null,
+      granted_at: now(),
+    });
 
     expect(await pickApprover('ag-1')).toEqual(['u-sa', 'u-ga', 'u-owner']);
     expect(await pickApprover('ag-2')).toEqual(['u-ga', 'u-owner']);
@@ -118,7 +144,10 @@ describe('pickApprovalDelivery', () => {
     await seedUser('telegram:111', 'telegram');
     await seedUser('telegram:222', 'telegram');
 
-    const result = await pickApprovalDelivery(['telegram:111', 'telegram:222'], 'telegram');
+    const result = await pickApprovalDelivery(
+      ['telegram:111', 'telegram:222'],
+      'telegram',
+    );
     expect(result?.userId).toBe('telegram:111');
     expect(result?.messagingGroup.platform_id).toBe('111');
   });
@@ -129,7 +158,10 @@ describe('pickApprovalDelivery', () => {
     await seedUser('telegram:111', 'telegram');
     await seedUser('discord:222', 'discord');
 
-    const result = await pickApprovalDelivery(['telegram:111', 'discord:222'], 'discord');
+    const result = await pickApprovalDelivery(
+      ['telegram:111', 'discord:222'],
+      'discord',
+    );
     expect(result?.userId).toBe('discord:222');
   });
 
@@ -147,14 +179,25 @@ describe('pickApprovalDelivery', () => {
   });
 
   it('resolves a named origin through its own bot instead of a cached sibling', async () => {
-    const primary = await mountMockAdapter('slack', async (handle) => `D-primary-${handle}`);
-    const secondary = await mountMockAdapter('slack', async (handle) => `D-secondary-${handle}`, 'slack-secondary');
+    const primary = await mountMockAdapter(
+      'slack',
+      async (handle) => `D-primary-${handle}`,
+    );
+    const secondary = await mountMockAdapter(
+      'slack',
+      async (handle) => `D-secondary-${handle}`,
+      'slack-secondary',
+    );
     await seedUser('slack:admin', 'slack');
 
     const cached = await pickApprovalDelivery(['slack:admin'], 'slack');
     expect(cached?.messagingGroup.platform_id).toBe('D-primary-admin');
 
-    const exact = await pickApprovalDelivery(['slack:admin'], 'slack', 'slack-secondary');
+    const exact = await pickApprovalDelivery(
+      ['slack:admin'],
+      'slack',
+      'slack-secondary',
+    );
     expect(exact?.messagingGroup.platform_id).toBe('D-secondary-admin');
     expect(exact?.messagingGroup.instance).toBe('slack-secondary');
     expect(primary.openDMCalls).toEqual(['admin']);

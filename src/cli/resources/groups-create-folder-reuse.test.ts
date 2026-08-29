@@ -69,7 +69,10 @@ describe('groups-create — folder-reuse refusal (A4)', () => {
   it('refuses to mint a new group over undisposed on-disk residue', async () => {
     // Deleted-group residue: the folder is on disk, no DB row claims it.
     fs.mkdirSync(path.join(GROUPS_DIR, 'recycled'));
-    fs.writeFileSync(path.join(GROUPS_DIR, 'recycled', 'memory.md'), 'old group memory\n');
+    fs.writeFileSync(
+      path.join(GROUPS_DIR, 'recycled', 'memory.md'),
+      'old group memory\n',
+    );
 
     const resp = await create('recycled');
 
@@ -78,8 +81,15 @@ describe('groups-create — folder-reuse refusal (A4)', () => {
     expect(error.message).toContain('already exists on disk');
     expect(error.message).toContain('recycled');
     // No row minted, residue untouched.
-    expect(await getDb().get('SELECT * FROM agent_groups WHERE folder = ?', 'recycled')).toBeUndefined();
-    expect(fs.readFileSync(path.join(GROUPS_DIR, 'recycled', 'memory.md'), 'utf8')).toBe('old group memory\n');
+    expect(
+      await getDb().get(
+        'SELECT * FROM agent_groups WHERE folder = ?',
+        'recycled',
+      ),
+    ).toBeUndefined();
+    expect(
+      fs.readFileSync(path.join(GROUPS_DIR, 'recycled', 'memory.md'), 'utf8'),
+    ).toBe('old group memory\n');
   });
 
   it('refuses when the residue is a dangling symlink at groups/<folder>', async () => {
@@ -87,24 +97,40 @@ describe('groups-create — folder-reuse refusal (A4)', () => {
     // the folder elsewhere and the target was removed). It still occupies the
     // name — mkdir would EEXIST — so the fresh-create branch must refuse it
     // like any other on-disk presence.
-    fs.symlinkSync(path.join(TEST_ROOT, 'no-such-target'), path.join(GROUPS_DIR, 'linked'));
+    fs.symlinkSync(
+      path.join(TEST_ROOT, 'no-such-target'),
+      path.join(GROUPS_DIR, 'linked'),
+    );
 
     const resp = await create('linked');
 
     expect(resp.ok).toBe(false);
     const error = (resp as { ok: false; error: { message: string } }).error;
     expect(error.message).toContain('already exists on disk');
-    expect(await getDb().get('SELECT * FROM agent_groups WHERE folder = ?', 'linked')).toBeUndefined();
+    expect(
+      await getDb().get(
+        'SELECT * FROM agent_groups WHERE folder = ?',
+        'linked',
+      ),
+    ).toBeUndefined();
   });
 
   it('allows creation when the folder is absent (scaffolds folder + config row)', async () => {
     const resp = await create('fresh');
 
     expect(resp.ok).toBe(true);
-    const row = (await getDb().get<{ id: string }>('SELECT * FROM agent_groups WHERE folder = ?', 'fresh'))!;
+    const row = (await getDb().get<{ id: string }>(
+      'SELECT * FROM agent_groups WHERE folder = ?',
+      'fresh',
+    ))!;
     expect(row).toBeDefined();
     expect(fs.existsSync(path.join(GROUPS_DIR, 'fresh'))).toBe(true);
-    expect(await getDb().get('SELECT * FROM container_configs WHERE agent_group_id = ?', row.id)).toBeDefined();
+    expect(
+      await getDb().get(
+        'SELECT * FROM container_configs WHERE agent_group_id = ?',
+        row.id,
+      ),
+    ).toBeDefined();
   });
 
   it('returns the SAME group when the folder is live — idempotency on --folder pinned', async () => {
@@ -118,6 +144,8 @@ describe('groups-create — folder-reuse refusal (A4)', () => {
     // ("Idempotent on --folder").
     const second = await create('steady');
     expect(second.ok).toBe(true);
-    expect((second as { ok: true; data: { id: string } }).data.id).toBe(firstId);
+    expect((second as { ok: true; data: { id: string } }).data.id).toBe(
+      firstId,
+    );
   });
 });

@@ -21,7 +21,11 @@ vi.mock('../log.js', () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-const AGENT = { kind: 'agent', agentGroupId: 'ag-1', sessionId: 'sess-1' } as const;
+const AGENT = {
+  kind: 'agent',
+  agentGroupId: 'ag-1',
+  sessionId: 'sess-1',
+} as const;
 
 function input(extra: Partial<GuardInput> = {}): GuardInput {
   return { actor: AGENT, payload: {}, ...extra };
@@ -37,12 +41,18 @@ afterEach(() => {
 
 describe('decide is the decision', () => {
   it('decide allow → allow', async () => {
-    const action = defineGuardedAction({ action: 't.allow1', decide: () => ALLOW('ok') });
+    const action = defineGuardedAction({
+      action: 't.allow1',
+      decide: () => ALLOW('ok'),
+    });
     expect((await guard(action, input())).effect).toBe('allow');
   });
 
   it('decide hold → hold, default approver chain', async () => {
-    const action = defineGuardedAction({ action: 't.hold1', decide: () => HOLD('needs approval') });
+    const action = defineGuardedAction({
+      action: 't.hold1',
+      decide: () => HOLD('needs approval'),
+    });
     const d = await guard(action, input());
     expect(d.effect).toBe('hold');
     if (d.effect === 'hold') {
@@ -52,21 +62,30 @@ describe('decide is the decision', () => {
   });
 
   it('decide hold → hold, carrying a named approver', async () => {
-    const action = defineGuardedAction({ action: 't.hold2', decide: () => HOLD('policy row', 'telegram:dana') });
+    const action = defineGuardedAction({
+      action: 't.hold2',
+      decide: () => HOLD('policy row', 'telegram:dana'),
+    });
     const d = await guard(action, input());
     expect(d.effect).toBe('hold');
     if (d.effect === 'hold') expect(d.approverUserId).toBe('telegram:dana');
   });
 
   it('decide deny → deny, carrying the reason', async () => {
-    const action = defineGuardedAction({ action: 't.deny1', decide: () => DENY('structurally unauthorized') });
+    const action = defineGuardedAction({
+      action: 't.deny1',
+      decide: () => DENY('structurally unauthorized'),
+    });
     const d = await guard(action, input());
     expect(d.effect).toBe('deny');
     if (d.effect === 'deny') expect(d.reason).toBe('structurally unauthorized');
   });
 
   it('a forged action value (not from defineGuardedAction) is denied', async () => {
-    const forged = { action: 't.forged', decide: () => ALLOW('never vetted') } as unknown as GuardedAction;
+    const forged = {
+      action: 't.forged',
+      decide: () => ALLOW('never vetted'),
+    } as unknown as GuardedAction;
     const d = await guard(forged, input());
     expect(d.effect).toBe('deny');
     if (d.effect === 'deny') expect(d.reason).toContain('undefined action');
@@ -75,7 +94,11 @@ describe('decide is the decision', () => {
 
 describe('grants', () => {
   const grantRow = (action: string) =>
-    ({ approval_id: 'appr-1', action, payload: '{}' }) as unknown as NonNullable<GuardInput['grant']>;
+    ({
+      approval_id: 'appr-1',
+      action,
+      payload: '{}',
+    }) as unknown as NonNullable<GuardInput['grant']>;
 
   it('a valid live grant satisfies a hold', async () => {
     const action = defineGuardedAction({

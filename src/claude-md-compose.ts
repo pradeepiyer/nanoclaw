@@ -105,7 +105,10 @@ export async function composeGroupClaudeMd(group: AgentGroup): Promise<void> {
 
   // MCP server fragments — inline instructions from container.json for
   // user-added external MCP servers.
-  for (const [name, mcp] of Object.entries(config.mcpServers) as [string, McpServerConfig][]) {
+  for (const [name, mcp] of Object.entries(config.mcpServers) as [
+    string,
+    McpServerConfig,
+  ][]) {
     if ('instructions' in mcp && mcp.instructions) {
       desired.set(`mcp-${name}.md`, {
         type: 'inline',

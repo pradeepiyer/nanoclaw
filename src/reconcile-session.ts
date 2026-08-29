@@ -35,11 +35,22 @@ import { getSessionClaim } from './db/coordination.js';
 import { getSession, isTaskThread, updateSession } from './db/sessions.js';
 import { getAgentGroup } from './db/agent-groups.js';
 import { log } from './log.js';
-import { heartbeatPath, withExistingMailboxSession } from './session-manager.js';
-import { getContainerStartedAtMs, isContainerRunning, killContainer } from './container-runner.js';
+import {
+  heartbeatPath,
+  withExistingMailboxSession,
+} from './session-manager.js';
+import {
+  getContainerStartedAtMs,
+  isContainerRunning,
+  killContainer,
+} from './container-runner.js';
 import { requestWake } from './request-wake.js';
 import type { Session } from './types.js';
-import type { ContainerState, InboundMailbox, OutboundMailbox } from './mailbox/index.js';
+import type {
+  ContainerState,
+  InboundMailbox,
+  OutboundMailbox,
+} from './mailbox/index.js';
 
 // Absolute idle ceiling for a running container. If the heartbeat file hasn't
 // been touched in this long, the container is either stuck or doing genuinely
@@ -54,7 +65,12 @@ const BACKOFF_BASE_MS = 5000;
 export type StuckDecision =
   | { action: 'ok' }
   | { action: 'kill-ceiling'; heartbeatAgeMs: number; ceilingMs: number }
-  | { action: 'kill-claim'; messageId: string; claimAgeMs: number; toleranceMs: number };
+  | {
+      action: 'kill-claim';
+      messageId: string;
+      claimAgeMs: number;
+      toleranceMs: number;
+    };
 
 /**
  * Pure decision for whether a running container should be killed this sweep
@@ -68,7 +84,13 @@ export function decideStuckAction(args: {
   containerState: ContainerState | null;
   claims: Array<{ messageId: string; statusChanged: string }>;
 }): StuckDecision {
-  const { now, heartbeatMtimeMs, containerStartedAtMs, containerState, claims } = args;
+  const {
+    now,
+    heartbeatMtimeMs,
+    containerStartedAtMs,
+    containerState,
+    claims,
+  } = args;
   const declaredBashMs = bashTimeoutMs(containerState);
 
   // Ceiling check prefers the heartbeat file's mtime. A freshly-spawned
@@ -87,12 +109,17 @@ export function decideStuckAction(args: {
   // container is hanging at the gate (claimed a message but never did
   // anything) the claim-stuck check below handles it independently of this
   // fallback.
-  const effectiveHeartbeatMs = heartbeatMtimeMs !== 0 ? heartbeatMtimeMs : (containerStartedAtMs ?? 0);
+  const effectiveHeartbeatMs =
+    heartbeatMtimeMs !== 0 ? heartbeatMtimeMs : (containerStartedAtMs ?? 0);
   if (effectiveHeartbeatMs !== 0) {
     const heartbeatAge = now - effectiveHeartbeatMs;
     const ceiling = Math.max(ABSOLUTE_CEILING_MS, declaredBashMs ?? 0);
     if (heartbeatAge > ceiling) {
-      return { action: 'kill-ceiling', heartbeatAgeMs: heartbeatAge, ceilingMs: ceiling };
+      return {
+        action: 'kill-ceiling',
+        heartbeatAgeMs: heartbeatAge,
+        ceilingMs: ceiling,
+      };
     }
   }
 
@@ -103,7 +130,12 @@ export function decideStuckAction(args: {
     const claimAge = now - claimedAt;
     if (claimAge <= tolerance) continue;
     if (heartbeatMtimeMs > claimedAt) continue;
-    return { action: 'kill-claim', messageId: claim.messageId, claimAgeMs: claimAge, toleranceMs: tolerance };
+    return {
+      action: 'kill-claim',
+      messageId: claim.messageId,
+      claimAgeMs: claimAge,
+      toleranceMs: tolerance,
+    };
   }
 
   return { action: 'ok' };
@@ -132,15 +164,19 @@ async function reconcileActiveSession(session: Session): Promise<void> {
   try {
     let dueCount = 0;
     let shouldWake = false;
-    const exists = await withExistingMailboxSession(agentGroup.id, session.id, async (mailbox) => {
-      mailbox.applyProcessingAcks(mailbox.getTerminalProcessingAcks());
-      dueCount = mailbox.countDueMessages();
-      shouldWake = dueCount > 0 && !isContainerRunning(session.id);
-      if (!shouldWake) {
-        await maintainSessionMailbox(mailbox, session, agentGroup.id);
-      }
-      return true;
-    });
+    const exists = await withExistingMailboxSession(
+      agentGroup.id,
+      session.id,
+      async (mailbox) => {
+        mailbox.applyProcessingAcks(mailbox.getTerminalProcessingAcks());
+        dueCount = mailbox.countDueMessages();
+        shouldWake = dueCount > 0 && !isContainerRunning(session.id);
+        if (!shouldWake) {
+          await maintainSessionMailbox(mailbox, session, agentGroup.id);
+        }
+        return true;
+      },
+    );
     if (!exists) return;
 
     if (!shouldWake) return;
@@ -148,12 +184,19 @@ async function reconcileActiveSession(session: Session): Promise<void> {
     // Waking refreshes routing through the mailbox. Keep it outside the
     // session transaction so serialized implementations do not re-enter
     // themselves while the sweep still owns the session.
-    log.info('Waking container for due messages', { sessionId: session.id, count: dueCount });
+    log.info('Waking container for due messages', {
+      sessionId: session.id,
+      count: dueCount,
+    });
     await requestWake(session, 'due-message');
 
-    await withExistingMailboxSession(agentGroup.id, session.id, async (mailbox) => {
-      await maintainSessionMailbox(mailbox, session, agentGroup.id);
-    });
+    await withExistingMailboxSession(
+      agentGroup.id,
+      session.id,
+      async (mailbox) => {
+        await maintainSessionMailbox(mailbox, session, agentGroup.id);
+      },
+    );
   } catch (err) {
     log.error('Session mailbox sweep failed', {
       agentGroupId: agentGroup.id,
@@ -173,27 +216,47 @@ async function maintainSessionMailbox(
     await enforceRunningContainerSla(mailbox, mailbox, session, agentGroupId);
   }
   if (!alive) {
-    resetStuckProcessingRows(mailbox, mailbox, session, 'container not running');
+    resetStuckProcessingRows(
+      mailbox,
+      mailbox,
+      session,
+      'container not running',
+    );
   }
 
   // MODULE-HOOK:scheduling-recurrence:start
-  const { handleRecurrence } = await import('./modules/scheduling/recurrence.js');
+  const { handleRecurrence } =
+    await import('./modules/scheduling/recurrence.js');
   await handleRecurrence(mailbox, session);
   // MODULE-HOOK:scheduling-recurrence:end
 
   if (isTaskThread(session.thread_id)) {
     const liveTasks = mailbox.countLiveTasks();
-    if (shouldCloseTaskSession(session.thread_id, isContainerRunning(session.id), liveTasks)) {
+    if (
+      shouldCloseTaskSession(
+        session.thread_id,
+        isContainerRunning(session.id),
+        liveTasks,
+      )
+    ) {
       await updateSession(session.id, { status: 'closed' });
-      log.info('Closed spent task session', { sessionId: session.id, threadId: session.thread_id });
+      log.info('Closed spent task session', {
+        sessionId: session.id,
+        threadId: session.thread_id,
+      });
     }
   }
 
   // MODULE-HOOK:cross-session-echo-prune:start
   try {
-    const { pruneEchoBacklog } = await import('./modules/cross-session-context/index.js');
+    const { pruneEchoBacklog } =
+      await import('./modules/cross-session-context/index.js');
     const pruned = pruneEchoBacklog(mailbox);
-    if (pruned > 0) log.info('Pruned session-echo backlog', { sessionId: session.id, pruned });
+    if (pruned > 0)
+      log.info('Pruned session-echo backlog', {
+        sessionId: session.id,
+        pruned,
+      });
   } catch (err) {
     log.error('Echo backlog prune failed', { sessionId: session.id, err });
   }
@@ -241,11 +304,16 @@ async function enforceRunningContainerSla(
   }
 
   const rawHeartbeatMs = heartbeatMtimeMs(agentGroupId, session.id);
-  const gatedHeartbeatMs = rawHeartbeatMs >= incarnationStartMs ? rawHeartbeatMs : 0;
+  const gatedHeartbeatMs =
+    rawHeartbeatMs >= incarnationStartMs ? rawHeartbeatMs : 0;
   const gatedClaims = outDb.getProcessingClaims().map((claim) => {
     const claimedAt = Date.parse(claim.statusChanged);
-    if (Number.isNaN(claimedAt) || claimedAt >= incarnationStartMs) return claim;
-    return { ...claim, statusChanged: new Date(incarnationStartMs).toISOString() };
+    if (Number.isNaN(claimedAt) || claimedAt >= incarnationStartMs)
+      return claim;
+    return {
+      ...claim,
+      statusChanged: new Date(incarnationStartMs).toISOString(),
+    };
   });
 
   const decision = decideStuckAction({
@@ -332,9 +400,16 @@ function resetStuckProcessingRows(
   try {
     const cleared = outDb.deleteOrphanProcessingClaims();
     if (cleared > 0) {
-      log.info('Cleared orphan processing claims', { sessionId: session.id, cleared, reason });
+      log.info('Cleared orphan processing claims', {
+        sessionId: session.id,
+        cleared,
+        reason,
+      });
     }
   } catch (err) {
-    log.warn('Failed to clear orphan processing claims', { sessionId: session.id, err });
+    log.warn('Failed to clear orphan processing claims', {
+      sessionId: session.id,
+      err,
+    });
   }
 }

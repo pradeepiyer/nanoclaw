@@ -12,7 +12,10 @@ import type { InboundWrite } from '../model.js';
 import { INBOUND_SCHEMA, OUTBOUND_SCHEMA } from './schema.js';
 
 /** Apply the inbound or outbound schema to a DB file. Idempotent. */
-export function ensureSchema(dbPath: string, schema: 'inbound' | 'outbound'): void {
+export function ensureSchema(
+  dbPath: string,
+  schema: 'inbound' | 'outbound',
+): void {
   const db = new Database(dbPath);
   db.pragma('journal_mode = DELETE');
   db.exec(schema === 'inbound' ? INBOUND_SCHEMA : OUTBOUND_SCHEMA);
@@ -44,7 +47,11 @@ export function openOutboundDbRw(dbPath: string): Database.Database {
 
 export function upsertSessionRouting(
   db: Database.Database,
-  routing: { channel_type: string | null; platform_id: string | null; thread_id: string | null },
+  routing: {
+    channel_type: string | null;
+    platform_id: string | null;
+    thread_id: string | null;
+  },
 ): void {
   db.prepare(
     `INSERT INTO session_routing (id, channel_type, platform_id, thread_id)
@@ -65,7 +72,10 @@ export interface DestinationRow {
   agent_group_id: string | null;
 }
 
-export function replaceDestinations(db: Database.Database, entries: DestinationRow[]): void {
+export function replaceDestinations(
+  db: Database.Database,
+  entries: DestinationRow[],
+): void {
   const tx = db.transaction((rows: DestinationRow[]) => {
     db.prepare('DELETE FROM destinations').run();
     const stmt = db.prepare(
@@ -89,11 +99,19 @@ export function replaceDestinations(db: Database.Database, entries: DestinationR
  * the general public API — used only by this SQLite driver.
  */
 export function nextEvenSeq(db: Database.Database): number {
-  const maxSeq = (db.prepare('SELECT COALESCE(MAX(seq), 0) AS m FROM messages_in').get() as { m: number }).m;
+  const maxSeq = (
+    db.prepare('SELECT COALESCE(MAX(seq), 0) AS m FROM messages_in').get() as {
+      m: number;
+    }
+  ).m;
   return maxSeq < 2 ? 2 : maxSeq + 2 - (maxSeq % 2);
 }
 
-export function insertMessage(db: Database.Database, message: InboundWrite, sequence = nextEvenSeq(db)): void {
+export function insertMessage(
+  db: Database.Database,
+  message: InboundWrite,
+  sequence = nextEvenSeq(db),
+): void {
   const record = createInboundRecord(message, sequence);
   db.prepare(
     `INSERT INTO messages_in (id, seq, kind, timestamp, status, platform_id, channel_type, thread_id, content, process_after, recurrence, series_id, trigger, source_session_id, on_wake)
@@ -118,13 +136,24 @@ export function countDueMessages(db: Database.Database): number {
   ).count;
 }
 
-export function markMessageFailed(db: Database.Database, messageId: string): void {
-  db.prepare("UPDATE messages_in SET status = 'failed' WHERE id = ?").run(messageId);
+export function markMessageFailed(
+  db: Database.Database,
+  messageId: string,
+): void {
+  db.prepare("UPDATE messages_in SET status = 'failed' WHERE id = ?").run(
+    messageId,
+  );
 }
 
-export function retryWithBackoff(db: Database.Database, messageId: string, backoffSec: number): void {
+export function retryWithBackoff(
+  db: Database.Database,
+  messageId: string,
+  backoffSec: number,
+): void {
   const processAfter = new Date(Date.now() + backoffSec * 1000).toISOString();
-  db.prepare('UPDATE messages_in SET tries = tries + 1, process_after = ? WHERE id = ?').run(processAfter, messageId);
+  db.prepare(
+    'UPDATE messages_in SET tries = tries + 1, process_after = ? WHERE id = ?',
+  ).run(processAfter, messageId);
 }
 
 export function getMessageForRetry(
@@ -133,11 +162,18 @@ export function getMessageForRetry(
   status: string,
 ): { id: string; tries: number; processAfter: string | null } | undefined {
   return db
-    .prepare('SELECT id, tries, process_after as processAfter FROM messages_in WHERE id = ? AND status = ?')
-    .get(messageId, status) as { id: string; tries: number; processAfter: string | null } | undefined;
+    .prepare(
+      'SELECT id, tries, process_after as processAfter FROM messages_in WHERE id = ? AND status = ?',
+    )
+    .get(messageId, status) as
+    | { id: string; tries: number; processAfter: string | null }
+    | undefined;
 }
 
-export function syncProcessingAcks(inDb: Database.Database, outDb: Database.Database): void {
+export function syncProcessingAcks(
+  inDb: Database.Database,
+  outDb: Database.Database,
+): void {
   const completed = outDb
     .prepare(
       "SELECT message_id, status FROM processing_ack WHERE status IN ('completed', 'failed', 'script-skip:error')",
@@ -157,7 +193,9 @@ export function syncProcessingAcks(inDb: Database.Database, outDb: Database.Data
   );
   inDb.transaction(() => {
     for (const { message_id, status } of completed) {
-      (status === 'script-skip:error' ? failStmt : completeStmt).run(message_id);
+      (status === 'script-skip:error' ? failStmt : completeStmt).run(
+        message_id,
+      );
     }
   })();
 }
@@ -168,9 +206,13 @@ export interface ProcessingClaim {
 }
 
 /** Return processing_ack rows still in 'processing' with their claim timestamps. */
-export function getProcessingClaims(outDb: Database.Database): ProcessingClaim[] {
+export function getProcessingClaims(
+  outDb: Database.Database,
+): ProcessingClaim[] {
   return outDb
-    .prepare("SELECT message_id, status_changed FROM processing_ack WHERE status = 'processing'")
+    .prepare(
+      "SELECT message_id, status_changed FROM processing_ack WHERE status = 'processing'",
+    )
     .all() as ProcessingClaim[];
 }
 
@@ -184,7 +226,9 @@ export function getProcessingClaims(outDb: Database.Database): ProcessingClaim[]
  * running (we just killed it). Returns the number of rows deleted.
  */
 export function deleteOrphanProcessingClaims(outDb: Database.Database): number {
-  return outDb.prepare("DELETE FROM processing_ack WHERE status = 'processing'").run().changes;
+  return outDb
+    .prepare("DELETE FROM processing_ack WHERE status = 'processing'")
+    .run().changes;
 }
 
 export interface ContainerState {
@@ -200,7 +244,9 @@ export interface ContainerState {
  * active. Host sweep reads this to widen stuck-detection tolerance while
  * Bash is running with a long declared timeout.
  */
-export function getContainerState(outDb: Database.Database): ContainerState | null {
+export function getContainerState(
+  outDb: Database.Database,
+): ContainerState | null {
   try {
     const row = outDb
       .prepare(
@@ -233,7 +279,9 @@ export interface OutboundMessage {
   content: string;
 }
 
-export function getDueOutboundMessages(db: Database.Database): OutboundMessage[] {
+export function getDueOutboundMessages(
+  db: Database.Database,
+): OutboundMessage[] {
   return db
     .prepare(
       `SELECT * FROM messages_out
@@ -249,19 +297,28 @@ export function getDueOutboundMessages(db: Database.Database): OutboundMessage[]
 
 export function getDeliveredIds(db: Database.Database): Set<string> {
   return new Set(
-    (db.prepare('SELECT message_out_id FROM delivered').all() as Array<{ message_out_id: string }>).map(
-      (r) => r.message_out_id,
-    ),
+    (
+      db.prepare('SELECT message_out_id FROM delivered').all() as Array<{
+        message_out_id: string;
+      }>
+    ).map((r) => r.message_out_id),
   );
 }
 
-export function markDelivered(db: Database.Database, messageOutId: string, platformMessageId: string | null): void {
+export function markDelivered(
+  db: Database.Database,
+  messageOutId: string,
+  platformMessageId: string | null,
+): void {
   db.prepare(
     "INSERT OR IGNORE INTO delivered (message_out_id, platform_message_id, status, delivered_at) VALUES (?, ?, 'delivered', ?)",
   ).run(messageOutId, platformMessageId ?? null, new Date().toISOString());
 }
 
-export function markDeliveryFailed(db: Database.Database, messageOutId: string): void {
+export function markDeliveryFailed(
+  db: Database.Database,
+  messageOutId: string,
+): void {
   db.prepare(
     "INSERT OR IGNORE INTO delivered (message_out_id, platform_message_id, status, delivered_at) VALUES (?, NULL, 'failed', ?)",
   ).run(messageOutId, new Date().toISOString());
@@ -270,13 +327,21 @@ export function markDeliveryFailed(db: Database.Database, messageOutId: string):
 /** Ensure the delivered table has columns added after initial schema. */
 export function migrateDeliveredTable(db: Database.Database): void {
   const cols = new Set(
-    (db.prepare("PRAGMA table_info('delivered')").all() as Array<{ name: string }>).map((c) => c.name),
+    (
+      db.prepare("PRAGMA table_info('delivered')").all() as Array<{
+        name: string;
+      }>
+    ).map((c) => c.name),
   );
   if (!cols.has('platform_message_id')) {
-    db.prepare('ALTER TABLE delivered ADD COLUMN platform_message_id TEXT').run();
+    db.prepare(
+      'ALTER TABLE delivered ADD COLUMN platform_message_id TEXT',
+    ).run();
   }
   if (!cols.has('status')) {
-    db.prepare("ALTER TABLE delivered ADD COLUMN status TEXT NOT NULL DEFAULT 'delivered'").run();
+    db.prepare(
+      "ALTER TABLE delivered ADD COLUMN status TEXT NOT NULL DEFAULT 'delivered'",
+    ).run();
   }
 }
 
@@ -287,27 +352,41 @@ export function migrateDeliveredTable(db: Database.Database): void {
 // Backfills existing rows so invariants hold (series_id = id).
 export function migrateMessagesInTable(db: Database.Database): void {
   const cols = new Set(
-    (db.prepare("PRAGMA table_info('messages_in')").all() as Array<{ name: string }>).map((c) => c.name),
+    (
+      db.prepare("PRAGMA table_info('messages_in')").all() as Array<{
+        name: string;
+      }>
+    ).map((c) => c.name),
   );
   if (!cols.has('series_id')) {
     db.prepare('ALTER TABLE messages_in ADD COLUMN series_id TEXT').run();
-    db.prepare('UPDATE messages_in SET series_id = id WHERE series_id IS NULL').run();
-    db.prepare('CREATE INDEX IF NOT EXISTS idx_messages_in_series ON messages_in(series_id)').run();
+    db.prepare(
+      'UPDATE messages_in SET series_id = id WHERE series_id IS NULL',
+    ).run();
+    db.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_messages_in_series ON messages_in(series_id)',
+    ).run();
   }
   if (!cols.has('trigger')) {
     // All pre-existing rows got written with the old "every inbound wakes
     // the agent" semantics, so backfill 1 and default 1 for new inserts.
-    db.prepare('ALTER TABLE messages_in ADD COLUMN trigger INTEGER NOT NULL DEFAULT 1').run();
+    db.prepare(
+      'ALTER TABLE messages_in ADD COLUMN trigger INTEGER NOT NULL DEFAULT 1',
+    ).run();
   }
   if (!cols.has('source_session_id')) {
     // For agent-to-agent return-path routing. NULL on existing rows is fine —
     // their replies fall back to the legacy "newest active session" lookup.
-    db.prepare('ALTER TABLE messages_in ADD COLUMN source_session_id TEXT').run();
+    db.prepare(
+      'ALTER TABLE messages_in ADD COLUMN source_session_id TEXT',
+    ).run();
   }
   if (!cols.has('on_wake')) {
     // 1 = only deliver on the container's first poll (fresh start).
     // All existing rows are normal messages, so default 0.
-    db.prepare('ALTER TABLE messages_in ADD COLUMN on_wake INTEGER NOT NULL DEFAULT 0').run();
+    db.prepare(
+      'ALTER TABLE messages_in ADD COLUMN on_wake INTEGER NOT NULL DEFAULT 0',
+    ).run();
   }
 }
 
@@ -317,10 +396,13 @@ export function migrateMessagesInTable(db: Database.Database): void {
  * pre-migration a2a inbound). Used by a2a routing to route replies back to
  * the originating session.
  */
-export function getInboundSourceSessionId(db: Database.Database, messageId: string): string | null {
-  const row = db.prepare('SELECT source_session_id FROM messages_in WHERE id = ?').get(messageId) as
-    | { source_session_id: string | null }
-    | undefined;
+export function getInboundSourceSessionId(
+  db: Database.Database,
+  messageId: string,
+): string | null {
+  const row = db
+    .prepare('SELECT source_session_id FROM messages_in WHERE id = ?')
+    .get(messageId) as { source_session_id: string | null } | undefined;
   return row?.source_session_id ?? null;
 }
 
@@ -335,7 +417,10 @@ export function getInboundSourceSessionId(db: Database.Database, messageId: stri
  * Returns null when no prior a2a inbound from that peer carries a
  * non-null source_session_id (typical for pre-migration installs).
  */
-export function getMostRecentPeerSourceSessionId(db: Database.Database, peerAgentGroupId: string): string | null {
+export function getMostRecentPeerSourceSessionId(
+  db: Database.Database,
+  peerAgentGroupId: string,
+): string | null {
   const row = db
     .prepare(
       `SELECT source_session_id FROM messages_in

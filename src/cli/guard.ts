@@ -16,14 +16,29 @@
  * filtering stay in dispatch.ts — mechanics, not policy.
  */
 import { getContainerConfig } from '../db/container-configs.js';
-import { ALLOW, DENY, HOLD, type GuardedActionSpec, type GuardInput } from '../guard/index.js';
+import {
+  ALLOW,
+  DENY,
+  HOLD,
+  type GuardedActionSpec,
+  type GuardInput,
+} from '../guard/index.js';
 import { GROUP_SCOPE_RESOURCES, type CommandDef } from './registry.js';
 
 const GROUP_WIRING_COMMANDS = new Set(['wirings-get', 'wirings-update']);
-const GROUP_WIRING_UPDATE_ARGS = new Set(['id', 'agent_group_id', 'group', 'help', 'engage_mode', 'engage_pattern']);
+const GROUP_WIRING_UPDATE_ARGS = new Set([
+  'id',
+  'agent_group_id',
+  'group',
+  'help',
+  'engage_mode',
+  'engage_pattern',
+]);
 
 /** Dotted catalog action name for a command. */
-export function commandGuardAction(cmd: Pick<CommandDef, 'name' | 'action'>): string {
+export function commandGuardAction(
+  cmd: Pick<CommandDef, 'name' | 'action'>,
+): string {
   return cmd.action ?? `cli.${cmd.name}`;
 }
 
@@ -35,7 +50,9 @@ export function commandGuardSpec(cmd: CommandDef): GuardedActionSpec {
     // Bind a cli_command grant to the exact command it was approved for.
     grantCoversRequest: (grant) => {
       try {
-        const payload = JSON.parse(grant.payload) as { frame?: { command?: string } };
+        const payload = JSON.parse(grant.payload) as {
+          frame?: { command?: string };
+        };
         return payload.frame?.command === cmd.name;
       } catch {
         return false;
@@ -48,29 +65,40 @@ export function commandGuardSpec(cmd: CommandDef): GuardedActionSpec {
 async function commandDecide(cmd: CommandDef, input: GuardInput) {
   const { actor } = input;
   if (actor.kind === 'host') return ALLOW('host caller (trusted socket)');
-  if (actor.kind !== 'agent') return DENY('CLI commands accept host or agent callers only.');
+  if (actor.kind !== 'agent')
+    return DENY('CLI commands accept host or agent callers only.');
 
   // Host-only commands (e.g. mount management) are operator-only: rejected for
   // ANY container caller, regardless of cli_scope (even `global`) or approval.
   // The mount allowlist is the boundary cli_scope itself lives inside, so an
   // agent must never alter it — not even with admin approval.
   if (cmd.hostOnly) {
-    return DENY(`"${cmd.name}" is operator-only and cannot be run from inside a container.`);
+    return DENY(
+      `"${cmd.name}" is operator-only and cannot be run from inside a container.`,
+    );
   }
 
   const args = input.payload;
-  const cliScope = (await getContainerConfig(actor.agentGroupId))?.cli_scope ?? 'group';
+  const cliScope =
+    (await getContainerConfig(actor.agentGroupId))?.cli_scope ?? 'group';
 
   if (cliScope === 'disabled') {
     return DENY('CLI access is disabled for this agent group.');
   }
 
   if (cliScope === 'group') {
-    const groupWiringCommand = cmd.resource === 'wirings' && GROUP_WIRING_COMMANDS.has(cmd.name);
+    const groupWiringCommand =
+      cmd.resource === 'wirings' && GROUP_WIRING_COMMANDS.has(cmd.name);
 
     // Only allow whitelisted resources and general commands (no resource, like help)
-    if (cmd.resource && !GROUP_SCOPE_RESOURCES.has(cmd.resource) && !groupWiringCommand) {
-      return DENY(`CLI access is scoped to this agent group. Cannot access "${cmd.resource}".`);
+    if (
+      cmd.resource &&
+      !GROUP_SCOPE_RESOURCES.has(cmd.resource) &&
+      !groupWiringCommand
+    ) {
+      return DENY(
+        `CLI access is scoped to this agent group. Cannot access "${cmd.resource}".`,
+      );
     }
 
     // Enforce group scope on all agent-group-related args.
@@ -81,16 +109,24 @@ async function commandDecide(cmd: CommandDef, input: GuardInput) {
         return DENY('CLI access is scoped to this agent group.');
       }
     }
-    if ((cmd.resource === 'groups' || cmd.resource === 'destinations') && args.id && args.id !== actor.agentGroupId) {
+    if (
+      (cmd.resource === 'groups' || cmd.resource === 'destinations') &&
+      args.id &&
+      args.id !== actor.agentGroupId
+    ) {
       return DENY('CLI access is scoped to this agent group.');
     }
 
     if (
       groupWiringCommand &&
       cmd.name === 'wirings-update' &&
-      Object.keys(args).some((key) => !GROUP_WIRING_UPDATE_ARGS.has(key.replace(/-/g, '_')))
+      Object.keys(args).some(
+        (key) => !GROUP_WIRING_UPDATE_ARGS.has(key.replace(/-/g, '_')),
+      )
     ) {
-      return DENY('Group-scoped wiring updates may only change engage_mode or engage_pattern.');
+      return DENY(
+        'Group-scoped wiring updates may only change engage_mode or engage_pattern.',
+      );
     }
 
     // Block cli_scope changes from group-scoped agents (privilege escalation)

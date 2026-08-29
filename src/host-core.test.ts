@@ -94,7 +94,9 @@ describe('session manager', () => {
     const inPath = inboundDbPath('ag-1', 'sess-test');
     expect(fs.existsSync(inPath)).toBe(true);
     const inDb = new Database(inPath);
-    const inTables = inDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
+    const inTables = inDb
+      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all() as Array<{ name: string }>;
     expect(inTables.map((t) => t.name)).toContain('messages_in');
     expect(inTables.map((t) => t.name)).toContain('delivered');
     inDb.close();
@@ -103,7 +105,9 @@ describe('session manager', () => {
     const outPath = outboundDbPath('ag-1', 'sess-test');
     expect(fs.existsSync(outPath)).toBe(true);
     const outDb = new Database(outPath);
-    const outTables = outDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{
+    const outTables = outDb
+      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all() as Array<{
       name: string;
     }>;
     expect(outTables.map((t) => t.name)).toContain('messages_out');
@@ -120,7 +124,11 @@ describe('session manager', () => {
     const outside = path.join(TEST_DIR, 'outside.txt');
     fs.writeFileSync(outside, 'outside secret');
 
-    expect(readOutboxFiles('ag-1', 'sess-test', 'msg-1', ['../../../../../outside.txt'])).toBeUndefined();
+    expect(
+      readOutboxFiles('ag-1', 'sess-test', 'msg-1', [
+        '../../../../../outside.txt',
+      ]),
+    ).toBeUndefined();
   });
 
   it('should reject outbound attachment symlinks that escape the message outbox', async () => {
@@ -131,9 +139,14 @@ describe('session manager', () => {
 
     const outside = path.join(TEST_DIR, 'outside.txt');
     fs.writeFileSync(outside, 'outside secret');
-    fs.symlinkSync('../../../../../outside.txt', path.join(msgOutbox, 'safe-name.txt'));
+    fs.symlinkSync(
+      '../../../../../outside.txt',
+      path.join(msgOutbox, 'safe-name.txt'),
+    );
 
-    expect(readOutboxFiles('ag-1', 'sess-test', 'msg-1', ['safe-name.txt'])).toBeUndefined();
+    expect(
+      readOutboxFiles('ag-1', 'sess-test', 'msg-1', ['safe-name.txt']),
+    ).toBeUndefined();
   });
 
   it('should not recursively delete outside the outbox for unsafe message ids', async () => {
@@ -181,7 +194,13 @@ describe('session manager', () => {
       timestamp: now(),
       content: JSON.stringify({
         text: 'evil',
-        attachments: [{ name: 'photo.png', data: Buffer.from('PNGBYTES').toString('base64'), size: 8 }],
+        attachments: [
+          {
+            name: 'photo.png',
+            data: Buffer.from('PNGBYTES').toString('base64'),
+            size: 8,
+          },
+        ],
       }),
     });
 
@@ -194,7 +213,11 @@ describe('session manager', () => {
 
     // The container pre creates inbox/<msgId>/photo.png as a symlink to a
     // host file. Without the wx flag, writeFileSync would follow it.
-    const inboxDir = path.join(sessionDir('ag-1', session.id), 'inbox', 'msg-sym');
+    const inboxDir = path.join(
+      sessionDir('ag-1', session.id),
+      'inbox',
+      'msg-sym',
+    );
     fs.mkdirSync(inboxDir, { recursive: true });
     const outside = path.join(TEST_DIR, 'outside.txt');
     fs.writeFileSync(outside, 'ORIGINAL');
@@ -206,7 +229,13 @@ describe('session manager', () => {
       timestamp: now(),
       content: JSON.stringify({
         text: 'sym',
-        attachments: [{ name: 'photo.png', data: Buffer.from('PNGBYTES').toString('base64'), size: 8 }],
+        attachments: [
+          {
+            name: 'photo.png',
+            data: Buffer.from('PNGBYTES').toString('base64'),
+            size: 8,
+          },
+        ],
       }),
     });
 
@@ -223,7 +252,13 @@ describe('session manager', () => {
       timestamp: now(),
       content: JSON.stringify({
         text: 'msgid',
-        attachments: [{ name: 'photo.png', data: Buffer.from('PNGBYTES').toString('base64'), size: 8 }],
+        attachments: [
+          {
+            name: 'photo.png',
+            data: Buffer.from('PNGBYTES').toString('base64'),
+            size: 8,
+          },
+        ],
       }),
     });
 
@@ -243,20 +278,41 @@ describe('session manager', () => {
       timestamp: now(),
       content: JSON.stringify({
         text: 'ok',
-        attachments: [{ name: 'photo.png', data: Buffer.from('PNGBYTES').toString('base64'), size: 8 }],
+        attachments: [
+          {
+            name: 'photo.png',
+            data: Buffer.from('PNGBYTES').toString('base64'),
+            size: 8,
+          },
+        ],
       }),
     });
 
-    const expected = path.join(sessionDir('ag-1', session.id), 'inbox', 'msg-ok', 'photo.png');
+    const expected = path.join(
+      sessionDir('ag-1', session.id),
+      'inbox',
+      'msg-ok',
+      'photo.png',
+    );
     expect(fs.existsSync(expected)).toBe(true);
     expect(fs.readFileSync(expected, 'utf-8')).toBe('PNGBYTES');
   });
 
   it('should resolve to existing session (shared mode)', async () => {
-    const { session: s1, created: c1 } = await resolveSession('ag-1', 'mg-1', null, 'shared');
+    const { session: s1, created: c1 } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      null,
+      'shared',
+    );
     expect(c1).toBe(true);
 
-    const { session: s2, created: c2 } = await resolveSession('ag-1', 'mg-1', null, 'shared');
+    const { session: s2, created: c2 } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      null,
+      'shared',
+    );
     expect(c2).toBe(false);
     expect(s2.id).toBe(s1.id);
   });
@@ -279,14 +335,34 @@ describe('session manager', () => {
   });
 
   it('should create separate sessions per thread (per-thread mode)', async () => {
-    const { session: s1 } = await resolveSession('ag-1', 'mg-1', 'thread-1', 'per-thread');
-    const { session: s2 } = await resolveSession('ag-1', 'mg-1', 'thread-2', 'per-thread');
+    const { session: s1 } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      'thread-1',
+      'per-thread',
+    );
+    const { session: s2 } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      'thread-2',
+      'per-thread',
+    );
     expect(s1.id).not.toBe(s2.id);
   });
 
   it('should reuse session for same thread', async () => {
-    const { session: s1 } = await resolveSession('ag-1', 'mg-1', 'thread-1', 'per-thread');
-    const { session: s2, created } = await resolveSession('ag-1', 'mg-1', 'thread-1', 'per-thread');
+    const { session: s1 } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      'thread-1',
+      'per-thread',
+    );
+    const { session: s2, created } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      'thread-1',
+      'per-thread',
+    );
     expect(created).toBe(false);
     expect(s2.id).toBe(s1.id);
   });
@@ -432,7 +508,10 @@ describe('router', () => {
     // Verify message was written to inbound DB
     const dbPath = inboundDbPath('ag-1', session!.id);
     const db = new Database(dbPath);
-    const rows = db.prepare('SELECT * FROM messages_in').all() as Array<{ id: string; content: string }>;
+    const rows = db.prepare('SELECT * FROM messages_in').all() as Array<{
+      id: string;
+      content: string;
+    }>;
     db.close();
 
     expect(rows).toHaveLength(1);
@@ -448,7 +527,8 @@ describe('router', () => {
     // many unwired channels doesn't bloat messaging_groups. Only explicit
     // mentions and DMs trigger auto-create.
     const { routeInbound } = await import('./router.js');
-    const { getMessagingGroupByPlatform } = await import('./db/messaging-groups.js');
+    const { getMessagingGroupByPlatform } =
+      await import('./db/messaging-groups.js');
 
     // Plain message on unknown channel — should NOT auto-create.
     await routeInbound({
@@ -462,7 +542,9 @@ describe('router', () => {
         timestamp: now(),
       },
     });
-    expect(await getMessagingGroupByPlatform('slack', 'C-PLAIN')).toBeUndefined();
+    expect(
+      await getMessagingGroupByPlatform('slack', 'C-PLAIN'),
+    ).toBeUndefined();
 
     // Mention on unknown channel — SHOULD auto-create (next step: channel-registration flow).
     await routeInbound({
@@ -477,7 +559,9 @@ describe('router', () => {
         isMention: true,
       },
     });
-    expect(await getMessagingGroupByPlatform('slack', 'C-MENTIONED')).toBeDefined();
+    expect(
+      await getMessagingGroupByPlatform('slack', 'C-MENTIONED'),
+    ).toBeDefined();
   });
 
   it('deduplicates two concurrent first messages for an unknown channel', async () => {
@@ -495,7 +579,10 @@ describe('router', () => {
       },
     });
 
-    await Promise.all([routeInbound(event('msg-concurrent-1')), routeInbound(event('msg-concurrent-2'))]);
+    await Promise.all([
+      routeInbound(event('msg-concurrent-1')),
+      routeInbound(event('msg-concurrent-2')),
+    ]);
 
     expect(
       await getDb().all(
@@ -514,7 +601,12 @@ describe('router', () => {
       channelType: 'discord',
       platformId: 'chan-123',
       threadId: null,
-      message: { id: 'msg-a', kind: 'chat', content: JSON.stringify({ sender: 'A', text: 'First' }), timestamp: now() },
+      message: {
+        id: 'msg-a',
+        kind: 'chat',
+        content: JSON.stringify({ sender: 'A', text: 'First' }),
+        timestamp: now(),
+      },
     });
 
     await routeInbound({
@@ -533,7 +625,9 @@ describe('router', () => {
     const session = await findSession('mg-1', null);
     const dbPath = inboundDbPath('ag-1', session!.id);
     const db = new Database(dbPath);
-    const rows = db.prepare('SELECT * FROM messages_in ORDER BY timestamp').all();
+    const rows = db
+      .prepare('SELECT * FROM messages_in ORDER BY timestamp')
+      .all();
     db.close();
 
     expect(rows).toHaveLength(2);
@@ -569,7 +663,12 @@ describe('router', () => {
       channelType: 'discord',
       platformId: 'chan-123',
       threadId: null,
-      message: { id: 'msg-fan', kind: 'chat', content: JSON.stringify({ text: 'hello all' }), timestamp: now() },
+      message: {
+        id: 'msg-fan',
+        kind: 'chat',
+        content: JSON.stringify({ text: 'hello all' }),
+        timestamp: now(),
+      },
     });
 
     // Both agents should now have their own session and be woken.
@@ -587,7 +686,8 @@ describe('router', () => {
 
     // Replace the seed row with a mention-only wiring whose accumulate
     // policy should store context even when the message doesn't mention us.
-    const { updateMessagingGroupAgent } = await import('./db/messaging-groups.js');
+    const { updateMessagingGroupAgent } =
+      await import('./db/messaging-groups.js');
     await updateMessagingGroupAgent('mga-1', {
       engage_mode: 'mention',
       ignored_message_policy: 'accumulate',
@@ -610,7 +710,9 @@ describe('router', () => {
     const session = await findSession('mg-1', null);
     expect(session).toBeDefined();
     const db = new Database(inboundDbPath('ag-1', session!.id));
-    const rows = db.prepare('SELECT id, trigger FROM messages_in').all() as Array<{
+    const rows = db
+      .prepare('SELECT id, trigger FROM messages_in')
+      .all() as Array<{
       id: string;
       trigger: number;
     }>;
@@ -624,14 +726,20 @@ describe('router', () => {
     const { wakeContainer } = await import('./container-runner.js');
     (wakeContainer as unknown as ReturnType<typeof vi.fn>).mockClear();
 
-    const { updateMessagingGroupAgent } = await import('./db/messaging-groups.js');
+    const { updateMessagingGroupAgent } =
+      await import('./db/messaging-groups.js');
     await updateMessagingGroupAgent('mga-1', { engage_mode: 'mention' }); // drop is the default
 
     await routeInbound({
       channelType: 'discord',
       platformId: 'chan-123',
       threadId: null,
-      message: { id: 'msg-drop', kind: 'chat', content: JSON.stringify({ text: 'ignored' }), timestamp: now() },
+      message: {
+        id: 'msg-drop',
+        kind: 'chat',
+        content: JSON.stringify({ text: 'ignored' }),
+        timestamp: now(),
+      },
     });
 
     expect(wakeContainer).not.toHaveBeenCalled();
@@ -698,15 +806,21 @@ describe('router — channel instances', () => {
 
   it('routes by receiving instance: named instance lands in its own mg/agent, default in the default', async () => {
     const { routeInbound } = await import('./router.js');
-    const { registerChannelAdapter, initChannelAdapters, teardownChannelAdapters } =
-      await import('./channels/channel-registry.js');
+    const {
+      registerChannelAdapter,
+      initChannelAdapters,
+      teardownChannelAdapters,
+    } = await import('./channels/channel-registry.js');
     const { getSessionsByAgentGroup } = await import('./db/sessions.js');
 
     // Default 'slack' adapter is THREADED; the named instance is NOT.
     // The same arm therefore also pins the thread-policy lookup at the
     // receiving instance: if the router resolved the adapter by
     // channelType, the tester event's threadId would survive.
-    const makeAdapter = (instance: string | undefined, supportsThreads: boolean) => ({
+    const makeAdapter = (
+      instance: string | undefined,
+      supportsThreads: boolean,
+    ) => ({
       name: instance ?? 'slack',
       channelType: 'slack',
       instance,
@@ -718,8 +832,12 @@ describe('router — channel instances', () => {
         return undefined;
       },
     });
-    registerChannelAdapter('slack', { factory: () => makeAdapter(undefined, true) });
-    registerChannelAdapter('slack-tester', { factory: () => makeAdapter('slack-tester', false) });
+    registerChannelAdapter('slack', {
+      factory: () => makeAdapter(undefined, true),
+    });
+    registerChannelAdapter('slack-tester', {
+      factory: () => makeAdapter('slack-tester', false),
+    });
     await initChannelAdapters(() => ({
       onInbound: () => {},
       onInboundEvent: () => {},
@@ -749,7 +867,9 @@ describe('router — channel instances', () => {
       expect(await getSessionsByAgentGroup('ag-1')).toHaveLength(0);
 
       const tDb = new Database(inboundDbPath('ag-2', testerSessions[0].id));
-      const tRow = tDb.prepare('SELECT thread_id, content FROM messages_in').get() as {
+      const tRow = tDb
+        .prepare('SELECT thread_id, content FROM messages_in')
+        .get() as {
         thread_id: string | null;
         content: string;
       };
@@ -776,7 +896,9 @@ describe('router — channel instances', () => {
       expect(defaultSessions).toHaveLength(1);
       expect(defaultSessions[0].messaging_group_id).toBe('mg-default');
       const dDb = new Database(inboundDbPath('ag-1', defaultSessions[0].id));
-      const dRow = dDb.prepare('SELECT thread_id FROM messages_in').get() as { thread_id: string | null };
+      const dRow = dDb.prepare('SELECT thread_id FROM messages_in').get() as {
+        thread_id: string | null;
+      };
       dDb.close();
       expect(dRow.thread_id).toBe('thread-9');
     } finally {
@@ -786,7 +908,8 @@ describe('router — channel instances', () => {
 
   it('auto-create persists the receiving instance instead of hijacking the default row', async () => {
     const { routeInbound } = await import('./router.js');
-    const { getMessagingGroupByPlatform } = await import('./db/messaging-groups.js');
+    const { getMessagingGroupByPlatform } =
+      await import('./db/messaging-groups.js');
 
     // No row exists for this address on ANY instance yet; create an
     // unwired default row to prove the named event doesn't reuse it.
@@ -814,12 +937,18 @@ describe('router — channel instances', () => {
       },
     });
 
-    const created = await getMessagingGroupByPlatform('slack', 'slack:C-NEW', 'slack-tester');
+    const created = await getMessagingGroupByPlatform(
+      'slack',
+      'slack:C-NEW',
+      'slack-tester',
+    );
     expect(created).toBeDefined();
     expect(created!.instance).toBe('slack-tester');
     expect(created!.id).not.toBe('mg-plain');
     // The default row is untouched.
-    expect((await getMessagingGroupByPlatform('slack', 'slack:C-NEW', 'slack'))!.id).toBe('mg-plain');
+    expect(
+      (await getMessagingGroupByPlatform('slack', 'slack:C-NEW', 'slack'))!.id,
+    ).toBe('mg-plain');
   });
 });
 
@@ -870,8 +999,11 @@ describe('router — per-wiring thread policy', () => {
   });
 
   async function withThreadedAdapter(fn: () => Promise<void>): Promise<void> {
-    const { registerChannelAdapter, initChannelAdapters, teardownChannelAdapters } =
-      await import('./channels/channel-registry.js');
+    const {
+      registerChannelAdapter,
+      initChannelAdapters,
+      teardownChannelAdapters,
+    } = await import('./channels/channel-registry.js');
     registerChannelAdapter('tp-slack', { factory: makeThreadedAdapter });
     await initChannelAdapters(() => ({
       onInbound: () => {},
@@ -914,14 +1046,18 @@ describe('router — per-wiring thread policy', () => {
       expect(sessions[0].thread_id).toBe('thread-42');
 
       const db = new Database(inboundDbPath('ag-tp', sessions[0].id));
-      const row = db.prepare('SELECT thread_id FROM messages_in').get() as { thread_id: string | null };
+      const row = db.prepare('SELECT thread_id FROM messages_in').get() as {
+        thread_id: string | null;
+      };
       db.close();
       expect(row.thread_id).toBe('thread-42');
     });
   });
 
   it('wiring threads=0 nulls the event-derived thread for session and delivery', async () => {
-    await getDb().run("UPDATE messaging_group_agents SET threads = 0 WHERE id = 'mga-tp'");
+    await getDb().run(
+      "UPDATE messaging_group_agents SET threads = 0 WHERE id = 'mga-tp'",
+    );
 
     await withThreadedAdapter(async () => {
       const { routeInbound } = await import('./router.js');
@@ -936,14 +1072,18 @@ describe('router — per-wiring thread policy', () => {
       expect(sessions[0].thread_id).toBeNull();
 
       const db = new Database(inboundDbPath('ag-tp', sessions[0].id));
-      const row = db.prepare('SELECT thread_id FROM messages_in').get() as { thread_id: string | null };
+      const row = db.prepare('SELECT thread_id FROM messages_in').get() as {
+        thread_id: string | null;
+      };
       db.close();
       expect(row.thread_id).toBeNull();
     });
   });
 
   it('wiring threads=0 never strips replyTo (operator intent)', async () => {
-    await getDb().run("UPDATE messaging_group_agents SET threads = 0 WHERE id = 'mga-tp'");
+    await getDb().run(
+      "UPDATE messaging_group_agents SET threads = 0 WHERE id = 'mga-tp'",
+    );
 
     await withThreadedAdapter(async () => {
       const { routeInbound } = await import('./router.js');
@@ -951,13 +1091,19 @@ describe('router — per-wiring thread policy', () => {
 
       await routeInbound({
         ...threadedEvent('msg-replyto'),
-        replyTo: { channelType: 'cli', platformId: 'cli:operator', threadId: 'term-1' },
+        replyTo: {
+          channelType: 'cli',
+          platformId: 'cli:operator',
+          threadId: 'term-1',
+        },
       });
 
       const sessions = await getSessionsByAgentGroup('ag-tp');
       expect(sessions).toHaveLength(1);
       const db = new Database(inboundDbPath('ag-tp', sessions[0].id));
-      const row = db.prepare('SELECT channel_type, thread_id FROM messages_in').get() as {
+      const row = db
+        .prepare('SELECT channel_type, thread_id FROM messages_in')
+        .get() as {
         channel_type: string;
         thread_id: string | null;
       };
@@ -970,21 +1116,36 @@ describe('router — per-wiring thread policy', () => {
   });
 
   it('auto-create takes unknown_sender_policy from the declaration and falls back faithfully', async () => {
-    const { registerChannelAdapter } = await import('./channels/channel-registry.js');
+    const { registerChannelAdapter } =
+      await import('./channels/channel-registry.js');
     const { routeInbound } = await import('./router.js');
-    const { getMessagingGroupByPlatform } = await import('./db/messaging-groups.js');
+    const { getMessagingGroupByPlatform } =
+      await import('./db/messaging-groups.js');
 
     // Registration-tier declaration is enough — no live adapter needed.
     registerChannelAdapter('tp-declared', {
       factory: () => null,
       defaults: {
-        dm: { engageMode: 'pattern', engagePattern: '.', threads: false, unknownSenderPolicy: 'strict' },
-        group: { engageMode: 'mention', threads: false, unknownSenderPolicy: 'public' },
+        dm: {
+          engageMode: 'pattern',
+          engagePattern: '.',
+          threads: false,
+          unknownSenderPolicy: 'strict',
+        },
+        group: {
+          engageMode: 'mention',
+          threads: false,
+          unknownSenderPolicy: 'public',
+        },
         mentions: 'platform',
       },
     });
 
-    const mention = (channelType: string, platformId: string, isGroup: boolean): InboundEvent => ({
+    const mention = (
+      channelType: string,
+      platformId: string,
+      isGroup: boolean,
+    ): InboundEvent => ({
       channelType,
       platformId,
       threadId: null,
@@ -1000,18 +1161,25 @@ describe('router — per-wiring thread policy', () => {
 
     // Declared adapter: group context reads the group declaration...
     await routeInbound(mention('tp-declared', 'tp:G1', true));
-    expect((await getMessagingGroupByPlatform('tp-declared', 'tp:G1'))!.unknown_sender_policy).toBe('public');
+    expect(
+      (await getMessagingGroupByPlatform('tp-declared', 'tp:G1'))!
+        .unknown_sender_policy,
+    ).toBe('public');
 
     // ...and DM context reads the dm declaration.
     await routeInbound(mention('tp-declared', 'tp:D1', false));
-    expect((await getMessagingGroupByPlatform('tp-declared', 'tp:D1'))!.unknown_sender_policy).toBe('strict');
+    expect(
+      (await getMessagingGroupByPlatform('tp-declared', 'tp:D1'))!
+        .unknown_sender_policy,
+    ).toBe('strict');
 
     // Undeclared channel: the behavior-faithful fallback reproduces the
     // historical hardcoded 'request_approval'.
     await routeInbound(mention('tp-undeclared', 'tp:U1', true));
-    expect((await getMessagingGroupByPlatform('tp-undeclared', 'tp:U1'))!.unknown_sender_policy).toBe(
-      'request_approval',
-    );
+    expect(
+      (await getMessagingGroupByPlatform('tp-undeclared', 'tp:U1'))!
+        .unknown_sender_policy,
+    ).toBe('request_approval');
   });
 });
 
@@ -1048,7 +1216,8 @@ describe('routing metadata preservation', () => {
     // A live threaded adapter, matching real Discord routing — inbound
     // platform events always have their receiving adapter live, and the
     // per-wiring thread policy hard-ANDs the live capability.
-    const { registerChannelAdapter, initChannelAdapters } = await import('./channels/channel-registry.js');
+    const { registerChannelAdapter, initChannelAdapters } =
+      await import('./channels/channel-registry.js');
     registerChannelAdapter('discord', {
       factory: () => ({
         name: 'discord',
@@ -1071,7 +1240,8 @@ describe('routing metadata preservation', () => {
   });
 
   afterEach(async () => {
-    const { teardownChannelAdapters } = await import('./channels/channel-registry.js');
+    const { teardownChannelAdapters } =
+      await import('./channels/channel-registry.js');
     await teardownChannelAdapters();
   });
 
@@ -1082,14 +1252,21 @@ describe('routing metadata preservation', () => {
       channelType: 'discord',
       platformId: 'chan-123',
       threadId: 'thread-42',
-      message: { id: 'msg-r1', kind: 'chat', content: JSON.stringify({ sender: 'A', text: 'hi' }), timestamp: now() },
+      message: {
+        id: 'msg-r1',
+        kind: 'chat',
+        content: JSON.stringify({ sender: 'A', text: 'hi' }),
+        timestamp: now(),
+      },
     });
 
     // Threaded adapter in a group chat forces a per-thread session.
     const session = await findSession('mg-1', 'thread-42');
     const db = new Database(inboundDbPath('ag-1', session!.id));
     const row = db
-      .prepare('SELECT platform_id, channel_type, thread_id FROM messages_in WHERE id LIKE ?')
+      .prepare(
+        'SELECT platform_id, channel_type, thread_id FROM messages_in WHERE id LIKE ?',
+      )
       .get('msg-r1%') as {
       platform_id: string | null;
       channel_type: string | null;
@@ -1129,7 +1306,12 @@ describe('routing metadata preservation', () => {
       channelType: 'discord',
       platformId: 'chan-123',
       threadId: 'thread-fanout',
-      message: { id: 'msg-fo', kind: 'chat', content: JSON.stringify({ text: 'fan' }), timestamp: now() },
+      message: {
+        id: 'msg-fo',
+        kind: 'chat',
+        content: JSON.stringify({ text: 'fan' }),
+        timestamp: now(),
+      },
     });
 
     // Both agents should have the message with correct routing
@@ -1138,7 +1320,11 @@ describe('routing metadata preservation', () => {
       const sessions = await getSessionsByAgentGroup(agId);
       expect(sessions).toHaveLength(1);
       const db = new Database(inboundDbPath(agId, sessions[0].id));
-      const row = db.prepare('SELECT platform_id, channel_type, thread_id FROM messages_in LIMIT 1').get() as {
+      const row = db
+        .prepare(
+          'SELECT platform_id, channel_type, thread_id FROM messages_in LIMIT 1',
+        )
+        .get() as {
         platform_id: string | null;
         channel_type: string | null;
         thread_id: string | null;
@@ -1174,7 +1360,11 @@ describe('writeSessionRouting', () => {
     await writeSessionRouting('ag-1', session.id);
 
     const db = new Database(inboundDbPath('ag-1', session.id));
-    const row = db.prepare('SELECT channel_type, platform_id, thread_id FROM session_routing WHERE id = 1').get() as
+    const row = db
+      .prepare(
+        'SELECT channel_type, platform_id, thread_id FROM session_routing WHERE id = 1',
+      )
+      .get() as
       | {
           channel_type: string | null;
           platform_id: string | null;
@@ -1198,11 +1388,20 @@ describe('writeSessionRouting', () => {
       created_at: now(),
     });
 
-    const { session } = await resolveSession('ag-1', null, null, 'agent-shared');
+    const { session } = await resolveSession(
+      'ag-1',
+      null,
+      null,
+      'agent-shared',
+    );
     await writeSessionRouting('ag-1', session.id);
 
     const db = new Database(inboundDbPath('ag-1', session.id));
-    const row = db.prepare('SELECT channel_type, platform_id, thread_id FROM session_routing WHERE id = 1').get() as
+    const row = db
+      .prepare(
+        'SELECT channel_type, platform_id, thread_id FROM session_routing WHERE id = 1',
+      )
+      .get() as
       | {
           channel_type: string | null;
           platform_id: string | null;
@@ -1235,11 +1434,20 @@ describe('writeSessionRouting', () => {
       created_at: now(),
     });
 
-    const { session } = await resolveSession('ag-1', 'mg-1', 'thread-77', 'per-thread');
+    const { session } = await resolveSession(
+      'ag-1',
+      'mg-1',
+      'thread-77',
+      'per-thread',
+    );
     await writeSessionRouting('ag-1', session.id);
 
     const db = new Database(inboundDbPath('ag-1', session.id));
-    const row = db.prepare('SELECT channel_type, platform_id, thread_id FROM session_routing WHERE id = 1').get() as
+    const row = db
+      .prepare(
+        'SELECT channel_type, platform_id, thread_id FROM session_routing WHERE id = 1',
+      )
+      .get() as
       | {
           channel_type: string | null;
           platform_id: string | null;
@@ -1265,8 +1473,18 @@ describe('agent-shared session resolution', () => {
       created_at: now(),
     });
 
-    const { session: s1, created: c1 } = await resolveSession('ag-1', null, null, 'agent-shared');
-    const { session: s2, created: c2 } = await resolveSession('ag-1', null, null, 'agent-shared');
+    const { session: s1, created: c1 } = await resolveSession(
+      'ag-1',
+      null,
+      null,
+      'agent-shared',
+    );
+    const { session: s2, created: c2 } = await resolveSession(
+      'ag-1',
+      null,
+      null,
+      'agent-shared',
+    );
 
     expect(c1).toBe(true);
     expect(c2).toBe(false);
@@ -1282,7 +1500,12 @@ describe('agent-shared session resolution', () => {
       created_at: now(),
     });
 
-    const { session } = await resolveSession('ag-1', null, null, 'agent-shared');
+    const { session } = await resolveSession(
+      'ag-1',
+      null,
+      null,
+      'agent-shared',
+    );
     expect(session.messaging_group_id).toBeNull();
   });
 
@@ -1366,9 +1589,15 @@ describe('agent-to-agent routing', () => {
   });
 
   it('A2A outbound lands in a session for the target agent', async () => {
-    const { routeAgentMessage } = await import('./modules/agent-to-agent/agent-route.js');
+    const { routeAgentMessage } =
+      await import('./modules/agent-to-agent/agent-route.js');
 
-    const { session: paSlackSession } = await resolveSession('ag-pa', 'mg-slack', null, 'shared');
+    const { session: paSlackSession } = await resolveSession(
+      'ag-pa',
+      'mg-slack',
+      null,
+      'shared',
+    );
 
     await routeAgentMessage(
       {
@@ -1384,8 +1613,12 @@ describe('agent-to-agent routing', () => {
     const researcherSessions = await getSessionsByAgentGroup('ag-researcher');
     expect(researcherSessions.length).toBeGreaterThanOrEqual(1);
 
-    const rDb = new Database(inboundDbPath('ag-researcher', researcherSessions[0].id));
-    const rows = rDb.prepare('SELECT platform_id, channel_type, content FROM messages_in').all() as Array<{
+    const rDb = new Database(
+      inboundDbPath('ag-researcher', researcherSessions[0].id),
+    );
+    const rows = rDb
+      .prepare('SELECT platform_id, channel_type, content FROM messages_in')
+      .all() as Array<{
       platform_id: string | null;
       channel_type: string | null;
       content: string;
@@ -1402,9 +1635,15 @@ describe('agent-to-agent routing', () => {
     // PA has Slack session, then gets wired to Discord (newer session).
     // Researcher responds to PA. With the return-path fix, the reply
     // routes back to the Slack session (originator) not Discord (newest).
-    const { routeAgentMessage } = await import('./modules/agent-to-agent/agent-route.js');
+    const { routeAgentMessage } =
+      await import('./modules/agent-to-agent/agent-route.js');
 
-    const { session: paSlackSession } = await resolveSession('ag-pa', 'mg-slack', null, 'shared');
+    const { session: paSlackSession } = await resolveSession(
+      'ag-pa',
+      'mg-slack',
+      null,
+      'shared',
+    );
 
     await createMessagingGroup({
       id: 'mg-discord',
@@ -1415,29 +1654,50 @@ describe('agent-to-agent routing', () => {
       unknown_sender_policy: 'public',
       created_at: now(),
     });
-    const { session: paDiscordSession } = await resolveSession('ag-pa', 'mg-discord', null, 'shared');
+    const { session: paDiscordSession } = await resolveSession(
+      'ag-pa',
+      'mg-discord',
+      null,
+      'shared',
+    );
 
     // PA sends from Slack
     await routeAgentMessage(
-      { id: 'out-fwd', platform_id: 'ag-researcher', content: JSON.stringify({ text: 'research' }), in_reply_to: null },
+      {
+        id: 'out-fwd',
+        platform_id: 'ag-researcher',
+        content: JSON.stringify({ text: 'research' }),
+        in_reply_to: null,
+      },
       paSlackSession,
     );
 
     // Researcher responds back to PA
     const { getSessionsByAgentGroup } = await import('./db/sessions.js');
-    const researcherSession = (await getSessionsByAgentGroup('ag-researcher'))[0];
+    const researcherSession = (
+      await getSessionsByAgentGroup('ag-researcher')
+    )[0];
 
     await routeAgentMessage(
-      { id: 'out-reply', platform_id: 'ag-pa', content: JSON.stringify({ text: 'found it' }), in_reply_to: null },
+      {
+        id: 'out-reply',
+        platform_id: 'ag-pa',
+        content: JSON.stringify({ text: 'found it' }),
+        in_reply_to: null,
+      },
       researcherSession,
     );
 
     const slackDb = new Database(inboundDbPath('ag-pa', paSlackSession.id));
-    const slackA2a = slackDb.prepare("SELECT * FROM messages_in WHERE channel_type = 'agent'").all();
+    const slackA2a = slackDb
+      .prepare("SELECT * FROM messages_in WHERE channel_type = 'agent'")
+      .all();
     slackDb.close();
 
     const discordDb = new Database(inboundDbPath('ag-pa', paDiscordSession.id));
-    const discordA2a = discordDb.prepare("SELECT * FROM messages_in WHERE channel_type = 'agent'").all();
+    const discordA2a = discordDb
+      .prepare("SELECT * FROM messages_in WHERE channel_type = 'agent'")
+      .all();
     discordDb.close();
 
     // Fixed: response lands in Slack (origin) not Discord (newest)
@@ -1448,11 +1708,22 @@ describe('agent-to-agent routing', () => {
   it('BUG: A2A-only session gets null session_routing (#2332)', async () => {
     // Researcher only has an agent-shared session (no channel wiring).
     // writeSessionRouting writes nulls because messaging_group_id is null.
-    const { routeAgentMessage } = await import('./modules/agent-to-agent/agent-route.js');
+    const { routeAgentMessage } =
+      await import('./modules/agent-to-agent/agent-route.js');
 
-    const { session: paSession } = await resolveSession('ag-pa', 'mg-slack', null, 'shared');
+    const { session: paSession } = await resolveSession(
+      'ag-pa',
+      'mg-slack',
+      null,
+      'shared',
+    );
     await routeAgentMessage(
-      { id: 'out-1', platform_id: 'ag-researcher', content: JSON.stringify({ text: 'go' }), in_reply_to: null },
+      {
+        id: 'out-1',
+        platform_id: 'ag-researcher',
+        content: JSON.stringify({ text: 'go' }),
+        in_reply_to: null,
+      },
       paSession,
     );
 
@@ -1462,8 +1733,14 @@ describe('agent-to-agent routing', () => {
 
     await writeSessionRouting('ag-researcher', researcherSessions[0].id);
 
-    const rDb = new Database(inboundDbPath('ag-researcher', researcherSessions[0].id));
-    const routing = rDb.prepare('SELECT channel_type, platform_id FROM session_routing WHERE id = 1').get() as
+    const rDb = new Database(
+      inboundDbPath('ag-researcher', researcherSessions[0].id),
+    );
+    const routing = rDb
+      .prepare(
+        'SELECT channel_type, platform_id FROM session_routing WHERE id = 1',
+      )
+      .get() as
       | {
           channel_type: string | null;
           platform_id: string | null;
@@ -1507,7 +1784,9 @@ describe('delivery', () => {
        VALUES ('out-1', datetime('now'), 'chat', 'chan-123', 'discord', ?)`,
     ).run(JSON.stringify({ text: 'Agent response' }));
 
-    const undelivered = db.prepare('SELECT * FROM messages_out').all() as Array<{
+    const undelivered = db
+      .prepare('SELECT * FROM messages_out')
+      .all() as Array<{
       id: string;
       content: string;
     }>;

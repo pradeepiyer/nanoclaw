@@ -27,8 +27,15 @@ export async function getAllUsers(): Promise<User[]> {
   return getDb().all<User>('SELECT * FROM users ORDER BY created_at');
 }
 
-export async function updateDisplayName(id: string, displayName: string): Promise<void> {
-  await getDb().run('UPDATE users SET display_name = ? WHERE id = ?', displayName, id);
+export async function updateDisplayName(
+  id: string,
+  displayName: string,
+): Promise<void> {
+  await getDb().run(
+    'UPDATE users SET display_name = ? WHERE id = ?',
+    displayName,
+    id,
+  );
 }
 
 export async function deleteUser(id: string): Promise<void> {

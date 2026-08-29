@@ -21,7 +21,10 @@ import { buildAgentGroupImage, killContainer } from '../../container-runner.js';
 import { requestWake } from '../../request-wake.js';
 import { getAgentGroup } from '../../db/agent-groups.js';
 import { setStopIntent, shadowWrite } from '../../db/coordination.js';
-import { getContainerConfig, updateContainerConfigJson } from '../../db/container-configs.js';
+import {
+  getContainerConfig,
+  updateContainerConfigJson,
+} from '../../db/container-configs.js';
 import { getSession } from '../../db/sessions.js';
 import { log } from '../../log.js';
 import { writeSessionMessage } from '../../session-manager.js';
@@ -31,24 +34,37 @@ import { notifyAgent } from '../approvals/index.js';
 async function wakeSessionById(sessionId: string): Promise<void> {
   const session = await getSession(sessionId);
   if (session) await requestWake(session, 'self-mod-apply');
-  await shadowWrite('stop-intent-clear', () => setStopIntent(sessionId, null, new Date().toISOString()));
+  await shadowWrite('stop-intent-clear', () =>
+    setStopIntent(sessionId, null, new Date().toISOString()),
+  );
 }
 
 /** Shadow the respawn plan durably before a kill-with-respawn; on_wake stays authoritative. */
 async function shadowRespawnIntent(sessionId: string): Promise<void> {
-  await shadowWrite('stop-intent', () => setStopIntent(sessionId, 'respawn_after_stop', new Date().toISOString()));
+  await shadowWrite('stop-intent', () =>
+    setStopIntent(sessionId, 'respawn_after_stop', new Date().toISOString()),
+  );
 }
 
-export async function applyInstallPackages(payload: Record<string, unknown>, session: Session): Promise<void> {
+export async function applyInstallPackages(
+  payload: Record<string, unknown>,
+  session: Session,
+): Promise<void> {
   const agentGroup = await getAgentGroup(session.agent_group_id);
   if (!agentGroup) {
-    await notifyAgent(session, 'install_packages approved but agent group missing.');
+    await notifyAgent(
+      session,
+      'install_packages approved but agent group missing.',
+    );
     return;
   }
 
   const configRow = await getContainerConfig(agentGroup.id);
   if (!configRow) {
-    await notifyAgent(session, 'install_packages approved but container config missing.');
+    await notifyAgent(
+      session,
+      'install_packages approved but container config missing.',
+    );
     return;
   }
 
@@ -72,7 +88,9 @@ export async function applyInstallPackages(payload: Record<string, unknown>, ses
     ...((payload.apt as string[] | undefined) || []),
     ...((payload.npm as string[] | undefined) || []),
   ].join(', ');
-  log.info('Package install approved', { agentGroupId: session.agent_group_id });
+  log.info('Package install approved', {
+    agentGroupId: session.agent_group_id,
+  });
   try {
     await buildAgentGroupImage(session.agent_group_id);
     await writeSessionMessage(session.agent_group_id, session.id, {
@@ -93,33 +111,50 @@ export async function applyInstallPackages(payload: Record<string, unknown>, ses
     killContainer(session.id, 'rebuild applied', () => {
       void wakeSessionById(session.id);
     });
-    log.info('Container rebuild completed (bundled with install)', { agentGroupId: session.agent_group_id });
+    log.info('Container rebuild completed (bundled with install)', {
+      agentGroupId: session.agent_group_id,
+    });
   } catch (e) {
     await notifyAgent(
       session,
       `Packages added to config (${pkgs}) but rebuild failed: ${e instanceof Error ? e.message : String(e)}. Tell the user — an admin will need to retry the install_packages request or inspect the build logs.`,
     );
-    log.error('Bundled rebuild failed after install approval', { agentGroupId: session.agent_group_id, err: e });
+    log.error('Bundled rebuild failed after install approval', {
+      agentGroupId: session.agent_group_id,
+      err: e,
+    });
   }
 }
 
-export async function applyAddMcpServer(payload: Record<string, unknown>, session: Session): Promise<void> {
+export async function applyAddMcpServer(
+  payload: Record<string, unknown>,
+  session: Session,
+): Promise<void> {
   const agentGroup = await getAgentGroup(session.agent_group_id);
   if (!agentGroup) {
-    await notifyAgent(session, 'add_mcp_server approved but agent group missing.');
+    await notifyAgent(
+      session,
+      'add_mcp_server approved but agent group missing.',
+    );
     return;
   }
 
   const configRow = await getContainerConfig(agentGroup.id);
   if (!configRow) {
-    await notifyAgent(session, 'add_mcp_server approved but container config missing.');
+    await notifyAgent(
+      session,
+      'add_mcp_server approved but container config missing.',
+    );
     return;
   }
 
   // Add the new MCP server to the existing map in the DB
   const name = typeof payload.name === 'string' ? payload.name : '';
   if (!name) {
-    await notifyAgent(session, 'add_mcp_server approved but server name is missing.');
+    await notifyAgent(
+      session,
+      'add_mcp_server approved but server name is missing.',
+    );
     return;
   }
   let serverConfig: McpServerConfig;
@@ -134,7 +169,10 @@ export async function applyAddMcpServer(payload: Record<string, unknown>, sessio
     );
     return;
   }
-  const servers = JSON.parse(configRow.mcp_servers) as Record<string, McpServerConfig>;
+  const servers = JSON.parse(configRow.mcp_servers) as Record<
+    string,
+    McpServerConfig
+  >;
   // Re-checked here (not only at request time): an approval can race a restamp
   // that stamped a plugin server under this name after the card went out.
   const owner = mcpServerPluginOwner(servers[name]);

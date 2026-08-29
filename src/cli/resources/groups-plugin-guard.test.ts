@@ -27,7 +27,13 @@ vi.mock('../../config.js', async (importOriginal) => ({
 }));
 
 vi.mock('../../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 import { closeDb, initTestDb, runMigrations } from '../../db/index.js';
@@ -41,14 +47,24 @@ import './groups.js';
 
 function writeTemplate(): void {
   const tpl = path.join(TEST_ROOT, 'templates', 'sdr');
-  fs.mkdirSync(path.join(tpl, NANOCLAW_EXTENSION_NS, 'context'), { recursive: true });
-  fs.writeFileSync(path.join(tpl, 'plugin.json'), JSON.stringify({ $schema: PLUGIN_SCHEMA_URL, name: 'sdr' }));
-  fs.writeFileSync(path.join(tpl, NANOCLAW_EXTENSION_NS, 'context', 'instructions.md'), 'You are an SDR agent.\n');
+  fs.mkdirSync(path.join(tpl, NANOCLAW_EXTENSION_NS, 'context'), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(tpl, 'plugin.json'),
+    JSON.stringify({ $schema: PLUGIN_SCHEMA_URL, name: 'sdr' }),
+  );
+  fs.writeFileSync(
+    path.join(tpl, NANOCLAW_EXTENSION_NS, 'context', 'instructions.md'),
+    'You are an SDR agent.\n',
+  );
   fs.writeFileSync(
     path.join(tpl, 'mcp.json'),
     JSON.stringify({
       $schema: MCP_SCHEMA_URL,
-      mcpServers: { docs: { type: 'streamable-http', url: 'https://mcp.example.com/mcp' } },
+      mcpServers: {
+        docs: { type: 'streamable-http', url: 'https://mcp.example.com/mcp' },
+      },
     }),
   );
 }
@@ -80,15 +96,23 @@ describe('plugin-owned MCP server guard (ncl groups config)', () => {
       url: 'https://evil.example.com/mcp',
     });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error.message).toMatch(/owned by plugin "sdr".*restamp/);
-    expect(JSON.parse((await getContainerConfig(groupId))!.mcp_servers).docs.url).toBe('https://mcp.example.com/mcp');
+    if (!res.ok)
+      expect(res.error.message).toMatch(/owned by plugin "sdr".*restamp/);
+    expect(
+      JSON.parse((await getContainerConfig(groupId))!.mcp_servers).docs.url,
+    ).toBe('https://mcp.example.com/mcp');
   });
 
   it('refuses to remove a plugin-owned server', async () => {
-    const res = await run('groups-config-remove-mcp-server', { id: groupId, name: 'docs' });
+    const res = await run('groups-config-remove-mcp-server', {
+      id: groupId,
+      name: 'docs',
+    });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.message).toMatch(/owned by plugin "sdr"/);
-    expect(JSON.parse((await getContainerConfig(groupId))!.mcp_servers).docs).toBeDefined();
+    expect(
+      JSON.parse((await getContainerConfig(groupId))!.mcp_servers).docs,
+    ).toBeDefined();
   });
 
   it('leaves unmarked servers fully editable', async () => {
@@ -98,36 +122,61 @@ describe('plugin-owned MCP server guard (ncl groups config)', () => {
       url: 'https://mine.example.com/mcp',
     });
     expect(added.ok).toBe(true);
-    const removed = await run('groups-config-remove-mcp-server', { id: groupId, name: 'mine' });
+    const removed = await run('groups-config-remove-mcp-server', {
+      id: groupId,
+      name: 'mine',
+    });
     expect(removed.ok).toBe(true);
-    expect(JSON.parse((await getContainerConfig(groupId))!.mcp_servers).mine).toBeUndefined();
+    expect(
+      JSON.parse((await getContainerConfig(groupId))!.mcp_servers).mine,
+    ).toBeUndefined();
   });
 });
 
 describe('ncl groups create --template on an already-stamped plugin', () => {
   it('previews the in-place update without --yes and applies with it', async () => {
     fs.writeFileSync(
-      path.join(TEST_ROOT, 'templates', 'sdr', NANOCLAW_EXTENSION_NS, 'context', 'instructions.md'),
+      path.join(
+        TEST_ROOT,
+        'templates',
+        'sdr',
+        NANOCLAW_EXTENSION_NS,
+        'context',
+        'instructions.md',
+      ),
       'You are an SDR agent v2.\n',
     );
 
     const dryRun = await run('groups-create', { template: 'sdr' });
     expect(dryRun.ok).toBe(true);
     if (dryRun.ok) {
-      expect(dryRun.data).toMatchObject({ applied: false, group: { id: groupId } });
+      expect(dryRun.data).toMatchObject({
+        applied: false,
+        group: { id: groupId },
+      });
       expect(dryRun.human).toMatch(/DRY RUN/);
       expect(dryRun.human).toMatch(/--new/);
     }
 
     const applied = await run('groups-create', { template: 'sdr', yes: true });
     expect(applied.ok).toBe(true);
-    if (applied.ok) expect(applied.data).toMatchObject({ applied: true, group: { id: groupId } });
+    if (applied.ok)
+      expect(applied.data).toMatchObject({
+        applied: true,
+        group: { id: groupId },
+      });
   });
 
   it('rejects --folder combined with --template instead of silently ignoring it', async () => {
-    const res = await run('groups-create', { template: 'sdr', folder: 'custom-folder' });
+    const res = await run('groups-create', {
+      template: 'sdr',
+      folder: 'custom-folder',
+    });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error.message).toMatch(/--folder applies only to bare creates/);
+    if (!res.ok)
+      expect(res.error.message).toMatch(
+        /--folder applies only to bare creates/,
+      );
   });
 
   it('surfaces the migration error for a pre-plugin template on the CLI path', async () => {
@@ -136,11 +185,15 @@ describe('ncl groups create --template on an already-stamped plugin', () => {
     // changelog entry points users at.
     const legacy = path.join(TEST_ROOT, 'templates', 'legacy');
     fs.mkdirSync(path.join(legacy, 'context'), { recursive: true });
-    fs.writeFileSync(path.join(legacy, 'context', 'instructions.md'), 'old layout\n');
+    fs.writeFileSync(
+      path.join(legacy, 'context', 'instructions.md'),
+      'old layout\n',
+    );
 
     const res = await run('groups-create', { template: 'legacy' });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error.message).toMatch(/predates the plugin format/);
+    if (!res.ok)
+      expect(res.error.message).toMatch(/predates the plugin format/);
   });
 
   it('stamps a second agent with --new, then requires --id while both exist', async () => {
@@ -151,10 +204,20 @@ describe('ncl groups create --template on an already-stamped plugin', () => {
 
     const ambiguous = await run('groups-create', { template: 'sdr' });
     expect(ambiguous.ok).toBe(false);
-    if (!ambiguous.ok) expect(ambiguous.error.message).toMatch(/2 groups already carry this plugin.*--id/s);
+    if (!ambiguous.ok)
+      expect(ambiguous.error.message).toMatch(
+        /2 groups already carry this plugin.*--id/s,
+      );
 
-    const targeted = await run('groups-create', { template: 'sdr', id: secondId });
+    const targeted = await run('groups-create', {
+      template: 'sdr',
+      id: secondId,
+    });
     expect(targeted.ok).toBe(true);
-    if (targeted.ok) expect(targeted.data).toMatchObject({ applied: false, group: { id: secondId } });
+    if (targeted.ok)
+      expect(targeted.data).toMatchObject({
+        applied: false,
+        group: { id: secondId },
+      });
   });
 });

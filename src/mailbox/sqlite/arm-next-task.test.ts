@@ -28,7 +28,10 @@ afterEach(() => {
   if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true });
 });
 
-function completedRecurringOriginal(db: ReturnType<typeof openInboundDb>, id: string) {
+function completedRecurringOriginal(
+  db: ReturnType<typeof openInboundDb>,
+  id: string,
+) {
   insertTaskRow(db, {
     id,
     seriesId: id,
@@ -36,7 +39,9 @@ function completedRecurringOriginal(db: ReturnType<typeof openInboundDb>, id: st
     recurrence: '0 9 * * *',
     content: JSON.stringify({ prompt: 'noop' }),
   });
-  db.prepare("UPDATE messages_in SET status = 'completed' WHERE id = ?").run(id);
+  db.prepare("UPDATE messages_in SET status = 'completed' WHERE id = ?").run(
+    id,
+  );
 }
 
 describe('armNextTask', () => {
@@ -81,7 +86,9 @@ describe('armNextTask', () => {
     ).rejects.toThrow();
 
     // The original is still armed — the series is retryable, not dead.
-    expect(getCompletedRecurring(db).map((row) => row.id)).toEqual(['task-original']);
+    expect(getCompletedRecurring(db).map((row) => row.id)).toEqual([
+      'task-original',
+    ]);
 
     // And the retry with a fresh id completes the pair.
     await mailbox.armNextTask('task-original', {

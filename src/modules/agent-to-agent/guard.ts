@@ -36,14 +36,20 @@ export const agentsCreate = defineGuardedAction({
   // Bind a create_agent grant to the name that was approved.
   grantCoversRequest: (grant, input) => {
     try {
-      return (JSON.parse(grant.payload) as { name?: string }).name === input.payload.name;
+      return (
+        (JSON.parse(grant.payload) as { name?: string }).name ===
+        input.payload.name
+      );
     } catch {
       return false;
     }
   },
   decide: async (input) => {
-    if (input.actor.kind !== 'agent') return DENY('create_agent is a container-originated action.');
-    const cliScope = (await getContainerConfig(input.actor.agentGroupId))?.cli_scope ?? 'group';
+    if (input.actor.kind !== 'agent')
+      return DENY('create_agent is a container-originated action.');
+    const cliScope =
+      (await getContainerConfig(input.actor.agentGroupId))?.cli_scope ??
+      'group';
     if (cliScope === 'global') {
       // Trusted owner agent group — an approval tap on every sub-agent spawn
       // would be needless friction.
@@ -62,26 +68,37 @@ export const a2aSend = defineGuardedAction({
   // Bind an a2a grant to the exact held message target.
   grantCoversRequest: (grant, input) => {
     try {
-      return (JSON.parse(grant.payload) as { platform_id?: string }).platform_id === input.resource?.to;
+      return (
+        (JSON.parse(grant.payload) as { platform_id?: string }).platform_id ===
+        input.resource?.to
+      );
     } catch {
       return false;
     }
   },
   decide: async (input) => {
-    if (input.actor.kind !== 'agent') return DENY('agent-to-agent send requires an agent actor');
+    if (input.actor.kind !== 'agent')
+      return DENY('agent-to-agent send requires an agent actor');
     const from = input.actor.agentGroupId;
     const to = input.resource?.to ?? '';
     const isSelf = to === from;
     if (!isSelf && !(await hasDestination(from, 'agent', to))) {
-      return DENY(`unauthorized agent-to-agent: ${from} has no destination for ${to}`);
+      return DENY(
+        `unauthorized agent-to-agent: ${from} has no destination for ${to}`,
+      );
     }
     if (!(await getAgentGroup(to))) {
-      return DENY(`target agent group ${to} not found for message ${String(input.payload.id)}`);
+      return DENY(
+        `target agent group ${to} not found for message ${String(input.payload.id)}`,
+      );
     }
     if (isSelf) return ALLOW('self-send');
     const policy = await getMessagePolicy(from, to);
     if (policy) {
-      return HOLD(`a2a message policy ${from}→${to} holds for ${policy.approver}`, policy.approver);
+      return HOLD(
+        `a2a message policy ${from}→${to} holds for ${policy.approver}`,
+        policy.approver,
+      );
     }
     return ALLOW('destination grant exists');
   },

@@ -4,7 +4,10 @@ import { closeDb, initTestDb } from '../db/connection.js';
 import { runMigrations } from '../db/migrations/index.js';
 import { createPendingApproval } from '../db/sessions.js';
 import { log } from '../log.js';
-import { registerQuestionRenderResolver, resolveQuestionRender } from './question-render-registry.js';
+import {
+  registerQuestionRenderResolver,
+  resolveQuestionRender,
+} from './question-render-registry.js';
 
 beforeEach(async () => {
   const db = await initTestDb();
@@ -22,7 +25,9 @@ describe('question render resolver registry', () => {
     const later = vi.fn(() => undefined);
     const expected = {
       title: 'Module question',
-      options: [{ label: 'Approve', selectedLabel: 'Approved', value: 'approve' }],
+      options: [
+        { label: 'Approve', selectedLabel: 'Approved', value: 'approve' },
+      ],
     };
 
     registerQuestionRenderResolver((questionId) => {
@@ -49,7 +54,9 @@ describe('question render resolver registry', () => {
   it('resolves over a snapshot when a resolver registers another resolver', async () => {
     const expected = {
       title: 'Registered during resolution',
-      options: [{ label: 'Continue', selectedLabel: 'Continued', value: 'continue' }],
+      options: [
+        { label: 'Continue', selectedLabel: 'Continued', value: 'continue' },
+      ],
     };
     const registeredDuringResolution = vi.fn((questionId: string) =>
       questionId === 'snapshot-question' ? expected : undefined,
@@ -81,7 +88,9 @@ describe('question render resolver registry', () => {
       payload: '{}',
       created_at: new Date().toISOString(),
       title: 'Built-in fallback after failure',
-      options_json: JSON.stringify([{ label: 'Allow', selectedLabel: 'Allowed', value: 'allow' }]),
+      options_json: JSON.stringify([
+        { label: 'Allow', selectedLabel: 'Allowed', value: 'allow' },
+      ]),
     });
 
     expect(await resolveQuestionRender('resolver-failure-question')).toEqual({
@@ -89,7 +98,9 @@ describe('question render resolver registry', () => {
       question: '',
       options: [{ label: 'Allow', selectedLabel: 'Allowed', value: 'allow' }],
     });
-    expect(errorSpy).toHaveBeenCalledWith('Question render resolver threw', { err: failure });
+    expect(errorSpy).toHaveBeenCalledWith('Question render resolver threw', {
+      err: failure,
+    });
   });
 
   it('uses the existing database lookup as the final built-in fallback', async () => {
@@ -100,7 +111,9 @@ describe('question render resolver registry', () => {
       payload: '{}',
       created_at: new Date().toISOString(),
       title: 'Built-in approval',
-      options_json: JSON.stringify([{ label: 'Allow', selectedLabel: 'Allowed', value: 'allow' }]),
+      options_json: JSON.stringify([
+        { label: 'Allow', selectedLabel: 'Allowed', value: 'allow' },
+      ]),
     });
 
     expect(await resolveQuestionRender('built-in-render-question')).toEqual({
@@ -111,6 +124,8 @@ describe('question render resolver registry', () => {
   });
 
   it('returns undefined when neither a module nor the built-in fallback owns the id', async () => {
-    expect(await resolveQuestionRender('unowned-render-question')).toBeUndefined();
+    expect(
+      await resolveQuestionRender('unowned-render-question'),
+    ).toBeUndefined();
   });
 });

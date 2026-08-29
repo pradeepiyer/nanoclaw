@@ -23,7 +23,10 @@ import {
   getPendingApproval,
   markApprovalAwaitingReason,
 } from '../../db/sessions.js';
-import { setDeliveryAdapter, type ChannelDeliveryAdapter } from '../../delivery.js';
+import {
+  setDeliveryAdapter,
+  type ChannelDeliveryAdapter,
+} from '../../delivery.js';
 import { writeSessionMessage } from '../../session-manager.js';
 import { upsertUser } from '../permissions/db/users.js';
 import { grantRole } from '../permissions/db/user-roles.js';
@@ -39,7 +42,9 @@ vi.mock('../../config.js', async () => {
 });
 
 vi.mock('../../session-manager.js', async () => {
-  const actual = await vi.importActual<typeof import('../../session-manager.js')>('../../session-manager.js');
+  const actual = await vi.importActual<
+    typeof import('../../session-manager.js')
+  >('../../session-manager.js');
   return { ...actual, writeSessionMessage: vi.fn() };
 });
 
@@ -52,16 +57,32 @@ function now(): string {
   return new Date().toISOString();
 }
 
-let delivered: Array<{ channelType: string; platformId: string; content: string; instance?: string }>;
+let delivered: Array<{
+  channelType: string;
+  platformId: string;
+  content: string;
+  instance?: string;
+}>;
 
 const fakeAdapter: ChannelDeliveryAdapter = {
-  async deliver(channelType, platformId, _threadId, _kind, content, _files, instance) {
+  async deliver(
+    channelType,
+    platformId,
+    _threadId,
+    _kind,
+    content,
+    _files,
+    instance,
+  ) {
     delivered.push({ channelType, platformId, content, instance });
     return 'pm-1';
   },
 };
 
-async function seedApproval(approvalId: string, action = 'create_agent'): Promise<void> {
+async function seedApproval(
+  approvalId: string,
+  action = 'create_agent',
+): Promise<void> {
   await createPendingApproval({
     approval_id: approvalId,
     session_id: 'sess-1',
@@ -78,14 +99,22 @@ async function seedApproval(approvalId: string, action = 'create_agent'): Promis
 }
 
 function dmReply(text?: string): InboundEvent {
-  const content: Record<string, unknown> = { sender: 'admin-1', senderId: 'admin-1' };
+  const content: Record<string, unknown> = {
+    sender: 'admin-1',
+    senderId: 'admin-1',
+  };
   if (text !== undefined) content.text = text;
   return {
     channelType: DM_CHANNEL,
     instance: DM_INSTANCE,
     platformId: DM_PLATFORM,
     threadId: null,
-    message: { id: 'm-1', kind: 'chat', content: JSON.stringify(content), timestamp: now() },
+    message: {
+      id: 'm-1',
+      kind: 'chat',
+      content: JSON.stringify(content),
+      timestamp: now(),
+    },
   };
 }
 
@@ -111,13 +140,20 @@ function lastRelayedText(): string | undefined {
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
   delivered = [];
 
-  await createAgentGroup({ id: 'ag-1', name: 'Agent', folder: 'agent', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Agent',
+    folder: 'agent',
+    agent_provider: null,
+    created_at: now(),
+  });
   await createSession({
     id: 'sess-1',
     agent_group_id: 'ag-1',
@@ -131,7 +167,12 @@ beforeEach(async () => {
   });
 
   // Authorized approver for the stored delivery address.
-  await upsertUser({ id: 'slack:admin-1', kind: 'slack', display_name: 'Admin', created_at: now() });
+  await upsertUser({
+    id: 'slack:admin-1',
+    kind: 'slack',
+    display_name: 'Admin',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'slack:admin-1',
     role: 'owner',
@@ -144,7 +185,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await closeDb();
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  if (fs.existsSync(TEST_DIR))
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
 describe('reject with reason', () => {
@@ -161,7 +203,9 @@ describe('reject with reason', () => {
     expect(delivered[0].channelType).toBe(DM_CHANNEL);
     expect(delivered[0].platformId).toBe(DM_PLATFORM);
     expect(delivered[0].instance).toBe(DM_INSTANCE);
-    expect((JSON.parse(delivered[0].content) as { text: string }).text).toMatch(/reason/i);
+    expect((JSON.parse(delivered[0].content) as { text: string }).text).toMatch(
+      /reason/i,
+    );
 
     // Agent is not notified yet — the hold is still open.
     expect(vi.mocked(writeSessionMessage)).not.toHaveBeenCalled();
@@ -176,7 +220,9 @@ describe('reject with reason', () => {
 
     expect(consumed).toBe(true);
     expect(await getPendingApproval('appr-2')).toBeUndefined();
-    expect(lastRelayedText()).toBe('Your install_packages request was rejected by admin: "too risky for prod"');
+    expect(lastRelayedText()).toBe(
+      'Your install_packages request was rejected by admin: "too risky for prod"',
+    );
   });
 
   it('truncates an over-long reason to 280 chars with an ellipsis', async () => {
@@ -200,7 +246,9 @@ describe('reject with reason', () => {
 
     expect(consumed).toBe(true);
     expect(await getPendingApproval('appr-4')).toBeUndefined();
-    expect(lastRelayedText()).toBe('Your create_agent request was rejected by admin.');
+    expect(lastRelayedText()).toBe(
+      'Your create_agent request was rejected by admin.',
+    );
   });
 
   it('does not swallow a later DM once the hold was already finalized', async () => {
@@ -221,7 +269,12 @@ describe('reject with reason', () => {
       channelType: DM_CHANNEL,
       platformId: 'D-someone-else',
       threadId: null,
-      message: { id: 'm', kind: 'chat', content: JSON.stringify({ text: 'hi' }), timestamp: now() },
+      message: {
+        id: 'm',
+        kind: 'chat',
+        content: JSON.stringify({ text: 'hi' }),
+        timestamp: now(),
+      },
     });
     expect(consumed).toBe(false);
   });
@@ -231,22 +284,32 @@ describe('reject-with-reason host sweep', () => {
   it('finalizes a hold whose window elapsed as a plain reject', async () => {
     const { sweepAwaitingReasonRejects } = await import('./reason-capture.js');
     await seedApproval('appr-ghost', 'add_mcp_server');
-    await markApprovalAwaitingReason('appr-ghost', new Date(Date.now() - 1000).toISOString());
+    await markApprovalAwaitingReason(
+      'appr-ghost',
+      new Date(Date.now() - 1000).toISOString(),
+    );
 
     await sweepAwaitingReasonRejects();
 
     expect(await getPendingApproval('appr-ghost')).toBeUndefined();
-    expect(lastRelayedText()).toBe('Your add_mcp_server request was rejected by admin.');
+    expect(lastRelayedText()).toBe(
+      'Your add_mcp_server request was rejected by admin.',
+    );
   });
 
   it('leaves a still-open hold untouched', async () => {
     const { sweepAwaitingReasonRejects } = await import('./reason-capture.js');
     await seedApproval('appr-open');
-    await markApprovalAwaitingReason('appr-open', new Date(Date.now() + 60_000).toISOString());
+    await markApprovalAwaitingReason(
+      'appr-open',
+      new Date(Date.now() + 60_000).toISOString(),
+    );
 
     await sweepAwaitingReasonRejects();
 
-    expect((await getPendingApproval('appr-open'))?.status).toBe('awaiting_reason');
+    expect((await getPendingApproval('appr-open'))?.status).toBe(
+      'awaiting_reason',
+    );
     expect(vi.mocked(writeSessionMessage)).not.toHaveBeenCalled();
   });
 });
@@ -267,6 +330,8 @@ describe('plain reject (regression)', () => {
 
     expect(await getPendingApproval('appr-plain')).toBeUndefined();
     expect(delivered).toHaveLength(0);
-    expect(lastRelayedText()).toBe('Your install_packages request was rejected by admin.');
+    expect(lastRelayedText()).toBe(
+      'Your install_packages request was rejected by admin.',
+    );
   });
 });

@@ -10,7 +10,10 @@ import fs from 'fs';
 import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ensureSchema, openInboundDb } from '../../mailbox/sqlite/session-db.js';
+import {
+  ensureSchema,
+  openInboundDb,
+} from '../../mailbox/sqlite/session-db.js';
 import { insertTaskRow } from '../../mailbox/sqlite/tasks.js';
 import { wrapSqliteInbound } from '../../mailbox/sqlite/index.js';
 import { handleRecurrence, scriptBackoffMinutes } from './recurrence.js';
@@ -20,19 +23,26 @@ import type { Session } from '../../types.js';
 // Asia/Tokyo is UTC+9 with no DST: "0 9 * * *" must land at 00:00:00Z sharp.
 vi.mock('../../config.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../config.js')>();
-  return { ...actual, TIMEZONE: 'Asia/Tokyo', GROUPS_DIR: '/tmp/nanoclaw-recurrence-test/groups' };
+  return {
+    ...actual,
+    TIMEZONE: 'Asia/Tokyo',
+    GROUPS_DIR: '/tmp/nanoclaw-recurrence-test/groups',
+  };
 });
 
 // The auto-pause note goes through the shared appendRunLog helper, which
 // resolves the group folder from the central DB — mock it to a fixed folder.
 vi.mock('../../db/agent-groups.js', () => ({
-  getAgentGroup: (id: string) => (id === 'ag-test' ? { id, folder: 'g-test' } : undefined),
+  getAgentGroup: (id: string) =>
+    id === 'ag-test' ? { id, folder: 'g-test' } : undefined,
 }));
 
 // resolveGroupTimezone reads the group's config row from the central DB
 // (not initialized here). Default: no override → falls back to the mocked
 // install TIMEZONE; individual tests set an override to test precedence.
-const containerConfigState = vi.hoisted(() => ({ timezone: null as string | null }));
+const containerConfigState = vi.hoisted(() => ({
+  timezone: null as string | null,
+}));
 vi.mock('../../db/container-configs.js', () => ({
   getContainerConfig: () => ({ timezone: containerConfigState.timezone }),
 }));
@@ -75,12 +85,16 @@ describe('handleRecurrence', () => {
       recurrence: '0 9 * * *', // every day at 09:00 (user TZ)
       content: JSON.stringify({ prompt: 'daily digest' }),
     });
-    db.prepare(`UPDATE messages_in SET status='completed' WHERE id='task-1'`).run();
+    db.prepare(
+      `UPDATE messages_in SET status='completed' WHERE id='task-1'`,
+    ).run();
 
     await handleRecurrence(wrapSqliteInbound(db), fakeSession());
 
     const rows = db
-      .prepare(`SELECT id, status, process_after, recurrence, series_id FROM messages_in ORDER BY seq`)
+      .prepare(
+        `SELECT id, status, process_after, recurrence, series_id FROM messages_in ORDER BY seq`,
+      )
       .all() as Array<{
       id: string;
       status: string;
@@ -95,7 +109,9 @@ describe('handleRecurrence', () => {
     expect(follow.status).toBe('pending');
     expect(follow.recurrence).toBe('0 9 * * *');
     expect(follow.series_id).toBe('task-1');
-    expect(new Date(follow.process_after).getTime()).toBeGreaterThan(Date.now());
+    expect(new Date(follow.process_after).getTime()).toBeGreaterThan(
+      Date.now(),
+    );
   });
 
   it('interprets the cron expression in TIMEZONE, not UTC (the v1 regression)', async () => {
@@ -107,11 +123,15 @@ describe('handleRecurrence', () => {
       recurrence: '0 9 * * *', // 09:00 Asia/Tokyo === 00:00 UTC, exactly
       content: JSON.stringify({ prompt: 'daily digest' }),
     });
-    db.prepare(`UPDATE messages_in SET status='completed' WHERE id='task-tz'`).run();
+    db.prepare(
+      `UPDATE messages_in SET status='completed' WHERE id='task-tz'`,
+    ).run();
 
     await handleRecurrence(wrapSqliteInbound(db), fakeSession());
 
-    const follow = db.prepare(`SELECT process_after FROM messages_in WHERE id != 'task-tz'`).get() as {
+    const follow = db
+      .prepare(`SELECT process_after FROM messages_in WHERE id != 'task-tz'`)
+      .get() as {
       process_after: string;
     };
     // Drop the `{ tz }` option in recurrence.ts and this reads
@@ -131,11 +151,17 @@ describe('handleRecurrence', () => {
       recurrence: '0 9 * * *',
       content: JSON.stringify({ prompt: 'daily digest' }),
     });
-    db.prepare(`UPDATE messages_in SET status='completed' WHERE id='task-group-tz'`).run();
+    db.prepare(
+      `UPDATE messages_in SET status='completed' WHERE id='task-group-tz'`,
+    ).run();
 
     await handleRecurrence(wrapSqliteInbound(db), fakeSession());
 
-    const follow = db.prepare(`SELECT process_after FROM messages_in WHERE id != 'task-group-tz'`).get() as {
+    const follow = db
+      .prepare(
+        `SELECT process_after FROM messages_in WHERE id != 'task-group-tz'`,
+      )
+      .get() as {
       process_after: string;
     };
     expect(follow.process_after).toMatch(/T03:30:00/);
@@ -150,11 +176,15 @@ describe('handleRecurrence', () => {
       recurrence: null,
       content: JSON.stringify({ prompt: 'one-off' }),
     });
-    db.prepare(`UPDATE messages_in SET status='completed' WHERE id='task-1'`).run();
+    db.prepare(
+      `UPDATE messages_in SET status='completed' WHERE id='task-1'`,
+    ).run();
 
     await handleRecurrence(wrapSqliteInbound(db), fakeSession());
 
-    const count = (db.prepare(`SELECT COUNT(*) AS c FROM messages_in`).get() as { c: number }).c;
+    const count = (
+      db.prepare(`SELECT COUNT(*) AS c FROM messages_in`).get() as { c: number }
+    ).c;
     expect(count).toBe(1);
   });
 });
@@ -183,14 +213,20 @@ describe('handleRecurrence — script-failure backoff (streak derived from faile
   }
 
   const clone = (db: ReturnType<typeof freshDb>) =>
-    db.prepare(`SELECT status, process_after, recurrence FROM messages_in WHERE id NOT LIKE 'task-s-%'`).get() as {
+    db
+      .prepare(
+        `SELECT status, process_after, recurrence FROM messages_in WHERE id NOT LIKE 'task-s-%'`,
+      )
+      .get() as {
       status: string;
       process_after: string;
       recurrence: string | null;
     };
 
   it('exports the documented 2,4,8,…,60 progression', () => {
-    expect([1, 2, 3, 4, 5, 6, 7].map(scriptBackoffMinutes)).toEqual([2, 4, 8, 16, 32, 60, 60]);
+    expect([1, 2, 3, 4, 5, 6, 7].map(scriptBackoffMinutes)).toEqual([
+      2, 4, 8, 16, 32, 60, 60,
+    ]);
   });
 
   it('pushes the clone past raw cron cadence while the script is failing', async () => {
@@ -200,7 +236,8 @@ describe('handleRecurrence — script-failure backoff (streak derived from faile
 
     const next = clone(db);
     expect(next.status).toBe('pending');
-    const deltaMin = (new Date(next.process_after).getTime() - Date.now()) / 60_000;
+    const deltaMin =
+      (new Date(next.process_after).getTime() - Date.now()) / 60_000;
     expect(deltaMin).toBeGreaterThan(7); // backoff won over the 1-min cron grid
   });
 
@@ -211,7 +248,8 @@ describe('handleRecurrence — script-failure backoff (streak derived from faile
 
     const next = clone(db);
     expect(next.status).toBe('pending');
-    const deltaMin = (new Date(next.process_after).getTime() - Date.now()) / 60_000;
+    const deltaMin =
+      (new Date(next.process_after).getTime() - Date.now()) / 60_000;
     expect(deltaMin).toBeLessThan(2); // no backoff applied
   });
 
@@ -223,7 +261,9 @@ describe('handleRecurrence — script-failure backoff (streak derived from faile
     const next = clone(db);
     expect(next.status).toBe('paused'); // `ncl tasks resume` revives in place
     expect(next.recurrence).toBe('* * * * *');
-    const original = db.prepare(`SELECT recurrence FROM messages_in WHERE id = ?`).get(liveId) as {
+    const original = db
+      .prepare(`SELECT recurrence FROM messages_in WHERE id = ?`)
+      .get(liveId) as {
       recurrence: string | null;
     };
     expect(original.recurrence).toBeNull(); // not re-cloned next sweep
@@ -235,10 +275,18 @@ describe('handleRecurrence — script-failure backoff (streak derived from faile
     await handleRecurrence(wrapSqliteInbound(db), fakeSession());
 
     // Same file + format appendRunLog owns: groups/<folder>/tasks/<series>.md
-    const logFile = path.join(TEST_DIR, 'groups', 'g-test', 'tasks', 'task-s-0.md');
+    const logFile = path.join(
+      TEST_DIR,
+      'groups',
+      'g-test',
+      'tasks',
+      'task-s-0.md',
+    );
     expect(fs.existsSync(logFile)).toBe(true);
     const content = fs.readFileSync(logFile, 'utf8');
-    expect(content).toContain('auto-paused after 8 consecutive script failures');
+    expect(content).toContain(
+      'auto-paused after 8 consecutive script failures',
+    );
     expect(content).toContain('ncl tasks resume task-s-0');
     expect(content).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} — /m); // appendRunLog's local-time stamp
   });

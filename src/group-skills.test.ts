@@ -12,8 +12,20 @@ vi.mock('./config.js', async (importOriginal) => ({
 
 import { materializeTemplateSkills } from './group-skills.js';
 
-function templateSkill(groupId: string, name: string, file: string, content: string): void {
-  const dir = path.join(DATA_DIR, 'v2-sessions', groupId, '.claude-shared', 'skills', name);
+function templateSkill(
+  groupId: string,
+  name: string,
+  file: string,
+  content: string,
+): void {
+  const dir = path.join(
+    DATA_DIR,
+    'v2-sessions',
+    groupId,
+    '.claude-shared',
+    'skills',
+    name,
+  );
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, file), content);
 }
@@ -34,8 +46,12 @@ describe('materializeTemplateSkills', () => {
 
     materializeTemplateSkills('g1', dest);
 
-    expect(fs.readFileSync(path.join(dest, 'widget', 'SKILL.md'), 'utf-8')).toBe('body');
-    expect(fs.lstatSync(path.join(dest, 'widget')).isSymbolicLink()).toBe(false);
+    expect(
+      fs.readFileSync(path.join(dest, 'widget', 'SKILL.md'), 'utf-8'),
+    ).toBe('body');
+    expect(fs.lstatSync(path.join(dest, 'widget')).isSymbolicLink()).toBe(
+      false,
+    );
   });
 
   it('is a no-op when the group has no template skills', () => {
@@ -51,13 +67,22 @@ describe('materializeTemplateSkills', () => {
     templateSkill('g5', 'real-skill', 'SKILL.md', 'real');
     fs.symlinkSync(
       '/container/only/path/agent-browser',
-      path.join(DATA_DIR, 'v2-sessions', 'g5', '.claude-shared', 'skills', 'agent-browser'),
+      path.join(
+        DATA_DIR,
+        'v2-sessions',
+        'g5',
+        '.claude-shared',
+        'skills',
+        'agent-browser',
+      ),
     );
     const dest = path.join(TEST_ROOT, 'grp5', '.agents', 'skills');
 
     materializeTemplateSkills('g5', dest);
 
-    expect(fs.readFileSync(path.join(dest, 'real-skill', 'SKILL.md'), 'utf-8')).toBe('real');
+    expect(
+      fs.readFileSync(path.join(dest, 'real-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe('real');
     expect(fs.existsSync(path.join(dest, 'agent-browser'))).toBe(false);
   });
 
@@ -73,13 +98,21 @@ describe('materializeTemplateSkills', () => {
 
     materializeTemplateSkills('g3', dest);
 
-    expect(fs.readFileSync(path.join(dest, 'widget', 'SKILL.md'), 'utf-8')).toBe('new');
+    expect(
+      fs.readFileSync(path.join(dest, 'widget', 'SKILL.md'), 'utf-8'),
+    ).toBe('new');
     expect(fs.lstatSync(path.join(dest, 'shared')).isSymbolicLink()).toBe(true);
   });
 
   it('does not destroy skills when dest equals the source (Claude reads source directly)', () => {
     templateSkill('g4', 'widget', 'SKILL.md', 'body');
-    const src = path.join(DATA_DIR, 'v2-sessions', 'g4', '.claude-shared', 'skills');
+    const src = path.join(
+      DATA_DIR,
+      'v2-sessions',
+      'g4',
+      '.claude-shared',
+      'skills',
+    );
 
     materializeTemplateSkills('g4', src);
 

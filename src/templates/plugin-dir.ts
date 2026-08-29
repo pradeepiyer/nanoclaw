@@ -37,7 +37,9 @@ export function walkPluginDir(root: string): PluginFile[] {
   const resolvedRoot = path.resolve(root);
   const rootStat = fs.lstatSync(resolvedRoot);
   if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
-    throw new Error('Plugin rejected: the plugin root must be a regular directory');
+    throw new Error(
+      'Plugin rejected: the plugin root must be a regular directory',
+    );
   }
   const files: PluginFile[] = [];
   // Directories count toward the entry cap too — a breadth bomb of empty
@@ -51,33 +53,50 @@ export function walkPluginDir(root: string): PluginFile[] {
       const name = entry.name;
       // readdir never returns separators or dot-entries, but the whole point
       // of this module is to not trust the input tree.
-      if (name.includes('/') || name.includes('\\') || name === '.' || name === '..') {
-        throw new Error(`Plugin rejected: entry name "${name}" in ${relDir || '.'} is not allowed`);
+      if (
+        name.includes('/') ||
+        name.includes('\\') ||
+        name === '.' ||
+        name === '..'
+      ) {
+        throw new Error(
+          `Plugin rejected: entry name "${name}" in ${relDir || '.'} is not allowed`,
+        );
       }
       const rel = relDir ? `${relDir}/${name}` : name;
       const abs = path.join(absDir, name);
       if (entry.isSymbolicLink()) {
-        throw new Error(`Plugin rejected: "${rel}" is a symlink (symlinks are not allowed in plugins)`);
+        throw new Error(
+          `Plugin rejected: "${rel}" is a symlink (symlinks are not allowed in plugins)`,
+        );
       }
       if (depth + 1 > MAX_PLUGIN_DEPTH) {
-        throw new Error(`Plugin rejected: "${rel}" exceeds the maximum nesting depth of ${MAX_PLUGIN_DEPTH}`);
+        throw new Error(
+          `Plugin rejected: "${rel}" exceeds the maximum nesting depth of ${MAX_PLUGIN_DEPTH}`,
+        );
       }
       entries += 1;
       if (entries > MAX_PLUGIN_FILES) {
-        throw new Error(`Plugin rejected: more than ${MAX_PLUGIN_FILES} entries`);
+        throw new Error(
+          `Plugin rejected: more than ${MAX_PLUGIN_FILES} entries`,
+        );
       }
       if (entry.isDirectory()) {
         visit(rel, depth + 1);
         continue;
       }
       if (!entry.isFile()) {
-        throw new Error(`Plugin rejected: "${rel}" is not a regular file or directory`);
+        throw new Error(
+          `Plugin rejected: "${rel}" is not a regular file or directory`,
+        );
       }
       const stat = fs.lstatSync(abs);
       files.push({ rel, abs, size: stat.size, mode: stat.mode });
       totalBytes += stat.size;
       if (totalBytes > MAX_PLUGIN_TOTAL_BYTES) {
-        throw new Error(`Plugin rejected: total size exceeds ${MAX_PLUGIN_TOTAL_BYTES} bytes`);
+        throw new Error(
+          `Plugin rejected: total size exceeds ${MAX_PLUGIN_TOTAL_BYTES} bytes`,
+        );
       }
     }
   };

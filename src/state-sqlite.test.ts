@@ -35,7 +35,9 @@ async function makeAdapter(namespace?: string): Promise<SqliteStateAdapter> {
 describe('default instance — legacy unprefixed keys (live-install regression arm)', () => {
   it('reads rows written before the namespace dimension existed', async () => {
     // A pre-existing install's subscription row: bare thread id.
-    await getDb().run("INSERT INTO chat_sdk_subscriptions (thread_id) VALUES ('T-raw')");
+    await getDb().run(
+      "INSERT INTO chat_sdk_subscriptions (thread_id) VALUES ('T-raw')",
+    );
     const state = await makeAdapter();
     expect(await state.isSubscribed('T-raw')).toBe(true);
   });
@@ -46,11 +48,17 @@ describe('default instance — legacy unprefixed keys (live-install regression a
     await state.subscribe('slack:T1');
     await state.appendToList('l1', 'item');
 
-    const kv = await getDb().all<{ key: string }>('SELECT key FROM chat_sdk_kv');
+    const kv = await getDb().all<{ key: string }>(
+      'SELECT key FROM chat_sdk_kv',
+    );
     expect(kv.map((r) => r.key)).toEqual(['k1']);
-    const subs = await getDb().all<{ thread_id: string }>('SELECT thread_id FROM chat_sdk_subscriptions');
+    const subs = await getDb().all<{ thread_id: string }>(
+      'SELECT thread_id FROM chat_sdk_subscriptions',
+    );
     expect(subs.map((r) => r.thread_id)).toEqual(['slack:T1']);
-    const lists = await getDb().all<{ key: string }>('SELECT key FROM chat_sdk_lists');
+    const lists = await getDb().all<{ key: string }>(
+      'SELECT key FROM chat_sdk_lists',
+    );
     expect(lists.map((r) => r.key)).toEqual(['l1']);
   });
 });
@@ -61,7 +69,9 @@ describe('namespaced instance — round-trips and raw-key shape', () => {
     await state.set('k1', { v: 42 });
     expect(await state.get('k1')).toEqual({ v: 42 });
 
-    const raw = await getDb().all<{ key: string }>('SELECT key FROM chat_sdk_kv');
+    const raw = await getDb().all<{ key: string }>(
+      'SELECT key FROM chat_sdk_kv',
+    );
     expect(raw.map((r) => r.key)).toEqual(['slack-tester:k1']);
 
     expect(await state.setIfNotExists('k1', 'other')).toBe(false);
@@ -76,7 +86,9 @@ describe('namespaced instance — round-trips and raw-key shape', () => {
     await state.subscribe('slack:T1');
     expect(await state.isSubscribed('slack:T1')).toBe(true);
 
-    const raw = await getDb().all<{ thread_id: string }>('SELECT thread_id FROM chat_sdk_subscriptions');
+    const raw = await getDb().all<{ thread_id: string }>(
+      'SELECT thread_id FROM chat_sdk_subscriptions',
+    );
     expect(raw.map((r) => r.thread_id)).toEqual(['slack-tester:slack:T1']);
 
     await state.unsubscribe('slack:T1');
@@ -88,7 +100,9 @@ describe('namespaced instance — round-trips and raw-key shape', () => {
     await state.appendToList('history', 'a');
     await state.appendToList('history', 'b');
     expect(await state.getList('history')).toEqual(['a', 'b']);
-    const raw = await getDb().all<{ key: string }>('SELECT DISTINCT key FROM chat_sdk_lists');
+    const raw = await getDb().all<{ key: string }>(
+      'SELECT DISTINCT key FROM chat_sdk_lists',
+    );
     expect(raw.map((r) => r.key)).toEqual(['slack-tester:history']);
   });
 });
@@ -124,12 +138,16 @@ describe('locks under a namespace', () => {
     // own SQL sites. A prefixed id here would double-prefix on release.
     expect(lock!.threadId).toBe('slack:T1');
 
-    const raw = await getDb().all<{ thread_id: string }>('SELECT thread_id FROM chat_sdk_locks');
+    const raw = await getDb().all<{ thread_id: string }>(
+      'SELECT thread_id FROM chat_sdk_locks',
+    );
     expect(raw.map((r) => r.thread_id)).toEqual(['slack-tester:slack:T1']);
 
     expect(await state.extendLock(lock!, 10_000)).toBe(true);
     await state.releaseLock(lock!);
-    expect(await getDb().get('SELECT COUNT(*) AS c FROM chat_sdk_locks')).toEqual({ c: 0 });
+    expect(
+      await getDb().get('SELECT COUNT(*) AS c FROM chat_sdk_locks'),
+    ).toEqual({ c: 0 });
   });
 
   it('same-thread locks in different namespaces do not contend', async () => {
@@ -148,7 +166,9 @@ describe('queue under a namespace', () => {
     const entry = { message: { id: 'm1' } } as never;
     expect(await state.enqueue('slack:T1', entry, 10)).toBe(1);
 
-    const raw = await getDb().all<{ key: string }>('SELECT DISTINCT key FROM chat_sdk_lists');
+    const raw = await getDb().all<{ key: string }>(
+      'SELECT DISTINCT key FROM chat_sdk_lists',
+    );
     // Single prefix: enqueue must NOT apply k() itself (appendToList does);
     // a double prefix ('slack-tester:slack-tester:queue:…') never drains.
     expect(raw.map((r) => r.key)).toEqual(['slack-tester:queue:slack:T1']);
@@ -162,19 +182,26 @@ describe('queue under a namespace', () => {
 
   it('keeps concurrent appends contiguous and never dequeues one row twice', async () => {
     const state = await makeAdapter('slack-race');
-    await Promise.all(Array.from({ length: 20 }, (_, i) => state.appendToList('history', i)));
+    await Promise.all(
+      Array.from({ length: 20 }, (_, i) => state.appendToList('history', i)),
+    );
 
     const rows = await getDb().all<{ idx: number }>(
       'SELECT idx FROM chat_sdk_lists WHERE key = ? ORDER BY idx',
       'slack-race:history',
     );
-    expect(rows.map((row) => row.idx)).toEqual(Array.from({ length: 20 }, (_, i) => i));
+    expect(rows.map((row) => row.idx)).toEqual(
+      Array.from({ length: 20 }, (_, i) => i),
+    );
 
     const first = { message: { id: 'q1' } } as never;
     const second = { message: { id: 'q2' } } as never;
     await state.enqueue('slack:T2', first, 10);
     await state.enqueue('slack:T2', second, 10);
-    const dequeued = await Promise.all([state.dequeue('slack:T2'), state.dequeue('slack:T2')]);
+    const dequeued = await Promise.all([
+      state.dequeue('slack:T2'),
+      state.dequeue('slack:T2'),
+    ]);
     expect(dequeued).toEqual(expect.arrayContaining([first, second]));
     expect(await state.dequeue('slack:T2')).toBeNull();
   });

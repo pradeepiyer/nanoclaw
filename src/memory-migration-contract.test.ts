@@ -2,8 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-const skill = fs.readFileSync(path.resolve('.claude/skills/migrate-memory/SKILL.md'), 'utf-8');
-const updateSkill = fs.readFileSync(path.resolve('.claude/skills/update-nanoclaw/SKILL.md'), 'utf-8');
+const skill = fs.readFileSync(
+  path.resolve('.claude/skills/migrate-memory/SKILL.md'),
+  'utf-8',
+);
+const updateSkill = fs.readFileSync(
+  path.resolve('.claude/skills/update-nanoclaw/SKILL.md'),
+  'utf-8',
+);
 
 describe('shared-memory migration contract', () => {
   it('inventories every legacy memory surface disabled or replaced by the cutover', () => {
@@ -29,23 +35,31 @@ describe('shared-memory migration contract', () => {
     expect(skill).toContain('We moved only the link');
     expect(skill).toContain('The rest of the memory migration continued');
     expect(skill).toContain('regular file or directory');
-    expect(skill).toContain('Keeping the link aside is the non-blocking default');
+    expect(skill).toContain(
+      'Keeping the link aside is the non-blocking default',
+    );
   });
 
   it('has the harness align every staged import with OKF and the final memory tree', () => {
     expect(skill).toContain('`memory/system/index.md` links the system files');
-    expect(skill).toContain('every regular file inside each `imported-claude-auto-memory*` directory');
+    expect(skill).toContain(
+      'every regular file inside each `imported-claude-auto-memory*` directory',
+    );
     expect(skill).toContain('non-empty scalar `type`');
     expect(skill).toContain('a folder may contain different concept');
     expect(skill).toContain('create it and its `index.md`');
-    expect(skill).toMatch(/every\s+final concept is reachable from `memory\/index\.md`/);
+    expect(skill).toMatch(
+      /every\s+final concept is reachable from `memory\/index\.md`/,
+    );
     expect(skill).toContain('Produce a source-to-destination report');
     expect(skill).toContain('Do not call the migration complete');
   });
 
   it('does not recreate or delete the old default memory folders', () => {
     expect(skill).not.toContain('Create `memory/system/`, `memory/memories/`');
-    expect(skill).toMatch(/merely because an older\s+NanoClaw version called it `memories` or `data`/);
+    expect(skill).toMatch(
+      /merely because an older\s+NanoClaw version called it `memories` or `data`/,
+    );
   });
 
   it('pauses scheduled wakes for the maintenance window and restores only recorded tasks', () => {

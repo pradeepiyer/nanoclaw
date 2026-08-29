@@ -9,10 +9,28 @@
  */
 import { hasAdminPrivilege } from './modules/permissions/db/user-roles.js';
 
-export type GateResult = { action: 'pass' } | { action: 'filter' } | { action: 'deny'; command: string };
+export type GateResult =
+  | { action: 'pass' }
+  | { action: 'filter' }
+  | { action: 'deny'; command: string };
 
-const FILTERED_COMMANDS = new Set(['/start', '/help', '/login', '/logout', '/doctor', '/config', '/remote-control']);
-const ADMIN_COMMANDS = new Set(['/clear', '/compact', '/context', '/cost', '/files', '/upload-trace']);
+const FILTERED_COMMANDS = new Set([
+  '/start',
+  '/help',
+  '/login',
+  '/logout',
+  '/doctor',
+  '/config',
+  '/remote-control',
+]);
+const ADMIN_COMMANDS = new Set([
+  '/clear',
+  '/compact',
+  '/context',
+  '/cost',
+  '/files',
+  '/upload-trace',
+]);
 
 /**
  * Classify a message and decide whether it should reach the container.
@@ -20,7 +38,11 @@ const ADMIN_COMMANDS = new Set(['/clear', '/compact', '/context', '/cost', '/fil
  * 'filter' for silently-dropped commands, 'deny' for unauthorized
  * admin commands.
  */
-export async function gateCommand(content: string, userId: string | null, agentGroupId: string): Promise<GateResult> {
+export async function gateCommand(
+  content: string,
+  userId: string | null,
+  agentGroupId: string,
+): Promise<GateResult> {
   let text: string;
   try {
     const parsed = JSON.parse(content);
@@ -46,7 +68,10 @@ export async function gateCommand(content: string, userId: string | null, agentG
   return { action: 'pass' };
 }
 
-async function isAdmin(userId: string | null, agentGroupId: string): Promise<boolean> {
+async function isAdmin(
+  userId: string | null,
+  agentGroupId: string,
+): Promise<boolean> {
   if (!userId) return false;
   return hasAdminPrivilege(userId, agentGroupId);
 }

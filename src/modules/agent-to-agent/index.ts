@@ -21,10 +21,17 @@
  * system action logs "Unknown system action", `channel_type='agent'` messages
  * throw because the module isn't installed.
  */
-import { reenterGuardedDeliveryAction, registerDeliveryAction } from '../../delivery.js';
+import {
+  reenterGuardedDeliveryAction,
+  registerDeliveryAction,
+} from '../../delivery.js';
 import { notifyAgent, registerApprovalHandler } from '../approvals/index.js';
 import { A2A_MESSAGE_GATE_ACTION } from './agent-route.js';
-import { createAgent, requestCreateAgentHold, validateCreateAgent } from './create-agent.js';
+import {
+  createAgent,
+  requestCreateAgentHold,
+  validateCreateAgent,
+} from './create-agent.js';
 import { agentsCreate } from './guard.js';
 import { applyA2aMessageGate } from './message-gate.js';
 
@@ -32,8 +39,12 @@ registerDeliveryAction('create_agent', createAgent, {
   guardAction: agentsCreate,
   precheck: validateCreateAgent,
   requestHold: requestCreateAgentHold,
-  onDeny: (_content, session, reason) => notifyAgent(session, `create_agent denied: ${reason}`),
+  onDeny: (_content, session, reason) =>
+    notifyAgent(session, `create_agent denied: ${reason}`),
 });
-registerApprovalHandler('create_agent', reenterGuardedDeliveryAction('create_agent'));
+registerApprovalHandler(
+  'create_agent',
+  reenterGuardedDeliveryAction('create_agent'),
+);
 
 registerApprovalHandler(A2A_MESSAGE_GATE_ACTION, applyA2aMessageGate);

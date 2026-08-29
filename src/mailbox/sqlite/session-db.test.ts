@@ -9,7 +9,12 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { ensureSchema, getInboundSourceSessionId, migrateMessagesInTable, syncProcessingAcks } from './session-db.js';
+import {
+  ensureSchema,
+  getInboundSourceSessionId,
+  migrateMessagesInTable,
+  syncProcessingAcks,
+} from './session-db.js';
 
 const TEST_DIR = '/tmp/nanoclaw-session-db-test';
 const DB_PATH = path.join(TEST_DIR, 'inbound.db');
@@ -48,7 +53,9 @@ describe('migrateMessagesInTable', () => {
     migrateMessagesInTable(db);
     migrateMessagesInTable(db); // idempotent
 
-    const row = db.prepare('SELECT series_id FROM messages_in WHERE id = ?').get('legacy-1') as {
+    const row = db
+      .prepare('SELECT series_id FROM messages_in WHERE id = ?')
+      .get('legacy-1') as {
       series_id: string;
     };
     expect(row.series_id).toBe('legacy-1');
@@ -83,7 +90,11 @@ describe('migrateMessagesInTable', () => {
     migrateMessagesInTable(db);
     migrateMessagesInTable(db); // idempotent
 
-    const cols = (db.prepare("PRAGMA table_info('messages_in')").all() as Array<{ name: string }>).map((c) => c.name);
+    const cols = (
+      db.prepare("PRAGMA table_info('messages_in')").all() as Array<{
+        name: string;
+      }>
+    ).map((c) => c.name);
     expect(cols).toContain('source_session_id');
 
     expect(getInboundSourceSessionId(db, 'legacy-2')).toBeNull();
@@ -102,7 +113,11 @@ describe('syncProcessingAcks — script-skip counter', () => {
     return { inDb: new Database(DB_PATH), outDb: new Database(outPath) };
   }
 
-  function seedTask(inDb: InstanceType<typeof Database>, id: string, content: Record<string, unknown>) {
+  function seedTask(
+    inDb: InstanceType<typeof Database>,
+    id: string,
+    content: Record<string, unknown>,
+  ) {
     inDb
       .prepare(
         `INSERT INTO messages_in (id, seq, timestamp, status, tries, kind, content, series_id)
@@ -111,7 +126,11 @@ describe('syncProcessingAcks — script-skip counter', () => {
       .run(id, JSON.stringify(content), id);
   }
 
-  function ack(outDb: InstanceType<typeof Database>, id: string, status: string) {
+  function ack(
+    outDb: InstanceType<typeof Database>,
+    id: string,
+    status: string,
+  ) {
     outDb
       .prepare(
         "INSERT OR REPLACE INTO processing_ack (message_id, status, status_changed) VALUES (?, ?, datetime('now'))",
@@ -120,7 +139,11 @@ describe('syncProcessingAcks — script-skip counter', () => {
   }
 
   const status = (inDb: InstanceType<typeof Database>, id: string) =>
-    (inDb.prepare('SELECT status FROM messages_in WHERE id = ?').get(id) as { status: string }).status;
+    (
+      inDb.prepare('SELECT status FROM messages_in WHERE id = ?').get(id) as {
+        status: string;
+      }
+    ).status;
 
   it('script-skip:error ack lands the row as a FAILED run (streak-derivable history)', () => {
     const { inDb, outDb } = freshPair();

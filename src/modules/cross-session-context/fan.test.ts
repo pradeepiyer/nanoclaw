@@ -9,11 +9,17 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../config.js', async () => {
-  const actual = await vi.importActual<typeof import('../../config.js')>('../../config.js');
+  const actual =
+    await vi.importActual<typeof import('../../config.js')>('../../config.js');
   return { ...actual, DATA_DIR: '/tmp/nanoclaw-test-cross-session-fan' };
 });
 
-import { closeDb, createAgentGroup, initTestDb, runMigrations } from '../../db/index.js';
+import {
+  closeDb,
+  createAgentGroup,
+  initTestDb,
+  runMigrations,
+} from '../../db/index.js';
 import { createMessagingGroup } from '../../db/messaging-groups.js';
 import { createSession } from '../../db/sessions.js';
 import { createDestination } from '../agent-to-agent/db/agent-destinations.js';
@@ -28,13 +34,23 @@ import {
   selectEchoTargets,
   truncateEchoText,
 } from './fan.js';
-import { ECHO_CHANNEL_TYPE, ECHO_SIBLING_SURFACE, ECHO_TASK_SURFACE, ECHO_TEXT_MAX_CHARS } from './config.js';
+import {
+  ECHO_CHANNEL_TYPE,
+  ECHO_SIBLING_SURFACE,
+  ECHO_TASK_SURFACE,
+  ECHO_TEXT_MAX_CHARS,
+} from './config.js';
 
 const TEST_DIR = '/tmp/nanoclaw-test-cross-session-fan';
 const AG = 'ag-1';
 const NOW = new Date().toISOString();
 
-function mg(id: string, platformId: string, isGroup: number, name: string | null): MessagingGroup {
+function mg(
+  id: string,
+  platformId: string,
+  isGroup: number,
+  name: string | null,
+): MessagingGroup {
   return {
     id,
     channel_type: 'slack',
@@ -84,9 +100,9 @@ function readEchoRows(sessionId: string): Array<Record<string, unknown>> {
   if (!fs.existsSync(dbPath)) return [];
   const db = new Database(dbPath, { readonly: true });
   try {
-    return db.prepare('SELECT * FROM messages_in WHERE channel_type = ? ORDER BY seq').all(ECHO_CHANNEL_TYPE) as Array<
-      Record<string, unknown>
-    >;
+    return db
+      .prepare('SELECT * FROM messages_in WHERE channel_type = ? ORDER BY seq')
+      .all(ECHO_CHANNEL_TYPE) as Array<Record<string, unknown>>;
   } finally {
     db.close();
   }
@@ -101,16 +117,31 @@ beforeEach(async () => {
   fs.mkdirSync(TEST_DIR, { recursive: true });
   const db = await initTestDb();
   await runMigrations(db);
-  await createAgentGroup({ id: AG, name: 'Pixel', folder: 'pixel', agent_provider: null, created_at: NOW });
-  await createAgentGroup({ id: 'ag-2', name: 'Other', folder: 'other', agent_provider: null, created_at: NOW });
-  for (const m of [ROOM_MG, DM_MG, ROOM2_MG, DM2_MG]) await createMessagingGroup(m);
+  await createAgentGroup({
+    id: AG,
+    name: 'Pixel',
+    folder: 'pixel',
+    agent_provider: null,
+    created_at: NOW,
+  });
+  await createAgentGroup({
+    id: 'ag-2',
+    name: 'Other',
+    folder: 'other',
+    agent_provider: null,
+    created_at: NOW,
+  });
+  for (const m of [ROOM_MG, DM_MG, ROOM2_MG, DM2_MG])
+    await createMessagingGroup(m);
   await createSession(SRC_ROOM);
   await createSession(SRC_DM);
   await createSession(DM_SIBLING);
   await createSession(TASK_SESS);
   await createSession(session('s-room2', AG, 'mg-room2', null));
   await createSession(session('s-dm2', AG, 'mg-dm2', null));
-  await createSession(session('s-dm-closed', AG, 'mg-dm', 'closed-thread', 'closed'));
+  await createSession(
+    session('s-dm-closed', AG, 'mg-dm', 'closed-thread', 'closed'),
+  );
   await createSession(session('s-a2a', AG, null, null));
   await createSession(session('s-other-group', 'ag-2', 'mg-dm', null));
 });
@@ -139,7 +170,9 @@ describe('selectEchoTargets (same-conversation audience rule)', () => {
   });
 
   it('room thread siblings are same-mg and therefore targets', async () => {
-    const ids = selectEchoTargets(candidates, 's-src', 'mg-room').map((s) => s.id);
+    const ids = selectEchoTargets(candidates, 's-src', 'mg-room').map(
+      (s) => s.id,
+    );
     expect(ids.sort()).toEqual(['s-room-t2']);
   });
 
@@ -232,7 +265,9 @@ describe('fanInboundMessage', () => {
     const rows = readEchoRows('s-dm');
     expect(rows).toHaveLength(1);
     expect(rows[0].source_session_id).toBe('s-dm-t2');
-    expect(JSON.parse(rows[0].content as string).echo.surface).toBe(ECHO_SIBLING_SURFACE);
+    expect(JSON.parse(rows[0].content as string).echo.surface).toBe(
+      ECHO_SIBLING_SURFACE,
+    );
     // Sibling source never echoes to itself.
     expect(readEchoRows('s-dm-t2')).toHaveLength(0);
   });
@@ -261,12 +296,33 @@ describe('fanInboundMessage', () => {
       content: chatContent('hi'),
       timestamp: NOW,
     };
-    expect(await fanInboundMessage({ ...base, kind: 'chat', channelType: ECHO_CHANNEL_TYPE })).toBe(0);
-    expect(await fanInboundMessage({ ...base, kind: 'chat', channelType: 'agent' })).toBe(0);
-    expect(await fanInboundMessage({ ...base, kind: 'task', channelType: 'slack' })).toBe(0);
-    expect(await fanInboundMessage({ ...base, kind: 'system', channelType: 'slack' })).toBe(0);
     expect(
-      await fanInboundMessage({ ...base, kind: 'chat', channelType: 'slack', content: JSON.stringify({ text: '' }) }),
+      await fanInboundMessage({
+        ...base,
+        kind: 'chat',
+        channelType: ECHO_CHANNEL_TYPE,
+      }),
+    ).toBe(0);
+    expect(
+      await fanInboundMessage({ ...base, kind: 'chat', channelType: 'agent' }),
+    ).toBe(0);
+    expect(
+      await fanInboundMessage({ ...base, kind: 'task', channelType: 'slack' }),
+    ).toBe(0);
+    expect(
+      await fanInboundMessage({
+        ...base,
+        kind: 'system',
+        channelType: 'slack',
+      }),
+    ).toBe(0);
+    expect(
+      await fanInboundMessage({
+        ...base,
+        kind: 'chat',
+        channelType: 'slack',
+        content: JSON.stringify({ text: '' }),
+      }),
     ).toBe(0);
     expect(readEchoRows('s-dm')).toHaveLength(0);
     expect(readEchoRows('s-task')).toHaveLength(0);
@@ -288,7 +344,13 @@ describe('fanInboundMessage', () => {
 });
 
 describe('fanOutboundMessage', () => {
-  const agentGroup = { id: AG, name: 'Pixel', folder: 'pixel', agent_provider: null, created_at: NOW };
+  const agentGroup = {
+    id: AG,
+    name: 'Pixel',
+    folder: 'pixel',
+    agent_provider: null,
+    created_at: NOW,
+  };
 
   it('fans a delivered DM reply into same-mg sibling threads ONLY, with the agent as sender', async () => {
     const written = await fanOutboundMessage(
@@ -345,8 +407,14 @@ describe('fanOutboundMessage', () => {
     // adapter instances. "alpha" sorts before "zulu", so a plain by-platform
     // lookup with no instance hint would pick "alpha" — the wrong sibling
     // for this sender.
-    const dmAlpha = { ...mg('mg-dm-alpha', 'D-multi', 0, 'Shared DM'), instance: 'alpha' };
-    const dmZulu = { ...mg('mg-dm-zulu', 'D-multi', 0, 'Shared DM'), instance: 'zulu' };
+    const dmAlpha = {
+      ...mg('mg-dm-alpha', 'D-multi', 0, 'Shared DM'),
+      instance: 'alpha',
+    };
+    const dmZulu = {
+      ...mg('mg-dm-zulu', 'D-multi', 0, 'Shared DM'),
+      instance: 'zulu',
+    };
     await createMessagingGroup(dmAlpha);
     await createMessagingGroup(dmZulu);
 
@@ -363,7 +431,9 @@ describe('fanOutboundMessage', () => {
     // Two candidate sibling sessions, one per instance's row — only the one
     // on the sender's own ("zulu") row should count as "the same DM".
     await createSession(session('s-sib-zulu', AG, 'mg-dm-zulu', 'thread-zulu'));
-    await createSession(session('s-sib-alpha', AG, 'mg-dm-alpha', 'thread-alpha'));
+    await createSession(
+      session('s-sib-alpha', AG, 'mg-dm-alpha', 'thread-alpha'),
+    );
 
     // Source is a room session (not the origin of "D-multi"), so resolution
     // falls into the non-origin, sibling-collision-prone branch.
@@ -385,7 +455,9 @@ describe('fanOutboundMessage', () => {
     // the delivered flavor, not the sibling-thread one.
     expect(readEchoRows('s-sib-zulu')).toHaveLength(1);
     expect(readEchoRows('s-sib-alpha')).toHaveLength(0);
-    expect(JSON.parse(readEchoRows('s-sib-zulu')[0].content as string).echo).toEqual({
+    expect(
+      JSON.parse(readEchoRows('s-sib-zulu')[0].content as string).echo,
+    ).toEqual({
       surface: ECHO_SIBLING_SURFACE,
       label: 'this DM, posted by you from another conversation',
     });
@@ -395,16 +467,55 @@ describe('fanOutboundMessage', () => {
 
   it('skips system/task_log/agent/echo/unrouted messages', async () => {
     const content = JSON.stringify({ text: 'x' });
-    const base = { id: 'out-3', platform_id: 'C123', channel_type: 'slack', content };
-    expect(await fanOutboundMessage({ ...base, kind: 'system' }, SRC_ROOM, agentGroup)).toBe(0);
-    expect(await fanOutboundMessage({ ...base, kind: 'task_log' }, SRC_ROOM, agentGroup)).toBe(0);
-    expect(await fanOutboundMessage({ ...base, kind: 'chat', channel_type: 'agent' }, SRC_ROOM, agentGroup)).toBe(0);
+    const base = {
+      id: 'out-3',
+      platform_id: 'C123',
+      channel_type: 'slack',
+      content,
+    };
     expect(
-      await fanOutboundMessage({ ...base, kind: 'chat', channel_type: ECHO_CHANNEL_TYPE }, SRC_ROOM, agentGroup),
+      await fanOutboundMessage(
+        { ...base, kind: 'system' },
+        SRC_ROOM,
+        agentGroup,
+      ),
     ).toBe(0);
-    expect(await fanOutboundMessage({ ...base, kind: 'chat', platform_id: null }, SRC_ROOM, agentGroup)).toBe(0);
+    expect(
+      await fanOutboundMessage(
+        { ...base, kind: 'task_log' },
+        SRC_ROOM,
+        agentGroup,
+      ),
+    ).toBe(0);
+    expect(
+      await fanOutboundMessage(
+        { ...base, kind: 'chat', channel_type: 'agent' },
+        SRC_ROOM,
+        agentGroup,
+      ),
+    ).toBe(0);
+    expect(
+      await fanOutboundMessage(
+        { ...base, kind: 'chat', channel_type: ECHO_CHANNEL_TYPE },
+        SRC_ROOM,
+        agentGroup,
+      ),
+    ).toBe(0);
+    expect(
+      await fanOutboundMessage(
+        { ...base, kind: 'chat', platform_id: null },
+        SRC_ROOM,
+        agentGroup,
+      ),
+    ).toBe(0);
     // task_log from a task session (series bookkeeping) still never fans.
-    expect(await fanOutboundMessage({ ...base, kind: 'task_log' }, TASK_SESS, agentGroup)).toBe(0);
+    expect(
+      await fanOutboundMessage(
+        { ...base, kind: 'task_log' },
+        TASK_SESS,
+        agentGroup,
+      ),
+    ).toBe(0);
     expect(readEchoRows('s-dm')).toHaveLength(0);
     expect(readEchoRows('s-task')).toHaveLength(0);
   });
@@ -473,33 +584,63 @@ describe('fanOutboundMessage', () => {
 
 describe('label + truncation helpers', () => {
   it('buildEchoLabel renders room and DM labels', async () => {
-    expect(buildEchoLabel({ name: 'pixel-room', platform_id: 'C1', is_group: 1 })).toBe('#pixel-room room');
-    expect(buildEchoLabel({ name: null, platform_id: 'C1', is_group: 1 })).toBe('#C1 room');
-    expect(buildEchoLabel({ name: null, platform_id: 'D1', is_group: 0 }, 'Gavriel')).toBe('DM with Gavriel');
-    expect(buildEchoLabel({ name: null, platform_id: 'D1', is_group: 0 }, null)).toBe('DM (D1)');
+    expect(
+      buildEchoLabel({ name: 'pixel-room', platform_id: 'C1', is_group: 1 }),
+    ).toBe('#pixel-room room');
+    expect(buildEchoLabel({ name: null, platform_id: 'C1', is_group: 1 })).toBe(
+      '#C1 room',
+    );
+    expect(
+      buildEchoLabel({ name: null, platform_id: 'D1', is_group: 0 }, 'Gavriel'),
+    ).toBe('DM with Gavriel');
+    expect(
+      buildEchoLabel({ name: null, platform_id: 'D1', is_group: 0 }, null),
+    ).toBe('DM (D1)');
   });
 
   it('buildSiblingEchoLabel renders same-DM sibling labels with sensible fallbacks', async () => {
-    expect(buildSiblingEchoLabel({ name: 'Gavriel', platform_id: 'D1', is_group: 0 })).toBe(
-      'another conversation with Gavriel',
-    );
-    expect(buildSiblingEchoLabel({ name: null, platform_id: 'D1', is_group: 0 }, 'Gav')).toBe(
-      'another conversation with Gav',
-    );
-    expect(buildSiblingEchoLabel({ name: null, platform_id: 'D1', is_group: 0 }, null)).toBe(
-      'another conversation in DM (D1)',
-    );
+    expect(
+      buildSiblingEchoLabel({
+        name: 'Gavriel',
+        platform_id: 'D1',
+        is_group: 0,
+      }),
+    ).toBe('another conversation with Gavriel');
+    expect(
+      buildSiblingEchoLabel(
+        { name: null, platform_id: 'D1', is_group: 0 },
+        'Gav',
+      ),
+    ).toBe('another conversation with Gav');
+    expect(
+      buildSiblingEchoLabel(
+        { name: null, platform_id: 'D1', is_group: 0 },
+        null,
+      ),
+    ).toBe('another conversation in DM (D1)');
     // Defensive room shape (siblings are only selected for DM sources today).
-    expect(buildSiblingEchoLabel({ name: 'pixel-room', platform_id: 'C1', is_group: 1 })).toBe(
-      'another conversation in #pixel-room room',
-    );
+    expect(
+      buildSiblingEchoLabel({
+        name: 'pixel-room',
+        platform_id: 'C1',
+        is_group: 1,
+      }),
+    ).toBe('another conversation in #pixel-room room');
   });
 
   it("buildDeliveredEchoLabel names the delivered-to surface from the receiver's perspective", async () => {
-    expect(buildDeliveredEchoLabel({ is_group: 0 }, true)).toBe('this DM, posted by your scheduled task');
-    expect(buildDeliveredEchoLabel({ is_group: 1 }, true)).toBe('this room, posted by your scheduled task');
-    expect(buildDeliveredEchoLabel({ is_group: 0 }, false)).toBe('this DM, posted by you from another conversation');
-    expect(buildDeliveredEchoLabel({ is_group: 1 }, false)).toBe('this room, posted by you from another conversation');
+    expect(buildDeliveredEchoLabel({ is_group: 0 }, true)).toBe(
+      'this DM, posted by your scheduled task',
+    );
+    expect(buildDeliveredEchoLabel({ is_group: 1 }, true)).toBe(
+      'this room, posted by your scheduled task',
+    );
+    expect(buildDeliveredEchoLabel({ is_group: 0 }, false)).toBe(
+      'this DM, posted by you from another conversation',
+    );
+    expect(buildDeliveredEchoLabel({ is_group: 1 }, false)).toBe(
+      'this room, posted by you from another conversation',
+    );
   });
 
   it('truncateEchoText leaves short text untouched', async () => {

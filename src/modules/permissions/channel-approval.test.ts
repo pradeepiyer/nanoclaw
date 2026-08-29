@@ -15,18 +15,37 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { initTestDb, closeDb, runMigrations, getDb } from '../../db/index.js';
 import { createAgentGroup } from '../../db/agent-groups.js';
-import { AGENT_ACCESS_SCOPE_WARNING, createNewAgentGroup } from './channel-approval.js';
-import { createMessagingGroup, getMessagingGroupByPlatform } from '../../db/messaging-groups.js';
+import {
+  AGENT_ACCESS_SCOPE_WARNING,
+  createNewAgentGroup,
+} from './channel-approval.js';
+import {
+  createMessagingGroup,
+  getMessagingGroupByPlatform,
+} from '../../db/messaging-groups.js';
 import {
   initChannelAdapters,
   registerChannelAdapter,
   teardownChannelAdapters,
 } from '../../channels/channel-registry.js';
-import type { ChannelAdapter, ChannelDefaults, ResolvedConversation } from '../../channels/adapter.js';
+import type {
+  ChannelAdapter,
+  ChannelDefaults,
+  ResolvedConversation,
+} from '../../channels/adapter.js';
 import { upsertUser } from './db/users.js';
 import { grantRole } from './db/user-roles.js';
 
@@ -36,14 +55,30 @@ import { grantRole } from './db/user-roles.js';
 // fallback resolves threads=false and coerces sticky → mention.
 // Registry maps are module-global; keep channel names unique per test file.
 const telegramDefaults: ChannelDefaults = {
-  dm: { engageMode: 'pattern', engagePattern: '.', threads: true, unknownSenderPolicy: 'request_approval' },
-  group: { engageMode: 'mention-sticky', threads: true, unknownSenderPolicy: 'request_approval' },
+  dm: {
+    engageMode: 'pattern',
+    engagePattern: '.',
+    threads: true,
+    unknownSenderPolicy: 'request_approval',
+  },
+  group: {
+    engageMode: 'mention-sticky',
+    threads: true,
+    unknownSenderPolicy: 'request_approval',
+  },
   mentions: 'platform',
 };
-registerChannelAdapter('telegram', { factory: () => null, defaults: telegramDefaults });
+registerChannelAdapter('telegram', {
+  factory: () => null,
+  defaults: telegramDefaults,
+});
 
-const resolveConversationMock = vi.fn(async (_platformId: string): Promise<ResolvedConversation | null> => null);
-const resolveChannelNameMock = vi.fn(async (_platformId: string): Promise<string | null> => null);
+const resolveConversationMock = vi.fn(
+  async (_platformId: string): Promise<ResolvedConversation | null> => null,
+);
+const resolveChannelNameMock = vi.fn(
+  async (_platformId: string): Promise<string | null> => null,
+);
 const slackAdapter: ChannelAdapter = {
   name: 'slack',
   channelType: 'slack',
@@ -58,7 +93,10 @@ const slackAdapter: ChannelAdapter = {
   resolveChannelName: resolveChannelNameMock,
   defaults: telegramDefaults,
 };
-registerChannelAdapter('slack', { factory: () => slackAdapter, defaults: telegramDefaults });
+registerChannelAdapter('slack', {
+  factory: () => slackAdapter,
+  defaults: telegramDefaults,
+});
 
 // Mock container runner — prevent actual docker spawn.
 vi.mock('../../container-runner.js', () => ({
@@ -125,7 +163,9 @@ async function expectAsyncDelivery(action: () => Promise<void>): Promise<void> {
   const previousDeliveryCount = deliverMock.mock.calls.length;
   await action();
   await vi.waitFor(() => {
-    expect(deliverMock.mock.calls.length).toBeGreaterThan(previousDeliveryCount);
+    expect(deliverMock.mock.calls.length).toBeGreaterThan(
+      previousDeliveryCount,
+    );
   });
 }
 
@@ -138,9 +178,20 @@ beforeEach(async () => {
   await import('./index.js'); // register hooks
 
   // Base fixtures: one agent group + owner with a DM on 'telegram'.
-  await createAgentGroup({ id: 'ag-1', name: 'Andy', folder: 'andy', agent_provider: null, created_at: now() });
+  await createAgentGroup({
+    id: 'ag-1',
+    name: 'Andy',
+    folder: 'andy',
+    agent_provider: null,
+    created_at: now(),
+  });
 
-  await upsertUser({ id: 'telegram:owner', kind: 'telegram', display_name: 'Owner', created_at: now() });
+  await upsertUser({
+    id: 'telegram:owner',
+    kind: 'telegram',
+    display_name: 'Owner',
+    created_at: now(),
+  });
   await grantRole({
     user_id: 'telegram:owner',
     role: 'owner',
@@ -186,7 +237,11 @@ function groupMention(platformId: string, text = '@bot hello') {
     message: {
       id: `msg-${Math.random().toString(36).slice(2, 8)}`,
       kind: 'chat' as const,
-      content: JSON.stringify({ senderId: 'caller', senderName: 'Caller', text }),
+      content: JSON.stringify({
+        senderId: 'caller',
+        senderName: 'Caller',
+        text,
+      }),
       timestamp: now(),
       isMention: true,
       isGroup: true, // group context comes from the adapter flag, never threadId
@@ -202,7 +257,11 @@ function dmEvent(platformId: string, text = 'hello') {
     message: {
       id: `msg-${Math.random().toString(36).slice(2, 8)}`,
       kind: 'chat' as const,
-      content: JSON.stringify({ senderId: 'stranger', senderName: 'Stranger', text }),
+      content: JSON.stringify({
+        senderId: 'stranger',
+        senderName: 'Stranger',
+        text,
+      }),
       timestamp: now(),
       isMention: true, // DM bridge sets isMention=true
     },
@@ -236,7 +295,8 @@ describe('unknown-channel registration flow', () => {
     await expectAsyncDelivery(() => routeInbound(groupMention('chat-new')));
 
     expect(deliverMock).toHaveBeenCalledTimes(1);
-    const [channel, platformId, thread, kind, content] = deliverMock.mock.calls[0];
+    const [channel, platformId, thread, kind, content] =
+      deliverMock.mock.calls[0];
     expect(channel).toBe('telegram');
     expect(platformId).toBe('dm-owner'); // delivered to owner's DM
     expect(thread).toBeNull();
@@ -248,14 +308,20 @@ describe('unknown-channel registration flow', () => {
       `Caller mentioned your bot in a telegram channel. If connected, the agent will respond to @-mentions in this group. ${AGENT_ACCESS_SCOPE_WARNING} How would you like to handle this channel?`,
     );
     // Card tells the approver the resolved engage rule.
-    expect(payload.question).toContain('will respond to @-mentions in this group');
+    expect(payload.question).toContain(
+      'will respond to @-mentions in this group',
+    );
     expect(payload.question).toContain(AGENT_ACCESS_SCOPE_WARNING);
     // Single-agent card offers a direct "Connect to <name>" button.
-    const connectOption = payload.options.find((o: { value: string }) => o.value.startsWith('connect:'));
+    const connectOption = payload.options.find((o: { value: string }) =>
+      o.value.startsWith('connect:'),
+    );
     expect(connectOption).toBeDefined();
     expect(connectOption.label).toContain('Andy');
 
-    const rows = await getDb().all<{ messaging_group_id: string }>('SELECT * FROM pending_channel_approvals');
+    const rows = await getDb().all<{ messaging_group_id: string }>(
+      'SELECT * FROM pending_channel_approvals',
+    );
     expect(rows).toHaveLength(1);
   });
 
@@ -269,30 +335,55 @@ describe('unknown-channel registration flow', () => {
     resolveChannelNameMock.mockResolvedValueOnce('mpdm-alice--bob--carol-1');
 
     const { routeInbound } = await import('../../router.js');
-    await expectAsyncDelivery(() => routeInbound(slackGroupMention('mpdm-alice--bob--carol-1')));
+    await expectAsyncDelivery(() =>
+      routeInbound(slackGroupMention('mpdm-alice--bob--carol-1')),
+    );
 
-    const payload = JSON.parse(deliverMock.mock.calls[0][4] as string) as { title: string; question: string };
+    const payload = JSON.parse(deliverMock.mock.calls[0][4] as string) as {
+      title: string;
+      question: string;
+    };
     expect(payload.title).toBe('👥 Bot mentioned in new group chat');
-    expect(payload.question).toContain('Alice Doe mentioned your bot in a group chat with Bob and Carol on slack.');
+    expect(payload.question).toContain(
+      'Alice Doe mentioned your bot in a group chat with Bob and Carol on slack.',
+    );
     expect(payload.question).toContain(AGENT_ACCESS_SCOPE_WARNING);
-    expect(payload.question).toContain('How would you like to handle this group chat?');
+    expect(payload.question).toContain(
+      'How would you like to handle this group chat?',
+    );
     expect(payload.question).not.toContain('mpdm-');
-    expect(resolveConversationMock).toHaveBeenCalledWith('mpdm-alice--bob--carol-1');
+    expect(resolveConversationMock).toHaveBeenCalledWith(
+      'mpdm-alice--bob--carol-1',
+    );
   });
 
   it('persists a rich-resolved Slack channel name and skips the legacy resolver', async () => {
-    resolveConversationMock.mockResolvedValueOnce({ type: 'channel', name: 'growth-team' });
+    resolveConversationMock.mockResolvedValueOnce({
+      type: 'channel',
+      name: 'growth-team',
+    });
     resolveChannelNameMock.mockResolvedValueOnce('legacy-name');
 
     const { routeInbound } = await import('../../router.js');
-    await expectAsyncDelivery(() => routeInbound(slackGroupMention('C_GROWTH')));
+    await expectAsyncDelivery(() =>
+      routeInbound(slackGroupMention('C_GROWTH')),
+    );
 
-    const payload = JSON.parse(deliverMock.mock.calls[0][4] as string) as { title: string; question: string };
+    const payload = JSON.parse(deliverMock.mock.calls[0][4] as string) as {
+      title: string;
+      question: string;
+    };
     expect(payload.title).toBe('📣 Bot mentioned in new channel');
-    expect(payload.question).toContain('Alice Doe mentioned your bot in growth-team on slack.');
-    expect(payload.question).toContain('How would you like to handle this channel?');
+    expect(payload.question).toContain(
+      'Alice Doe mentioned your bot in growth-team on slack.',
+    );
+    expect(payload.question).toContain(
+      'How would you like to handle this channel?',
+    );
     expect(resolveChannelNameMock).not.toHaveBeenCalled();
-    expect((await getMessagingGroupByPlatform('slack', 'C_GROWTH'))?.name).toBe('growth-team');
+    expect((await getMessagingGroupByPlatform('slack', 'C_GROWTH'))?.name).toBe(
+      'growth-team',
+    );
   });
 
   it('delivers a card on DM too (non-threaded event)', async () => {
@@ -300,10 +391,14 @@ describe('unknown-channel registration flow', () => {
     await expectAsyncDelivery(() => routeInbound(dmEvent('dm-new-user')));
 
     expect(deliverMock).toHaveBeenCalledTimes(1);
-    const payload = JSON.parse(deliverMock.mock.calls[0][4] as string) as { question: string };
+    const payload = JSON.parse(deliverMock.mock.calls[0][4] as string) as {
+      question: string;
+    };
     expect(payload.question).toContain('will respond to all messages');
     expect(payload.question).toContain(AGENT_ACCESS_SCOPE_WARNING);
-    const count = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const count = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(count).toBe(1);
   });
 
@@ -314,7 +409,9 @@ describe('unknown-channel registration flow', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     expect(deliverMock).toHaveBeenCalledTimes(1);
-    const count = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const count = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(count).toBe(1);
   });
 
@@ -372,7 +469,9 @@ describe('unknown-channel registration flow', () => {
     expect(member).toBeDefined();
 
     // Pending row cleared and container woken via replay.
-    const stillPending = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const stillPending = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(stillPending).toBe(0);
     expect(wakeContainer).toHaveBeenCalled();
   });
@@ -421,7 +520,11 @@ describe('unknown-channel registration flow', () => {
       message: {
         id: `msg-${Math.random().toString(36).slice(2, 8)}`,
         kind: 'chat' as const,
-        content: JSON.stringify({ senderId: 'caller', senderName: 'Caller', text: '@bot hi' }),
+        content: JSON.stringify({
+          senderId: 'caller',
+          senderName: 'Caller',
+          text: '@bot hi',
+        }),
         timestamp: now(),
         isMention: true,
         isGroup: true,
@@ -490,11 +593,15 @@ describe('unknown-channel registration flow', () => {
     const { getResponseHandlers } = await import('../../response-registry.js');
 
     // Path 1: connect to existing agent.
-    await expectAsyncDelivery(() => routeInbound(groupMention('chat-path-connect')));
+    await expectAsyncDelivery(() =>
+      routeInbound(groupMention('chat-path-connect')),
+    );
     const mgIdConnect = await approvePending();
 
     // Path 2: new agent via free-text name reply.
-    await expectAsyncDelivery(() => routeInbound(groupMention('chat-path-newagent')));
+    await expectAsyncDelivery(() =>
+      routeInbound(groupMention('chat-path-newagent')),
+    );
     const pending = (await getDb().get<{ messaging_group_id: string }>(
       'SELECT messaging_group_id FROM pending_channel_approvals',
     ))!;
@@ -568,7 +675,9 @@ describe('unknown-channel registration flow', () => {
     await routeInbound(groupMention('chat-deny', '@bot please'));
     await new Promise((r) => setTimeout(r, 10));
     expect(deliverMock).not.toHaveBeenCalled();
-    const stillPending = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const stillPending = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(stillPending).toBe(0);
   });
 
@@ -599,7 +708,9 @@ describe('unknown-channel registration flow', () => {
       pending.messaging_group_id,
     );
     expect(mgaCount).toBe(0);
-    const stillPending = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const stillPending = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(stillPending).toBe(1);
   });
 
@@ -607,7 +718,13 @@ describe('unknown-channel registration flow', () => {
     const { routeInbound } = await import('../../router.js');
     const { getResponseHandlers } = await import('../../response-registry.js');
 
-    await createAgentGroup({ id: 'ag-2', name: 'Betty', folder: 'betty', agent_provider: null, created_at: now() });
+    await createAgentGroup({
+      id: 'ag-2',
+      name: 'Betty',
+      folder: 'betty',
+      agent_provider: null,
+      created_at: now(),
+    });
     await upsertUser({
       id: 'telegram:scoped-admin',
       kind: 'telegram',
@@ -639,7 +756,9 @@ describe('unknown-channel registration flow', () => {
       now(),
     );
 
-    await expectAsyncDelivery(() => routeInbound(groupMention('chat-scoped-cross-group')));
+    await expectAsyncDelivery(() =>
+      routeInbound(groupMention('chat-scoped-cross-group')),
+    );
 
     const pending = (await getDb().get<{ messaging_group_id: string }>(
       'SELECT messaging_group_id FROM pending_channel_approvals',
@@ -660,13 +779,19 @@ describe('unknown-channel registration flow', () => {
       if (claimed) break;
     }
 
-    const followupPayload = JSON.parse(deliverMock.mock.calls[1][4] as string) as {
+    const followupPayload = JSON.parse(
+      deliverMock.mock.calls[1][4] as string,
+    ) as {
       question: string;
       options: Array<{ label: string; value: string }>;
     };
     expect(followupPayload.question).toContain(AGENT_ACCESS_SCOPE_WARNING);
-    expect(followupPayload.options.map((option) => option.value)).toContain('connect:ag-1');
-    expect(followupPayload.options.map((option) => option.value)).not.toContain('connect:ag-2');
+    expect(followupPayload.options.map((option) => option.value)).toContain(
+      'connect:ag-1',
+    );
+    expect(followupPayload.options.map((option) => option.value)).not.toContain(
+      'connect:ag-2',
+    );
 
     for (const handler of getResponseHandlers()) {
       const claimed = await handler({
@@ -685,7 +810,9 @@ describe('unknown-channel registration flow', () => {
       pending.messaging_group_id,
     );
     expect(mgaCount).toBe(0);
-    const stillPending = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const stillPending = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(stillPending).toBe(1);
   });
 
@@ -693,7 +820,9 @@ describe('unknown-channel registration flow', () => {
     const { routeInbound } = await import('../../router.js');
     const { getResponseHandlers } = await import('../../response-registry.js');
 
-    await expectAsyncDelivery(() => routeInbound(groupMention('chat-create-new')));
+    await expectAsyncDelivery(() =>
+      routeInbound(groupMention('chat-create-new')),
+    );
     const pending = (await getDb().get<{ messaging_group_id: string }>(
       'SELECT messaging_group_id FROM pending_channel_approvals',
     ))!;
@@ -720,12 +849,18 @@ describe('unknown-channel registration flow', () => {
       message: {
         id: 'name-reply-1',
         kind: 'chat' as const,
-        content: JSON.stringify({ senderId: 'owner', senderName: 'Owner', text: 'Newbie' }),
+        content: JSON.stringify({
+          senderId: 'owner',
+          senderName: 'Owner',
+          text: 'Newbie',
+        }),
         timestamp: now(),
       },
     });
 
-    const created = await getDb().get<{ id: string }>("SELECT id FROM agent_groups WHERE name = 'Newbie'");
+    const created = await getDb().get<{ id: string }>(
+      "SELECT id FROM agent_groups WHERE name = 'Newbie'",
+    );
     expect(created).toBeDefined();
     const mgaCount = await countRows(
       'SELECT COUNT(*) AS c FROM messaging_group_agents WHERE messaging_group_id = ? AND agent_group_id = ?',
@@ -733,7 +868,9 @@ describe('unknown-channel registration flow', () => {
       created!.id,
     );
     expect(mgaCount).toBe(1);
-    const stillPending = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const stillPending = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(stillPending).toBe(0);
   });
 
@@ -741,7 +878,9 @@ describe('unknown-channel registration flow', () => {
     const { routeInbound } = await import('../../router.js');
     const { getResponseHandlers } = await import('../../response-registry.js');
 
-    await expectAsyncDelivery(() => routeInbound(groupMention('chat-vanished')));
+    await expectAsyncDelivery(() =>
+      routeInbound(groupMention('chat-vanished')),
+    );
     const pending = (await getDb().get<{ messaging_group_id: string }>(
       'SELECT messaging_group_id FROM pending_channel_approvals',
     ))!;
@@ -761,9 +900,14 @@ describe('unknown-channel registration flow', () => {
     // The registration disappears between the click and the reply (rejected
     // from another card, group delete cascade, …) — the interceptor no
     // longer finds a pending registration, so the reply must not create.
-    await getDb().run('DELETE FROM pending_channel_approvals WHERE messaging_group_id = ?', pending.messaging_group_id);
+    await getDb().run(
+      'DELETE FROM pending_channel_approvals WHERE messaging_group_id = ?',
+      pending.messaging_group_id,
+    );
 
-    const agentGroupsBefore = await countRows('SELECT COUNT(*) AS c FROM agent_groups');
+    const agentGroupsBefore = await countRows(
+      'SELECT COUNT(*) AS c FROM agent_groups',
+    );
     await routeInbound({
       channelType: 'telegram',
       platformId: 'dm-owner',
@@ -771,14 +915,22 @@ describe('unknown-channel registration flow', () => {
       message: {
         id: 'name-reply-2',
         kind: 'chat' as const,
-        content: JSON.stringify({ senderId: 'owner', senderName: 'Owner', text: 'Ghost' }),
+        content: JSON.stringify({
+          senderId: 'owner',
+          senderName: 'Owner',
+          text: 'Ghost',
+        }),
         timestamp: now(),
       },
     });
 
-    const agentGroupsAfter = await countRows('SELECT COUNT(*) AS c FROM agent_groups');
+    const agentGroupsAfter = await countRows(
+      'SELECT COUNT(*) AS c FROM agent_groups',
+    );
     expect(agentGroupsAfter).toBe(agentGroupsBefore);
-    const mgaCount = await countRows('SELECT COUNT(*) AS c FROM messaging_group_agents');
+    const mgaCount = await countRows(
+      'SELECT COUNT(*) AS c FROM messaging_group_agents',
+    );
     expect(mgaCount).toBe(0);
   });
 });
@@ -793,7 +945,9 @@ describe('no-owner / no-agent failure modes', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     expect(deliverMock).not.toHaveBeenCalled();
-    const count = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const count = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(count).toBe(0);
   });
 
@@ -807,7 +961,9 @@ describe('no-owner / no-agent failure modes', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     expect(deliverMock).not.toHaveBeenCalled();
-    const count = await countRows('SELECT COUNT(*) AS c FROM pending_channel_approvals');
+    const count = await countRows(
+      'SELECT COUNT(*) AS c FROM pending_channel_approvals',
+    );
     expect(count).toBe(0);
   });
 });
@@ -826,6 +982,8 @@ describe('createNewAgentGroup — disk-aware folder dedupe (A4)', () => {
 
     expect(ag.folder).toBe('my-agent-2');
     // Residue untouched.
-    expect(fs.readFileSync(path.join(residue, 'memory.md'), 'utf8')).toBe('old group memory\n');
+    expect(fs.readFileSync(path.join(residue, 'memory.md'), 'utf8')).toBe(
+      'old group memory\n',
+    );
   });
 });

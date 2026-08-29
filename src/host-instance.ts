@@ -11,7 +11,11 @@ import { randomUUID } from 'crypto';
 import os from 'os';
 
 import { INSTALL_SLUG } from './config.js';
-import { markHostInstanceStopped, registerHostInstance, renewHostInstanceLease } from './db/coordination.js';
+import {
+  markHostInstanceStopped,
+  registerHostInstance,
+  renewHostInstanceLease,
+} from './db/coordination.js';
 import { log } from './log.js';
 
 const RENEW_INTERVAL_MS = 30_000;
@@ -32,7 +36,9 @@ export interface HostInstanceLeaseOptions {
   leaseTtlMs?: number;
 }
 
-export async function startHostInstanceLease(options: HostInstanceLeaseOptions = {}): Promise<string> {
+export async function startHostInstanceLease(
+  options: HostInstanceLeaseOptions = {},
+): Promise<string> {
   if (instanceId) throw new Error('host instance lease already started');
   const renewIntervalMs = options.renewIntervalMs ?? RENEW_INTERVAL_MS;
   const leaseTtlMs = options.leaseTtlMs ?? LEASE_TTL_MS;
@@ -59,8 +65,14 @@ export async function startHostInstanceLease(options: HostInstanceLeaseOptions =
 async function renewLease(id: string, leaseTtlMs: number): Promise<void> {
   /* eslint-disable no-catch-all/no-catch-all -- lease writes are shadow state; a failed renewal must never affect the host */
   try {
-    const renewed = await renewHostInstanceLease(id, new Date(Date.now() + leaseTtlMs).toISOString());
-    if (!renewed) log.warn('Host instance lease row missing on renewal', { instanceId: id });
+    const renewed = await renewHostInstanceLease(
+      id,
+      new Date(Date.now() + leaseTtlMs).toISOString(),
+    );
+    if (!renewed)
+      log.warn('Host instance lease row missing on renewal', {
+        instanceId: id,
+      });
   } catch (err) {
     log.warn('Host instance lease renewal failed', { instanceId: id, err });
   }

@@ -33,7 +33,10 @@ async function seedUser(id: string, kind: string): Promise<void> {
   await createUser({ id, kind, display_name: null, created_at: now() });
 }
 
-function registerTestAdapter(channelType: string, openDM?: (handle: string) => Promise<string>): void {
+function registerTestAdapter(
+  channelType: string,
+  openDM?: (handle: string) => Promise<string>,
+): void {
   const adapter: ChannelAdapter = {
     name: channelType,
     channelType,
@@ -79,13 +82,18 @@ describe('ensureUserDm privacy-safe logging', () => {
     await startRegisteredAdapters();
     await seedUser('legacy-default:default-handle-sentinel', 'legacy-default');
 
-    await expect(ensureUserDm('legacy-default:default-handle-sentinel')).resolves.toBeNull();
+    await expect(
+      ensureUserDm('legacy-default:default-handle-sentinel'),
+    ).resolves.toBeNull();
 
-    expect(log.error).toHaveBeenCalledWith('ensureUserDm: adapter.openDM failed', {
-      channelType: 'legacy-default',
-      handle: 'default-handle-sentinel',
-      err: failure,
-    });
+    expect(log.error).toHaveBeenCalledWith(
+      'ensureUserDm: adapter.openDM failed',
+      {
+        channelType: 'legacy-default',
+        handle: 'default-handle-sentinel',
+        err: failure,
+      },
+    );
   });
 
   it('omits identities, messaging-group ids, and SDK errors when requested', async () => {
@@ -116,26 +124,51 @@ describe('ensureUserDm privacy-safe logging', () => {
     });
     const db = sqliteRaw(getDb());
     db.pragma('foreign_keys = OFF');
-    db.prepare("DELETE FROM messaging_groups WHERE id = 'messaging-group-private-sentinel'").run();
+    db.prepare(
+      "DELETE FROM messaging_groups WHERE id = 'messaging-group-private-sentinel'",
+    ).run();
     db.pragma('foreign_keys = ON');
 
     const options = { privacySafeLogs: true };
-    await expect(ensureUserDm('unknown-user-private-sentinel', options)).resolves.toBeNull();
-    await expect(ensureUserDm('invalid-user-private-sentinel', options)).resolves.toBeNull();
-    await expect(ensureUserDm('privacy-error:private-handle-sentinel', options)).resolves.toBeNull();
-    await expect(ensureUserDm('privacy-direct:stale-handle-sentinel', options)).resolves.toBeDefined();
+    await expect(
+      ensureUserDm('unknown-user-private-sentinel', options),
+    ).resolves.toBeNull();
+    await expect(
+      ensureUserDm('invalid-user-private-sentinel', options),
+    ).resolves.toBeNull();
+    await expect(
+      ensureUserDm('privacy-error:private-handle-sentinel', options),
+    ).resolves.toBeNull();
+    await expect(
+      ensureUserDm('privacy-direct:stale-handle-sentinel', options),
+    ).resolves.toBeDefined();
 
-    expect(log.error).toHaveBeenCalledWith('ensureUserDm: adapter.openDM failed', {
-      channelType: 'privacy-error',
-    });
-    expect(log.warn).toHaveBeenCalledWith('ensureUserDm: user not found', undefined);
-    expect(log.warn).toHaveBeenCalledWith('ensureUserDm: user id not namespaced', undefined);
-    expect(log.warn).toHaveBeenCalledWith('ensureUserDm: cached row references missing messaging_group, re-resolving', {
-      channelType: 'privacy-direct',
-    });
-    expect(log.info).toHaveBeenCalledWith('ensureUserDm: created DM messaging_group', {
-      channelType: 'privacy-direct',
-    });
+    expect(log.error).toHaveBeenCalledWith(
+      'ensureUserDm: adapter.openDM failed',
+      {
+        channelType: 'privacy-error',
+      },
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      'ensureUserDm: user not found',
+      undefined,
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      'ensureUserDm: user id not namespaced',
+      undefined,
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      'ensureUserDm: cached row references missing messaging_group, re-resolving',
+      {
+        channelType: 'privacy-direct',
+      },
+    );
+    expect(log.info).toHaveBeenCalledWith(
+      'ensureUserDm: created DM messaging_group',
+      {
+        channelType: 'privacy-direct',
+      },
+    );
 
     const serializedLogs = JSON.stringify({
       info: vi.mocked(log.info).mock.calls,

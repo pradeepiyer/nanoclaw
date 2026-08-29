@@ -19,7 +19,10 @@ interface PostCall {
 
 function makePostCapture() {
   const calls: PostCall[] = [];
-  const postMessage = async (threadId: string, message: AdapterPostableMessage): Promise<RawMessage<unknown>> => {
+  const postMessage = async (
+    threadId: string,
+    message: AdapterPostableMessage,
+  ): Promise<RawMessage<unknown>> => {
     calls.push({ threadId, message });
     return { id: 'msg-stub', threadId, raw: {} };
   };
@@ -32,7 +35,8 @@ describe('splitForLimit', () => {
   });
 
   it('splits on paragraph boundaries when available', () => {
-    const text = 'para one line one\npara one line two\n\npara two line one\npara two line two';
+    const text =
+      'para one line one\npara one line two\n\npara two line one\npara two line two';
     const chunks = splitForLimit(text, 40);
     expect(chunks.length).toBeGreaterThan(1);
     for (const c of chunks) expect(c.length).toBeLessThanOrEqual(40);
@@ -77,7 +81,8 @@ describe('createChatSdkBridge', () => {
           openDMCalls.push(userId);
           return `thread::${userId}`;
         },
-        channelIdFromThreadId: (threadId: string) => `stub:${threadId.replace(/^thread::/, '')}`,
+        channelIdFromThreadId: (threadId: string) =>
+          `stub:${threadId.replace(/^thread::/, '')}`,
       }),
       supportsThreads: false,
     });
@@ -122,7 +127,11 @@ describe('createChatSdkBridge — instance identity', () => {
   it('rejects instance names that would break the webhook route or state delimiter', () => {
     for (const bad of ['a/b', 'a:b', 'a?b', 'a b']) {
       expect(() =>
-        createChatSdkBridge({ adapter: stubAdapter({ name: 'slack' }), instance: bad, supportsThreads: true }),
+        createChatSdkBridge({
+          adapter: stubAdapter({ name: 'slack' }),
+          instance: bad,
+          supportsThreads: true,
+        }),
       ).toThrow(/URL-safe/);
     }
   });
@@ -134,7 +143,11 @@ describe('createChatSdkBridge — instance identity', () => {
     // cross-bot dedupe/lock collisions the namespace exists to prevent.
     for (const bad of ['', ' ', '   ', '\t']) {
       expect(() =>
-        createChatSdkBridge({ adapter: stubAdapter({ name: 'slack' }), instance: bad, supportsThreads: true }),
+        createChatSdkBridge({
+          adapter: stubAdapter({ name: 'slack' }),
+          instance: bad,
+          supportsThreads: true,
+        }),
       ).toThrow(/URL-safe/);
     }
   });
@@ -148,7 +161,9 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
   // runtimeMode is assigned inside initialize(), as the Telegram adapter does
   // when mode 'auto' resolves: a guard that reads it earlier sees undefined.
   function setupStubAdapter(runtimeMode?: 'webhook' | 'polling'): Adapter {
-    const adapter = stubAdapter({ name: 'slack' }) as Adapter & { runtimeMode?: string };
+    const adapter = stubAdapter({ name: 'slack' }) as Adapter & {
+      runtimeMode?: string;
+    };
     adapter.initialize = async () => {
       adapter.runtimeMode = runtimeMode;
     };
@@ -184,7 +199,8 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
     });
     await bridge.setup(hostConfig);
     expect(registerWebhookAdapter).toHaveBeenCalledTimes(1);
-    const [, adapterName, routingPath] = vi.mocked(registerWebhookAdapter).mock.calls[0];
+    const [, adapterName, routingPath] = vi.mocked(registerWebhookAdapter).mock
+      .calls[0];
     expect(adapterName).toBe('slack');
     expect(routingPath).toBe('slack-tester');
     await bridge.teardown();
@@ -192,9 +208,13 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
 
   it('default instance registers the historical route', async () => {
     const { registerWebhookAdapter } = await import('../webhook-server.js');
-    const bridge = createChatSdkBridge({ adapter: setupStubAdapter(), supportsThreads: true });
+    const bridge = createChatSdkBridge({
+      adapter: setupStubAdapter(),
+      supportsThreads: true,
+    });
     await bridge.setup(hostConfig);
-    const [, adapterName, routingPath] = vi.mocked(registerWebhookAdapter).mock.calls[0];
+    const [, adapterName, routingPath] = vi.mocked(registerWebhookAdapter).mock
+      .calls[0];
     expect(adapterName).toBe('slack');
     expect(routingPath ?? adapterName).toBe('slack');
     await bridge.teardown();
@@ -206,7 +226,10 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
   // branch in setup() and the polling case goes red.
   it('polling adapter (mode resolved inside initialize) registers no webhook route', async () => {
     const { registerWebhookAdapter } = await import('../webhook-server.js');
-    const bridge = createChatSdkBridge({ adapter: setupStubAdapter('polling'), supportsThreads: true });
+    const bridge = createChatSdkBridge({
+      adapter: setupStubAdapter('polling'),
+      supportsThreads: true,
+    });
     await bridge.setup(hostConfig);
     expect(registerWebhookAdapter).not.toHaveBeenCalled();
     await bridge.teardown();
@@ -214,7 +237,10 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
 
   it('webhook adapter registers the route', async () => {
     const { registerWebhookAdapter } = await import('../webhook-server.js');
-    const bridge = createChatSdkBridge({ adapter: setupStubAdapter('webhook'), supportsThreads: true });
+    const bridge = createChatSdkBridge({
+      adapter: setupStubAdapter('webhook'),
+      supportsThreads: true,
+    });
     await bridge.setup(hostConfig);
     expect(registerWebhookAdapter).toHaveBeenCalledTimes(1);
     await bridge.teardown();
@@ -222,7 +248,10 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
 
   it('adapter without runtimeMode registers the route (non-Telegram adapters declare none)', async () => {
     const { registerWebhookAdapter } = await import('../webhook-server.js');
-    const bridge = createChatSdkBridge({ adapter: setupStubAdapter(), supportsThreads: true });
+    const bridge = createChatSdkBridge({
+      adapter: setupStubAdapter(),
+      supportsThreads: true,
+    });
     await bridge.setup(hostConfig);
     expect(registerWebhookAdapter).toHaveBeenCalledTimes(1);
     await bridge.teardown();
@@ -239,14 +268,20 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
     await named.setup(hostConfig);
     await named.subscribe!('slack:C1', 'slack:T1');
 
-    const def = createChatSdkBridge({ adapter: setupStubAdapter(), supportsThreads: true });
+    const def = createChatSdkBridge({
+      adapter: setupStubAdapter(),
+      supportsThreads: true,
+    });
     await def.setup(hostConfig);
     await def.subscribe!('slack:C1', 'slack:T1');
 
     const rows = await getDb().all<{ thread_id: string }>(
       'SELECT thread_id FROM chat_sdk_subscriptions ORDER BY thread_id',
     );
-    expect(rows.map((r) => r.thread_id)).toEqual(['slack-tester:slack:T1', 'slack:T1']);
+    expect(rows.map((r) => r.thread_id)).toEqual([
+      'slack-tester:slack:T1',
+      'slack:T1',
+    ]);
 
     await named.teardown();
     await def.teardown();
@@ -261,7 +296,9 @@ describe('createChatSdkBridge.setup — webhook route and state namespace', () =
     });
     await bridge.setup(hostConfig);
     await bridge.subscribe!('slack:C1', 'slack:T9');
-    const rows = await getDb().all<{ thread_id: string }>('SELECT thread_id FROM chat_sdk_subscriptions');
+    const rows = await getDb().all<{ thread_id: string }>(
+      'SELECT thread_id FROM chat_sdk_subscriptions',
+    );
     expect(rows.map((r) => r.thread_id)).toEqual(['slack:T9']);
     await bridge.teardown();
   });
@@ -283,7 +320,9 @@ describe('createChatSdkBridge.deliver — ask_question cards (button styles)', (
 
   function buttonsFrom(calls: PostCall[]): CapturedButton[] {
     const msg = calls[0].message as {
-      card?: { children?: Array<{ type?: string; children?: CapturedButton[] }> };
+      card?: {
+        children?: Array<{ type?: string; children?: CapturedButton[] }>;
+      };
     };
     const actionsRow = msg.card?.children?.find((c) => c.type === 'actions');
     expect(actionsRow).toBeDefined();
@@ -313,7 +352,11 @@ describe('createChatSdkBridge.deliver — ask_question cards (button styles)', (
     expect(calls).toHaveLength(1);
     const buttons = buttonsFrom(calls);
     expect(buttons.map((b) => b.label)).toEqual(['Approve', 'Deny', 'Skip']);
-    expect(buttons.map((b) => b.style)).toEqual(['primary', 'danger', undefined]);
+    expect(buttons.map((b) => b.style)).toEqual([
+      'primary',
+      'danger',
+      undefined,
+    ]);
   });
 
   it('drops invalid styles before they reach the Button (delivery goes through normalizeOptions)', async () => {
@@ -365,14 +408,19 @@ describe('createChatSdkBridge.deliver — ask_question cards (button styles)', (
 
     expect(edits).toHaveLength(1);
     const edited = edits[0].message as {
-      card: { title: string; children: Array<{ type: string; content?: string; style?: string }> };
+      card: {
+        title: string;
+        children: Array<{ type: string; content?: string; style?: string }>;
+      };
     };
     expect(edited.card.title).toBe('Credentials Request');
     expect(edited.card.children).toEqual([
       { type: 'text', content: '*Agent:* Andy\n*Action:* Send email' },
       { type: 'text', content: '⏱️ Timed out — no response', style: 'muted' },
     ]);
-    expect(edited.card.children.some((child) => child.type === 'actions')).toBe(false);
+    expect(edited.card.children.some((child) => child.type === 'actions')).toBe(
+      false,
+    );
   });
 });
 
@@ -427,7 +475,9 @@ describe('createChatSdkBridge.deliver — display cards (send_card)', () => {
     });
     expect(calls).toHaveLength(1);
     // Cast through the public Card shape to read the children we set
-    const msg = calls[0].message as { card?: { children?: Array<{ type?: string }> } };
+    const msg = calls[0].message as {
+      card?: { children?: Array<{ type?: string }> };
+    };
     const childTypes = (msg.card?.children ?? []).map((c) => c.type);
     expect(childTypes).not.toContain('actions');
   });
@@ -444,12 +494,20 @@ describe('createChatSdkBridge.deliver — display cards (send_card)', () => {
         type: 'card',
         card: {
           title: 'Docs',
-          actions: [{ label: 'Open', url: 'https://example.com' }, { label: 'No-link' }],
+          actions: [
+            { label: 'Open', url: 'https://example.com' },
+            { label: 'No-link' },
+          ],
         },
       },
     });
     const msg = calls[0].message as {
-      card?: { children?: Array<{ type?: string; children?: Array<{ type?: string; url?: string }> }> };
+      card?: {
+        children?: Array<{
+          type?: string;
+          children?: Array<{ type?: string; url?: string }>;
+        }>;
+      };
     };
     const actionsRow = msg.card?.children?.find((c) => c.type === 'actions');
     expect(actionsRow).toBeDefined();

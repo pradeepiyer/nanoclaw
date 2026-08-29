@@ -23,7 +23,11 @@ import {
   updateSession,
 } from './db/sessions.js';
 import { log } from './log.js';
-import { getAgentMailbox, type InboundMessage, type MailboxSession } from './mailbox/index.js';
+import {
+  getAgentMailbox,
+  type InboundMessage,
+  type MailboxSession,
+} from './mailbox/index.js';
 import { enqueueSessionReconcile } from './reconcile-feeds.js';
 import type { Session } from './types.js';
 
@@ -38,15 +42,32 @@ export function sessionDir(agentGroupId: string, sessionId: string): string {
 }
 
 /** Host-owned runner context, kept outside the agent-writable session directory. */
-export function sessionContextPath(agentGroupId: string, sessionId: string): string {
-  return path.join(DATA_DIR, 'v2-sessions', agentGroupId, '.context', `${sessionId}.json`);
+export function sessionContextPath(
+  agentGroupId: string,
+  sessionId: string,
+): string {
+  return path.join(
+    DATA_DIR,
+    'v2-sessions',
+    agentGroupId,
+    '.context',
+    `${sessionId}.json`,
+  );
 }
 
 /** Materialize the immutable context the runner receives at startup. */
-export function writeSessionContext(agentGroupId: string, sessionId: string, mailbox: unknown): void {
+export function writeSessionContext(
+  agentGroupId: string,
+  sessionId: string,
+  mailbox: unknown,
+): void {
   const contextPath = sessionContextPath(agentGroupId, sessionId);
   fs.mkdirSync(path.dirname(contextPath), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(contextPath, JSON.stringify({ agentGroupId, sessionId, mailbox }), { mode: 0o600 });
+  fs.writeFileSync(
+    contextPath,
+    JSON.stringify({ agentGroupId, sessionId, mailbox }),
+    { mode: 0o600 },
+  );
   fs.chmodSync(contextPath, 0o600);
 }
 
@@ -65,7 +86,10 @@ function generateId(): string {
 
 const sessionCreationLocks = new Map<string, Promise<void>>();
 
-async function withSessionCreationLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+async function withSessionCreationLock<T>(
+  key: string,
+  fn: () => Promise<T>,
+): Promise<T> {
   const previous = sessionCreationLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => {
@@ -78,7 +102,8 @@ async function withSessionCreationLock<T>(key: string, fn: () => Promise<T>): Pr
     return await fn();
   } finally {
     release();
-    if (sessionCreationLocks.get(key) === tail) sessionCreationLocks.delete(key);
+    if (sessionCreationLocks.get(key) === tail)
+      sessionCreationLocks.delete(key);
   }
 }
 
@@ -107,7 +132,12 @@ export async function resolveSession(
   threadId: string | null,
   sessionMode: 'shared' | 'per-thread' | 'agent-shared',
 ): Promise<{ session: Session; created: boolean }> {
-  const key = sessionCreationKey(agentGroupId, messagingGroupId, threadId, sessionMode);
+  const key = sessionCreationKey(
+    agentGroupId,
+    messagingGroupId,
+    threadId,
+    sessionMode,
+  );
   return withSessionCreationLock(key, async () => {
     // agent-shared: single session per agent group, regardless of messaging group
     if (sessionMode === 'agent-shared') {
@@ -119,7 +149,11 @@ export async function resolveSession(
       const lookupThreadId = sessionMode === 'shared' ? null : threadId;
       // Scope lookup by agent_group_id so fan-out to multiple agents in the
       // same chat doesn't accidentally deliver to the wrong agent's session.
-      const existing = await findSessionForAgent(agentGroupId, messagingGroupId, lookupThreadId);
+      const existing = await findSessionForAgent(
+        agentGroupId,
+        messagingGroupId,
+        lookupThreadId,
+      );
       if (existing) {
         return { session: existing, created: false };
       }
@@ -147,13 +181,23 @@ export async function resolveSession(
         sessionMode === 'agent-shared'
           ? await findSessionByAgentGroup(agentGroupId)
           : messagingGroupId
-            ? await findSessionForAgent(agentGroupId, messagingGroupId, lookupThreadId)
+            ? await findSessionForAgent(
+                agentGroupId,
+                messagingGroupId,
+                lookupThreadId,
+              )
             : undefined;
       if (!existing) throw error;
       return { session: existing, created: false };
     }
     initSessionFolder(agentGroupId, id);
-    log.info('Session created', { id, agentGroupId, messagingGroupId, threadId: lookupThreadId, sessionMode });
+    log.info('Session created', {
+      id,
+      agentGroupId,
+      messagingGroupId,
+      threadId: lookupThreadId,
+      sessionMode,
+    });
 
     return { session, created: true };
   });
@@ -166,40 +210,46 @@ export async function resolveTaskSession(
   seriesId: string,
 ): Promise<{ session: Session; created: boolean }> {
   const threadId = taskThreadId(seriesId);
-  return withSessionCreationLock(`system\0${agentGroupId}\0${threadId}`, async () => {
-    const existing = await findSystemSession(agentGroupId, threadId);
-    if (existing) return { session: existing, created: false };
+  return withSessionCreationLock(
+    `system\0${agentGroupId}\0${threadId}`,
+    async () => {
+      const existing = await findSystemSession(agentGroupId, threadId);
+      if (existing) return { session: existing, created: false };
 
-    const id = generateId();
-    const session: Session = {
-      id,
-      agent_group_id: agentGroupId,
-      messaging_group_id: null,
-      thread_id: threadId,
-      agent_provider: null,
-      status: 'active',
-      container_status: 'stopped',
-      last_active: null,
-      created_at: new Date().toISOString(),
-    };
+      const id = generateId();
+      const session: Session = {
+        id,
+        agent_group_id: agentGroupId,
+        messaging_group_id: null,
+        thread_id: threadId,
+        agent_provider: null,
+        status: 'active',
+        container_status: 'stopped',
+        last_active: null,
+        created_at: new Date().toISOString(),
+      };
 
-    try {
-      await createSession(session);
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-      const raced = await findSystemSession(agentGroupId, threadId);
-      if (!raced) throw error;
-      return { session: raced, created: false };
-    }
-    initSessionFolder(agentGroupId, id);
-    log.info('Task session created', { id, agentGroupId, seriesId });
+      try {
+        await createSession(session);
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        const raced = await findSystemSession(agentGroupId, threadId);
+        if (!raced) throw error;
+        return { session: raced, created: false };
+      }
+      initSessionFolder(agentGroupId, id);
+      log.info('Task session created', { id, agentGroupId, seriesId });
 
-    return { session, created: true };
-  });
+      return { session, created: true };
+    },
+  );
 }
 
 /** Create the workspace folders and synchronously prepare the registered mailbox. */
-export function initSessionFolder(agentGroupId: string, sessionId: string): void {
+export function initSessionFolder(
+  agentGroupId: string,
+  sessionId: string,
+): void {
   const dir = sessionDir(agentGroupId, sessionId);
   fs.mkdirSync(dir, { recursive: true });
   fs.mkdirSync(path.join(dir, 'outbox'), { recursive: true });
@@ -207,7 +257,10 @@ export function initSessionFolder(agentGroupId: string, sessionId: string): void
 }
 
 /** Destroy one session's implementation-owned mailbox after its container stops. */
-export async function destroySessionMailbox(agentGroupId: string, sessionId: string): Promise<void> {
+export async function destroySessionMailbox(
+  agentGroupId: string,
+  sessionId: string,
+): Promise<void> {
   await getAgentMailbox().destroy(mailboxKey(agentGroupId, sessionId));
   fs.rmSync(sessionContextPath(agentGroupId, sessionId), { force: true });
 }
@@ -223,7 +276,10 @@ export async function destroySessionMailbox(agentGroupId: string, sessionId: str
  * writeDestinations() (when installed) so the latest routing is always in
  * place, including after admin rewiring.
  */
-export async function writeSessionRouting(agentGroupId: string, sessionId: string): Promise<void> {
+export async function writeSessionRouting(
+  agentGroupId: string,
+  sessionId: string,
+): Promise<void> {
   const session = await getSession(sessionId);
   if (!session) return;
 
@@ -244,7 +300,12 @@ export async function writeSessionRouting(agentGroupId: string, sessionId: strin
       threadId: session.thread_id,
     });
   });
-  log.debug('Session routing written', { sessionId, channelType, platformId, threadId: session.thread_id });
+  log.debug('Session routing written', {
+    sessionId,
+    channelType,
+    platformId,
+    threadId: session.thread_id,
+  });
 }
 
 /**
@@ -292,7 +353,12 @@ export async function writeSessionMessage(
   initSessionFolder(agentGroupId, sessionId);
 
   // Extract base64 attachment data, save to inbox, replace with file paths
-  const content = extractAttachmentFiles(agentGroupId, sessionId, message.id, message.content);
+  const content = extractAttachmentFiles(
+    agentGroupId,
+    sessionId,
+    message.id,
+    message.content,
+  );
 
   await withMailboxSession(agentGroupId, sessionId, async (mailbox) => {
     await mailbox.insertMessage({
@@ -348,7 +414,9 @@ function extractAttachmentFiles(
     return contentStr;
   }
 
-  const attachments = parsed.attachments as Array<Record<string, unknown>> | undefined;
+  const attachments = parsed.attachments as
+    | Array<Record<string, unknown>>
+    | undefined;
   if (!Array.isArray(attachments)) return contentStr;
 
   if (!isSafeAttachmentName(messageId)) {
@@ -369,7 +437,9 @@ function extractAttachmentFiles(
     if (typeof att.data !== 'string') continue;
 
     const rawName = deriveAttachmentName(att);
-    const filename = isSafeAttachmentName(rawName) ? rawName : `attachment-${Date.now()}`;
+    const filename = isSafeAttachmentName(rawName)
+      ? rawName
+      : `attachment-${Date.now()}`;
     if (filename !== rawName) {
       log.warn('Refused unsafe attachment filename, would escape inbox', {
         messageId,
@@ -390,14 +460,19 @@ function extractAttachmentFiles(
       // wx = exclusive create. Refuses to follow a pre existing symlink or
       // overwrite any existing file. The host expects to be the sole writer
       // of these attachments.
-      fs.writeFileSync(filePath, Buffer.from(att.data as string, 'base64'), { flag: 'wx' });
+      fs.writeFileSync(filePath, Buffer.from(att.data as string, 'base64'), {
+        flag: 'wx',
+      });
     } catch (err: unknown) {
       const e = err as NodeJS.ErrnoException;
       if (e.code === 'EEXIST') {
-        log.warn('Inbox attachment target already exists, refusing to overwrite', {
-          messageId,
-          filename,
-        });
+        log.warn(
+          'Inbox attachment target already exists, refusing to overwrite',
+          {
+            messageId,
+            filename,
+          },
+        );
         continue;
       }
       throw err;
@@ -407,7 +482,11 @@ function extractAttachmentFiles(
     att.localPath = `inbox/${messageId}/${filename}`;
     delete att.data;
     changed = true;
-    log.debug('Saved attachment to inbox', { messageId, filename, size: att.size });
+    log.debug('Saved attachment to inbox', {
+      messageId,
+      filename,
+      size: att.size,
+    });
   }
 
   return changed ? JSON.stringify(parsed) : contentStr;
@@ -454,11 +533,15 @@ async function runMailboxSession<T>(
   const keyId = `${agentGroupId}/${sessionId}`;
   const held = activeMailboxKeys.getStore();
   if (held?.has(keyId)) {
-    throw new Error(`Nested mailbox session for ${keyId} — serialized implementations would deadlock here`);
+    throw new Error(
+      `Nested mailbox session for ${keyId} — serialized implementations would deadlock here`,
+    );
   }
   if (provision) store.prepare(key);
   else if (!(await store.exists(key))) return undefined;
-  return activeMailboxKeys.run(new Set(held).add(keyId), () => store.session(key, action));
+  return activeMailboxKeys.run(new Set(held).add(keyId), () =>
+    store.session(key, action),
+  );
 }
 
 /**
@@ -480,7 +563,9 @@ export function writeOutboundDirect(
     content: string;
   },
 ): Promise<void> {
-  return withMailboxSession(agentGroupId, sessionId, (mailbox) => mailbox.writeDirect(message));
+  return withMailboxSession(agentGroupId, sessionId, (mailbox) =>
+    mailbox.writeDirect(message),
+  );
 }
 
 /**
@@ -505,7 +590,11 @@ export function readOutboxFiles(
     return undefined;
   }
 
-  const outboxDir = path.join(sessionDir(agentGroupId, sessionId), 'outbox', messageId);
+  const outboxDir = path.join(
+    sessionDir(agentGroupId, sessionId),
+    'outbox',
+    messageId,
+  );
   if (!fs.existsSync(outboxDir)) return undefined;
 
   let realOutboxDir: string;
@@ -524,7 +613,10 @@ export function readOutboxFiles(
   const files: OutboundFile[] = [];
   for (const filename of filenames) {
     if (!isSafeAttachmentName(filename)) {
-      log.warn('Refused unsafe outbox filename, would escape outbox', { messageId, filename });
+      log.warn('Refused unsafe outbox filename, would escape outbox', {
+        messageId,
+        filename,
+      });
       continue;
     }
 
@@ -537,7 +629,10 @@ export function readOutboxFiles(
       }
       const realFilePath = fs.realpathSync(filePath);
       if (!isPathInside(realOutboxDir, realFilePath)) {
-        log.warn('Rejecting outbox file outside message directory', { messageId, filename });
+        log.warn('Rejecting outbox file outside message directory', {
+          messageId,
+          filename,
+        });
         continue;
       }
       files.push({ filename, data: fs.readFileSync(realFilePath) });
@@ -554,35 +649,57 @@ export function readOutboxFiles(
  * delivery caller — the message is already on the user's screen, and a
  * thrown error would trigger the delivery retry path and deliver twice.
  */
-export function clearOutbox(agentGroupId: string, sessionId: string, messageId: string): void {
+export function clearOutbox(
+  agentGroupId: string,
+  sessionId: string,
+  messageId: string,
+): void {
   if (!isSafeAttachmentName(messageId)) {
     log.warn('Rejecting unsafe outbox cleanup message id', { messageId });
     return;
   }
 
-  const outboxDir = path.join(sessionDir(agentGroupId, sessionId), 'outbox', messageId);
+  const outboxDir = path.join(
+    sessionDir(agentGroupId, sessionId),
+    'outbox',
+    messageId,
+  );
   if (!fs.existsSync(outboxDir)) return;
   try {
     const stat = fs.lstatSync(outboxDir);
     if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      log.warn('Rejecting unsafe outbox cleanup directory', { messageId, outboxDir });
+      log.warn('Rejecting unsafe outbox cleanup directory', {
+        messageId,
+        outboxDir,
+      });
       return;
     }
-    const realOutboxBase = fs.realpathSync(path.join(sessionDir(agentGroupId, sessionId), 'outbox'));
+    const realOutboxBase = fs.realpathSync(
+      path.join(sessionDir(agentGroupId, sessionId), 'outbox'),
+    );
     const realOutboxDir = fs.realpathSync(outboxDir);
     if (!isPathInside(realOutboxBase, realOutboxDir)) {
-      log.warn('Rejecting outbox cleanup outside session outbox', { messageId, outboxDir });
+      log.warn('Rejecting outbox cleanup outside session outbox', {
+        messageId,
+        outboxDir,
+      });
       return;
     }
     fs.rmSync(realOutboxDir, { recursive: true, force: true });
   } catch (err) {
-    log.warn('Outbox cleanup failed (message already delivered)', { messageId, err });
+    log.warn('Outbox cleanup failed (message already delivered)', {
+      messageId,
+      err,
+    });
   }
 }
 
 /** Mark a container as running for a session. */
 export async function markContainerRunning(sessionId: string): Promise<void> {
-  await updateSession(sessionId, { container_status: 'running', last_active: new Date().toISOString() });
+  await updateSession(sessionId, {
+    container_status: 'running',
+    last_active: new Date().toISOString(),
+  });
 }
 
 /** Mark a container as idle for a session. */

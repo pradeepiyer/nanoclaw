@@ -26,7 +26,13 @@ vi.mock('../../container-restart.js', () => ({
   restartAgentGroupContainers: vi.fn().mockReturnValue(2),
 }));
 vi.mock('../../log.js', () => ({
-  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), fatal: vi.fn() },
+  log: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    fatal: vi.fn(),
+  },
 }));
 
 import { buildAgentGroupImage } from '../../container-runner.js';
@@ -39,7 +45,10 @@ import { dispatch } from '../dispatch.js';
 // Side-effect import: registers the `groups-*` commands (including restart).
 import './groups.js';
 
-type OkResponse = { ok: true; data: { restarted: number; rebuilt: boolean; error?: string } };
+type OkResponse = {
+  ok: true;
+  data: { restarted: number; rebuilt: boolean; error?: string };
+};
 
 /** What a driver without a build daemon declares; everything else is off-path here. */
 function noImageBuildDriver(): SessionDriver {
@@ -64,12 +73,19 @@ describe('groups restart --rebuild gates on the imageBuild capability', () => {
     resetSessionDriver(new DockerSessionDriver(FIXTURE_POLICY));
 
     const resp = await dispatch(
-      { id: 'r1', command: 'groups-restart', args: { id: 'ag-1', rebuild: true } },
+      {
+        id: 'r1',
+        command: 'groups-restart',
+        args: { id: 'ag-1', rebuild: true },
+      },
       { caller: 'host' },
     );
 
     expect(resp.ok).toBe(true);
-    expect((resp as OkResponse).data).toMatchObject({ restarted: 2, rebuilt: true });
+    expect((resp as OkResponse).data).toMatchObject({
+      restarted: 2,
+      rebuilt: true,
+    });
     expect(buildAgentGroupImage).toHaveBeenCalledExactlyOnceWith('ag-1');
   });
 
@@ -77,7 +93,11 @@ describe('groups restart --rebuild gates on the imageBuild capability', () => {
     resetSessionDriver(noImageBuildDriver());
 
     const resp = await dispatch(
-      { id: 'r2', command: 'groups-restart', args: { id: 'ag-1', rebuild: true } },
+      {
+        id: 'r2',
+        command: 'groups-restart',
+        args: { id: 'ag-1', rebuild: true },
+      },
       { caller: 'host' },
     );
 
@@ -94,17 +114,27 @@ describe('groups restart --rebuild gates on the imageBuild capability', () => {
   });
 
   it('a plain restart (no --rebuild) is untouched by the gate on either polarity', async () => {
-    for (const driver of [new DockerSessionDriver(FIXTURE_POLICY), noImageBuildDriver()]) {
+    for (const driver of [
+      new DockerSessionDriver(FIXTURE_POLICY),
+      noImageBuildDriver(),
+    ]) {
       vi.clearAllMocks();
       resetSessionDriver(driver);
 
       const resp = await dispatch(
-        { id: `r3-${driver.capabilities().imageBuild}`, command: 'groups-restart', args: { id: 'ag-1' } },
+        {
+          id: `r3-${driver.capabilities().imageBuild}`,
+          command: 'groups-restart',
+          args: { id: 'ag-1' },
+        },
         { caller: 'host' },
       );
 
       expect(resp.ok).toBe(true);
-      expect((resp as OkResponse).data).toMatchObject({ restarted: 2, rebuilt: false });
+      expect((resp as OkResponse).data).toMatchObject({
+        restarted: 2,
+        rebuilt: false,
+      });
       expect(buildAgentGroupImage).not.toHaveBeenCalled();
     }
   });
